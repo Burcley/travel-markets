@@ -4,6 +4,28 @@ import { useEffect, useState } from "react";
 import ListingsExplorer from "@/components/ListingsExplorer";
 import { createClient } from "@/lib/supabase/client";
 
+function getApproxCoordinates(city?: string | null, campus?: string | null) {
+  const text = `${city || ""} ${campus || ""}`.toLowerCase();
+
+  if (text.includes("whitby")) {
+    return { latitude: 43.8971, longitude: -78.9429 };
+  }
+
+  if (text.includes("oshawa")) {
+    return { latitude: 43.8975, longitude: -78.8658 };
+  }
+
+  if (text.includes("durham")) {
+    return { latitude: 43.9452, longitude: -78.8960 };
+  }
+
+  if (text.includes("toronto")) {
+    return { latitude: 43.6532, longitude: -79.3832 };
+  }
+
+  return { latitude: 43.8975, longitude: -78.8658 };
+}
+
 export default function HomePage() {
   const supabase = createClient();
 
@@ -43,6 +65,7 @@ export default function HomePage() {
               sort_order
             )
           `)
+          .neq("status", "rented")
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -57,23 +80,26 @@ export default function HomePage() {
 
             const cover =
               images.find((img: any) => img.is_cover)?.image_url ||
-              images.sort(
+              [...images].sort(
                 (a: any, b: any) =>
                   (a.sort_order ?? 0) - (b.sort_order ?? 0)
               )[0]?.image_url ||
               null;
 
+            const city = listing.city || listing.location || "";
+            const fallback = getApproxCoordinates(city, listing.campus);
+
             return {
               id: listing.id,
               title: listing.title,
-              city: listing.city || listing.location,
+              city,
               campus: listing.campus,
               price: listing.price,
               status: listing.status || "available",
               created_at: listing.created_at,
               cover_image: cover,
-              latitude: listing.latitude,
-              longitude: listing.longitude,
+              latitude: listing.latitude ?? fallback.latitude,
+              longitude: listing.longitude ?? fallback.longitude,
             };
           }) || [];
 
