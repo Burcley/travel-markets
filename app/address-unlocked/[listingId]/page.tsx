@@ -2,30 +2,37 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-type PageProps = {
-  params: {
-    listingId: string;
-  };
-};
-
-export default async function UnlockedAddressPage({ params }: PageProps) {
+export default async function UnlockedAddressPage({
+  params,
+}: {
+  params: Promise<{ listingId: string }>;
+}) {
+  const { listingId } = await params;
   const supabase = await createClient();
+
+  if (!listingId) {
+    return (
+      <main className="min-h-screen bg-black px-6 py-10 text-white">
+        Invalid listing address link.
+      </main>
+    );
+  }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) redirect("/auth");
 
-  const { data: address } = await supabase
+  const { data: address, error } = await supabase
     .from("unlocked_listing_addresses")
     .select("*")
-    .eq("listing_id", params.listingId)
+    .eq("listing_id", listingId)
     .maybeSingle();
 
-  if (!address) {
+  if (error || !address) {
     return (
-      <main className="min-h-screen bg-black px-4 py-10 text-white">
+      <main className="min-h-screen bg-black px-6 py-10 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-red-500/30 bg-red-950/20 p-8">
           <h1 className="text-2xl font-bold">Address locked</h1>
           <p className="mt-3 text-zinc-300">
@@ -33,7 +40,7 @@ export default async function UnlockedAddressPage({ params }: PageProps) {
           </p>
 
           <Link
-            href={`/listings/${params.listingId}`}
+            href={`/listings/${listingId}`}
             className="mt-6 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black"
           >
             Back to listing
@@ -59,45 +66,45 @@ export default async function UnlockedAddressPage({ params }: PageProps) {
   )}`;
 
   return (
-    <main className="min-h-screen bg-black px-4 py-10 text-white">
-      <div className="mx-auto max-w-3xl">
-        <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-400">
-            Approved Viewing
+    <main className="min-h-screen bg-black px-6 py-10 text-white">
+      <div className="mx-auto max-w-3xl rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-8">
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-400">
+          Approved Viewing
+        </p>
+
+        <h1 className="mt-3 text-3xl font-bold">{address.title}</h1>
+
+        <div className="mt-8 rounded-2xl border border-white/10 bg-black p-6">
+          <p className="text-sm text-zinc-400">Exact Address</p>
+          <p className="mt-2 text-xl font-semibold">
+            {fullAddress || "Exact address not added yet"}
           </p>
+        </div>
 
-          <h1 className="mt-3 text-3xl font-bold">{address.title}</h1>
+        <div className="mt-6 rounded-2xl border border-white/10 bg-black p-6">
+          <p className="text-sm text-zinc-400">Safety Instructions</p>
+          <p className="mt-2 whitespace-pre-line text-zinc-200">
+            {address.safety_instructions ||
+              "Arrive on time. Do not share this address publicly."}
+          </p>
+        </div>
 
-          <div className="mt-8 rounded-2xl border border-white/10 bg-zinc-950 p-6">
-            <p className="text-sm text-zinc-400">Exact Address</p>
-            <p className="mt-2 text-xl font-semibold">{fullAddress}</p>
-          </div>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl bg-emerald-500 px-5 py-3 text-center font-bold text-black"
+          >
+            Open in Google Maps
+          </a>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950 p-6">
-            <p className="text-sm text-zinc-400">Safety Instructions</p>
-            <p className="mt-2 text-zinc-200">
-              {address.safety_instructions ||
-                "Arrive on time. Do not share this address publicly. Contact the owner if anything changes."}
-            </p>
-          </div>
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl bg-emerald-500 px-5 py-3 text-center font-bold text-black"
-            >
-              Open in Google Maps
-            </a>
-
-            <Link
-              href={`/listings/${params.listingId}`}
-              className="rounded-xl border border-white/10 px-5 py-3 text-center font-semibold"
-            >
-              Back to listing
-            </Link>
-          </div>
+          <Link
+            href={`/listings/${listingId}`}
+            className="rounded-xl border border-white/10 px-5 py-3 text-center font-semibold"
+          >
+            Back to listing
+          </Link>
         </div>
       </div>
     </main>
