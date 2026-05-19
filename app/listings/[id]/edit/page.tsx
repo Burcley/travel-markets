@@ -33,6 +33,12 @@ export default function EditListingPage() {
   const [city, setCity] = useState("");
   const [campus, setCampus] = useState("");
   const [address, setAddress] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [unit, setUnit] = useState("");
+  const [province, setProvince] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [safetyInstructions, setSafetyInstructions] = useState("");
+
   const [price, setPrice] = useState("");
   const [bedrooms, setBedrooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
@@ -53,7 +59,6 @@ export default function EditListingPage() {
 
   useEffect(() => {
     loadListing();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
 
   async function loadListing() {
@@ -90,6 +95,12 @@ export default function EditListingPage() {
     setCity(listing.city || "");
     setCampus(listing.campus || "");
     setAddress(listing.address || "");
+    setAddressLine(listing.address_line || "");
+    setUnit(listing.unit || "");
+    setProvince(listing.province || "");
+    setPostalCode(listing.postal_code || "");
+    setSafetyInstructions(listing.safety_instructions || "");
+
     setPrice(listing.price?.toString() || "");
     setBedrooms(listing.bedrooms?.toString() || "");
     setBathrooms(listing.bathrooms?.toString() || "");
@@ -101,15 +112,11 @@ export default function EditListingPage() {
       Array.isArray(listing.amenities) ? listing.amenities.join(", ") : ""
     );
 
-    const { data: images, error: imageError } = await supabase
+    const { data: images } = await supabase
       .from("listing_images")
       .select("*")
       .eq("listing_id", listingId)
       .order("sort_order", { ascending: true });
-
-    if (imageError) {
-      console.error(imageError);
-    }
 
     const sortedImages = ((images || []) as ExistingImage[]).sort((a, b) => {
       if (a.is_cover && !b.is_cover) return -1;
@@ -161,7 +168,6 @@ export default function EditListingPage() {
 
   function deleteNewImage(image: NewImage) {
     URL.revokeObjectURL(image.previewUrl);
-
     setNewImages((prev) => prev.filter((img) => img.localId !== image.localId));
 
     if (coverType === "new" && coverId === image.localId) {
@@ -174,9 +180,7 @@ export default function EditListingPage() {
     setExistingImages((prev) => {
       const copy = [...prev];
       const target = direction === "up" ? index - 1 : index + 1;
-
       if (target < 0 || target >= copy.length) return copy;
-
       [copy[index], copy[target]] = [copy[target], copy[index]];
       return copy;
     });
@@ -186,9 +190,7 @@ export default function EditListingPage() {
     setNewImages((prev) => {
       const copy = [...prev];
       const target = direction === "up" ? index - 1 : index + 1;
-
       if (target < 0 || target >= copy.length) return copy;
-
       [copy[index], copy[target]] = [copy[target], copy[index]];
       return copy;
     });
@@ -273,8 +275,17 @@ export default function EditListingPage() {
         .update({
           title: title.trim(),
           city: city.trim(),
+          location: city.trim(),
           campus: campus.trim(),
+
           address: address.trim(),
+          address_line: addressLine.trim(),
+          unit: unit.trim(),
+          province: province.trim(),
+          postal_code: postalCode.trim(),
+          country: "Canada",
+          safety_instructions: safetyInstructions.trim(),
+
           price: Number(price),
           bedrooms: bedrooms ? Number(bedrooms) : null,
           bathrooms: bathrooms ? Number(bathrooms) : null,
@@ -327,7 +338,8 @@ export default function EditListingPage() {
       }
 
       for (const image of newImages) {
-        const isCover = finalCoverType === "new" && finalCoverId === image.localId;
+        const isCover =
+          finalCoverType === "new" && finalCoverId === image.localId;
 
         await uploadNewImage(image.file, sortOrder, isCover);
         sortOrder++;
@@ -356,32 +368,34 @@ export default function EditListingPage() {
     <main className="min-h-screen bg-black px-4 py-10 text-white">
       <form
         onSubmit={saveChanges}
-        className="mx-auto max-w-5xl space-y-8 rounded-2xl border border-gray-800 bg-[#070707] p-6"
+        className="mx-auto max-w-5xl space-y-8 rounded-3xl border border-zinc-800 bg-[#070707] p-6"
       >
         <button
           type="button"
           onClick={() => router.push("/my-listings")}
-          className="text-sm text-gray-300 hover:text-white"
+          className="text-sm text-zinc-300 hover:text-white"
         >
           ← Back to my Listings
         </button>
 
         <div>
           <h1 className="text-3xl font-bold">Edit Listing</h1>
-          <p className="mt-2 text-gray-400">
-            Update listing details, location, availability, images, order, and
-            cover image.
+          <p className="mt-2 text-zinc-400">
+            Update listing details, secure address, availability, images, order,
+            and cover image.
           </p>
         </div>
 
         <section className="grid gap-5 md:grid-cols-2">
           <Input label="Title" value={title} setValue={setTitle} />
-
           <Input label="City" value={city} setValue={setCity} />
-
           <Input label="Campus" value={campus} setValue={setCampus} />
 
-          <Input label="Address" value={address} setValue={setAddress} />
+          <Input
+            label="Public Area / General Address"
+            value={address}
+            setValue={setAddress}
+          />
 
           <Input label="Price" value={price} setValue={setPrice} type="number" />
 
@@ -394,7 +408,7 @@ export default function EditListingPage() {
               onChange={(e) =>
                 setStatus(e.target.value as "available" | "pending" | "rented")
               }
-              className="w-full rounded-xl border border-gray-700 bg-black px-4 py-3 text-white"
+              className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
             >
               <option value="available">Available</option>
               <option value="pending">Pending</option>
@@ -416,7 +430,12 @@ export default function EditListingPage() {
             type="number"
           />
 
-          <Input label="Guests" value={guests} setValue={setGuests} type="number" />
+          <Input
+            label="Guests"
+            value={guests}
+            setValue={setGuests}
+            type="number"
+          />
 
           <Input
             label="Roommates"
@@ -431,7 +450,7 @@ export default function EditListingPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
-              className="w-full rounded-xl border border-gray-700 bg-black px-4 py-3 text-white"
+              className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
             />
           </div>
 
@@ -443,11 +462,53 @@ export default function EditListingPage() {
           />
         </section>
 
-        <section className="rounded-2xl border border-gray-800 p-5">
+        <section className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
+          <h2 className="text-2xl font-bold text-emerald-300">
+            Secure Viewing Address
+          </h2>
+
+          <p className="mt-2 text-sm text-zinc-400">
+            This exact address stays hidden publicly and only unlocks after you
+            approve a viewing.
+          </p>
+
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <Input
+              label="Street Address"
+              value={addressLine}
+              setValue={setAddressLine}
+            />
+
+            <Input label="Unit / Apartment" value={unit} setValue={setUnit} />
+
+            <Input label="Province" value={province} setValue={setProvince} />
+
+            <Input
+              label="Postal Code"
+              value={postalCode}
+              setValue={setPostalCode}
+            />
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-medium">
+                Safety Instructions
+              </label>
+              <textarea
+                value={safetyInstructions}
+                onChange={(e) => setSafetyInstructions(e.target.value)}
+                rows={4}
+                placeholder="Example: Please arrive on time. Use the front entrance. Do not share this address publicly."
+                className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-zinc-800 p-5">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold">Images</h2>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-zinc-400">
                 Current images: {existingImages.length} | New images:{" "}
                 {newImages.length}
               </p>
@@ -469,7 +530,7 @@ export default function EditListingPage() {
             {existingImages.map((image, index) => (
               <div
                 key={image.id}
-                className="overflow-hidden rounded-2xl border border-gray-700 bg-black"
+                className="overflow-hidden rounded-2xl border border-zinc-700 bg-black"
               >
                 <img
                   src={image.image_url}
@@ -487,7 +548,7 @@ export default function EditListingPage() {
                     className={`w-full rounded-xl px-4 py-3 font-semibold ${
                       coverType === "existing" && coverId === image.id
                         ? "bg-green-600"
-                        : "bg-gray-800"
+                        : "bg-zinc-800"
                     }`}
                   >
                     {coverType === "existing" && coverId === image.id
@@ -499,7 +560,7 @@ export default function EditListingPage() {
                     <button
                       type="button"
                       onClick={() => moveExisting(index, "up")}
-                      className="rounded-xl bg-gray-800 px-4 py-3"
+                      className="rounded-xl bg-zinc-800 px-4 py-3"
                     >
                       Move Up
                     </button>
@@ -507,7 +568,7 @@ export default function EditListingPage() {
                     <button
                       type="button"
                       onClick={() => moveExisting(index, "down")}
-                      className="rounded-xl bg-gray-800 px-4 py-3"
+                      className="rounded-xl bg-zinc-800 px-4 py-3"
                     >
                       Move Down
                     </button>
@@ -584,11 +645,11 @@ export default function EditListingPage() {
           </div>
         </section>
 
-        <div className="flex gap-3 border-t border-gray-800 pt-6">
+        <div className="flex gap-3 border-t border-zinc-800 pt-6">
           <button
             type="button"
             onClick={() => router.push(`/listings/${listingId}`)}
-            className="rounded-xl border border-gray-700 px-6 py-3"
+            className="rounded-xl border border-zinc-700 px-6 py-3"
           >
             Cancel
           </button>
@@ -596,7 +657,7 @@ export default function EditListingPage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold disabled:bg-gray-600"
+            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold disabled:bg-zinc-600"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -627,7 +688,7 @@ function Input({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         min={type === "number" ? 0 : undefined}
-        className="w-full rounded-xl border border-gray-700 bg-black px-4 py-3 text-white"
+        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
       />
     </div>
   );
