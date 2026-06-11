@@ -65,6 +65,9 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  const isSignedIn = Boolean(userId);
 
   const displayName =
     profile?.full_name?.trim() || userEmail?.split("@")[0] || "User";
@@ -79,6 +82,8 @@ export default function Navbar() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    setAuthChecked(true);
 
     if (!user) {
       setUserId("");
@@ -135,6 +140,13 @@ export default function Navbar() {
 
       await supabase.auth.signOut();
 
+      setUserId("");
+      setUserEmail("");
+      setProfile(null);
+      setNotifications([]);
+      setUnreadNotifications(0);
+      setUnreadMessages(0);
+
       setOpen(false);
       setAccountOpen(false);
       setMobileOpen(false);
@@ -144,11 +156,6 @@ export default function Navbar() {
     } finally {
       setLoggingOut(false);
     }
-  }
-
-  async function markAsRead(id: string) {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-    await loadData();
   }
 
   async function markAllRead() {
@@ -171,7 +178,6 @@ export default function Navbar() {
     }`.toLowerCase();
     const savedLink = notification.link || "";
 
-    // Owner-side inquiry notification must ALWAYS go to received inquiries.
     if (
       title.includes("new housing inquiry") ||
       title.includes("new inquiry") ||
@@ -185,7 +191,6 @@ export default function Navbar() {
       return "/inquiries/received";
     }
 
-    // Student-side inquiry notifications.
     if (
       type === "inquiry_sent" ||
       type === "inquiry_accepted" ||
@@ -195,7 +200,6 @@ export default function Navbar() {
       return "/inquiries/sent";
     }
 
-    // Viewing notifications.
     if (
       type === "viewing_requested" ||
       type === "viewing_confirmed" ||
@@ -269,6 +273,12 @@ export default function Navbar() {
   useEffect(() => {
     loadData();
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadData();
+    });
+
     const notificationChannel = supabase
       .channel("navbar-notifications")
       .on(
@@ -297,6 +307,7 @@ export default function Navbar() {
       .subscribe();
 
     return () => {
+      subscription.unsubscribe();
       supabase.removeChannel(notificationChannel);
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(profileChannel);
@@ -330,157 +341,165 @@ export default function Navbar() {
         <div className="flex min-w-0 items-center gap-5">
           <Logo />
 
-          <nav className="hidden items-center rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-sm text-zinc-400 xl:flex">
-            {navLinks.map((link) => {
-              const active = isActive(link.href);
+          {isSignedIn && (
+            <>
+              <nav className="hidden items-center rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-sm text-zinc-400 xl:flex">
+                {navLinks.map((link) => {
+                  const active = isActive(link.href);
 
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`relative inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 transition ${
-                    active
-                      ? "bg-white text-black shadow-lg"
-                      : "text-zinc-400 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <span>{link.label}</span>
-
-                  {link.label === "Messages" && unreadMessages > 0 && (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        active ? "bg-black text-white" : "bg-red-500 text-white"
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className={`relative inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 transition ${
+                        active
+                          ? "bg-white text-black shadow-lg"
+                          : "text-zinc-400 hover:bg-white/10 hover:text-white"
                       }`}
                     >
-                      {unreadMessages}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+                      <span>{link.label}</span>
 
-          <nav className="hidden items-center gap-1 text-sm text-zinc-400 lg:flex xl:hidden">
-            {navLinks.slice(0, 5).map((link) => {
-              const active = isActive(link.href);
+                      {link.label === "Messages" && unreadMessages > 0 && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            active
+                              ? "bg-black text-white"
+                              : "bg-red-500 text-white"
+                          }`}
+                        >
+                          {unreadMessages}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
 
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`whitespace-nowrap rounded-xl px-3 py-2 transition ${
-                    active
-                      ? "bg-white text-black"
-                      : "hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
+              <nav className="hidden items-center gap-1 text-sm text-zinc-400 lg:flex xl:hidden">
+                {navLinks.slice(0, 5).map((link) => {
+                  const active = isActive(link.href);
+
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className={`whitespace-nowrap rounded-xl px-3 py-2 transition ${
+                        active
+                          ? "bg-white text-black"
+                          : "hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
-          <div
-            className="relative"
-            ref={notificationRef}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setOpen((current) => !current);
-                setAccountOpen(false);
-                loadData();
-              }}
-              className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white shadow-lg transition hover:bg-white/10"
+          {isSignedIn && (
+            <div
+              className="relative"
+              ref={notificationRef}
+              onMouseDown={(e) => e.stopPropagation()}
             >
-              🔔
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen((current) => !current);
+                  setAccountOpen(false);
+                  loadData();
+                }}
+                className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white shadow-lg transition hover:bg-white/10"
+              >
+                🔔
 
-              {unreadNotifications > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
-                  {unreadNotifications}
-                </span>
-              )}
-            </button>
+                {unreadNotifications > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
+                    {unreadNotifications}
+                  </span>
+                )}
+              </button>
 
-            {open && (
-              <div className="absolute right-0 z-[10000] mt-3 w-[380px] overflow-hidden rounded-3xl border border-white/10 bg-[#090909] shadow-2xl">
-                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                  <div>
-                    <p className="text-sm font-bold text-white">
-                      Notifications
-                    </p>
+              {open && (
+                <div className="absolute right-0 z-[10000] mt-3 w-[380px] overflow-hidden rounded-3xl border border-white/10 bg-[#090909] shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        Notifications
+                      </p>
 
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {unreadNotifications} unread notification
-                      {unreadNotifications === 1 ? "" : "s"}
-                    </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {unreadNotifications} unread notification
+                        {unreadNotifications === 1 ? "" : "s"}
+                      </p>
+                    </div>
+
+                    {unreadNotifications > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllRead}
+                        className="text-xs font-semibold text-sky-400 hover:text-sky-300"
+                      >
+                        Mark all read
+                      </button>
+                    )}
                   </div>
 
-                  {unreadNotifications > 0 && (
-                    <button
-                      type="button"
-                      onClick={markAllRead}
-                      className="text-xs font-semibold text-sky-400 hover:text-sky-300"
-                    >
-                      Mark all read
-                    </button>
-                  )}
-                </div>
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-sm text-zinc-500">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          onClick={() => openNotification(notification)}
+                          className={`block w-full border-b border-white/5 px-5 py-4 text-left transition hover:bg-white/[0.06] ${
+                            !notification.is_read ? "bg-white/[0.035]" : ""
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-white">
+                                {notification.title || "Notification"}
+                              </p>
 
-                <div className="max-h-[420px] overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="p-8 text-center text-sm text-zinc-500">
-                      No notifications yet
-                    </div>
-                  ) : (
-                    notifications.map((notification) => (
-                      <button
-                        key={notification.id}
-                        type="button"
-                        onClick={() => openNotification(notification)}
-                        className={`block w-full border-b border-white/5 px-5 py-4 text-left transition hover:bg-white/[0.06] ${
-                          !notification.is_read ? "bg-white/[0.035]" : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-white">
-                              {notification.title || "Notification"}
-                            </p>
+                              <p className="mt-1 line-clamp-2 text-sm text-zinc-400">
+                                {getNotificationText(notification)}
+                              </p>
+                            </div>
 
-                            <p className="mt-1 line-clamp-2 text-sm text-zinc-400">
-                              {getNotificationText(notification)}
-                            </p>
+                            {!notification.is_read && (
+                              <div className="mt-1 h-2.5 w-2.5 rounded-full bg-sky-400" />
+                            )}
                           </div>
 
-                          {!notification.is_read && (
-                            <div className="mt-1 h-2.5 w-2.5 rounded-full bg-sky-400" />
-                          )}
-                        </div>
+                          <p className="mt-3 text-xs text-zinc-600">
+                            {formatNotificationTime(notification.created_at)}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
 
-                        <p className="mt-3 text-xs text-zinc-600">
-                          {formatNotificationTime(notification.created_at)}
-                        </p>
-                      </button>
-                    ))
-                  )}
+                  <div className="border-t border-white/10 p-3">
+                    <Link
+                      href="/notifications"
+                      onClick={() => setOpen(false)}
+                      className="flex w-full items-center justify-center rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
+                    >
+                      View all notifications
+                    </Link>
+                  </div>
                 </div>
-
-                <div className="border-t border-white/10 p-3">
-                  <Link
-                    href="/notifications"
-                    onClick={() => setOpen(false)}
-                    className="flex w-full items-center justify-center rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
-                  >
-                    View all notifications
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           <div
             className="relative hidden md:block"
@@ -495,7 +514,7 @@ export default function Navbar() {
               }}
               className="flex h-12 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white shadow-lg transition hover:bg-white/10"
             >
-              {profile?.avatar_url ? (
+              {isSignedIn && profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
                   alt={displayName}
@@ -503,16 +522,18 @@ export default function Navbar() {
                 />
               ) : (
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-black text-black">
-                  {avatarLetter}
+                  {isSignedIn ? avatarLetter : "U"}
                 </span>
               )}
 
               <div className="hidden max-w-[170px] text-left xl:block">
                 <p className="truncate text-sm font-bold text-white">
-                  {displayName}
+                  {isSignedIn ? displayName : "Account"}
                 </p>
 
-                <p className="truncate text-xs text-zinc-500">{userEmail}</p>
+                <p className="truncate text-xs text-zinc-500">
+                  {isSignedIn ? userEmail : "Log in or create account"}
+                </p>
               </div>
 
               <span className="text-zinc-500">⌄</span>
@@ -520,63 +541,105 @@ export default function Navbar() {
 
             {accountOpen && (
               <div className="absolute right-0 z-[10000] mt-3 w-80 overflow-hidden rounded-3xl border border-white/10 bg-[#090909] shadow-2xl">
-                <div className="border-b border-white/10 px-5 py-5">
-                  <div className="flex items-center gap-4">
-                    {profile?.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt={displayName}
-                        className="h-14 w-14 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xl font-black text-black">
-                        {avatarLetter}
+                {isSignedIn ? (
+                  <>
+                    <div className="border-b border-white/10 px-5 py-5">
+                      <div className="flex items-center gap-4">
+                        {profile?.avatar_url ? (
+                          <img
+                            src={profile.avatar_url}
+                            alt={displayName}
+                            className="h-14 w-14 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xl font-black text-black">
+                            {avatarLetter}
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
+                          <p className="truncate text-lg font-bold text-white">
+                            {displayName}
+                          </p>
+
+                          <p className="mt-1 truncate text-sm text-zinc-500">
+                            {userEmail}
+                          </p>
+                        </div>
                       </div>
-                    )}
-
-                    <div className="min-w-0">
-                      <p className="truncate text-lg font-bold text-white">
-                        {displayName}
-                      </p>
-
-                      <p className="mt-1 truncate text-sm text-zinc-500">
-                        {userEmail}
-                      </p>
                     </div>
-                  </div>
-                </div>
 
-                <div className="grid gap-1 p-2">
-                  {accountLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setAccountOpen(false)}
-                      className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
-                        isActive(link.href)
-                          ? "bg-white text-black"
-                          : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
+                    <div className="grid gap-1 p-2">
+                      {accountLinks.map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setAccountOpen(false)}
+                          className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                            isActive(link.href)
+                              ? "bg-white text-black"
+                              : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
 
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    className="mt-2 w-full rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-left text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
-                  >
-                    {loggingOut ? "Logging out..." : "Log out"}
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={loggingOut}
+                        className="mt-2 w-full rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-left text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+                      >
+                        {loggingOut ? "Logging out..." : "Log out"}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="border-b border-white/10 px-5 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xl font-black text-black">
+                          U
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-lg font-bold text-white">
+                            Welcome
+                          </p>
+
+                          <p className="mt-1 truncate text-sm text-zinc-500">
+                            Sign in to save listings and book viewings
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 p-3">
+                      <Link
+                        href="/auth"
+                        onClick={() => setAccountOpen(false)}
+                        className="rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black transition hover:bg-zinc-200"
+                      >
+                        Log in
+                      </Link>
+
+                      <Link
+                        href="/auth?mode=signup"
+                        onClick={() => setAccountOpen(false)}
+                        className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-white/10"
+                      >
+                        Sign up
+                      </Link>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
 
           <Link
-            href="/post"
+            href={isSignedIn ? "/post" : "/auth"}
             className="hidden h-12 items-center rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg transition hover:bg-zinc-200 md:flex"
           >
             Post Listing
@@ -596,73 +659,105 @@ export default function Navbar() {
         <div className="border-t border-white/10 bg-[#050505] px-4 py-4 lg:hidden">
           <div className="mx-auto max-w-7xl rounded-3xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl">
             <div className="mb-3 rounded-2xl border border-white/10 bg-black/40 p-4">
-              <p className="font-semibold text-white">{displayName}</p>
+              <p className="font-semibold text-white">
+                {isSignedIn ? displayName : "Welcome"}
+              </p>
 
               <p className="mt-1 truncate text-xs text-zinc-500">
-                {userEmail}
+                {isSignedIn ? userEmail : "Log in or create your account"}
               </p>
             </div>
 
             <div className="grid gap-2">
-              {navLinks.map((link) => {
-                const active = isActive(link.href);
+              {isSignedIn ? (
+                <>
+                  {navLinks.map((link) => {
+                    const active = isActive(link.href);
 
-                return (
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                          active
+                            ? "bg-white text-black"
+                            : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <span>{link.label}</span>
+
+                        {link.label === "Messages" && unreadMessages > 0 && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs ${
+                              active
+                                ? "bg-black text-white"
+                                : "bg-red-500 text-white"
+                            }`}
+                          >
+                            {unreadMessages}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+
                   <Link
-                    key={link.href}
-                    href={link.href}
+                    href="/verify-identity"
                     onClick={() => setMobileOpen(false)}
-                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                      active
+                    className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                      isActive("/verify-identity")
                         ? "bg-white text-black"
                         : "text-zinc-300 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <span>{link.label}</span>
-
-                    {link.label === "Messages" && unreadMessages > 0 && (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${
-                          active
-                            ? "bg-black text-white"
-                            : "bg-red-500 text-white"
-                        }`}
-                      >
-                        {unreadMessages}
-                      </span>
-                    )}
+                    Verify Identity
                   </Link>
-                );
-              })}
 
-              <Link
-                href="/verify-identity"
-                onClick={() => setMobileOpen(false)}
-                className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                  isActive("/verify-identity")
-                    ? "bg-white text-black"
-                    : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                Verify Identity
-              </Link>
+                  <Link
+                    href="/post"
+                    onClick={() => setMobileOpen(false)}
+                    className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
+                  >
+                    Post Listing
+                  </Link>
 
-              <Link
-                href="/post"
-                onClick={() => setMobileOpen(false)}
-                className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
-              >
-                Post Listing
-              </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    {loggingOut ? "Logging out..." : "Log out"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
+                  >
+                    Log in
+                  </Link>
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
-              >
-                {loggingOut ? "Logging out..." : "Log out"}
-              </button>
+                  <Link
+                    href="/auth?mode=signup"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white hover:bg-white/10"
+                  >
+                    Sign up
+                  </Link>
+
+                  <Link
+                    href="/auth"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white hover:bg-white/10"
+                  >
+                    Post Listing
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
