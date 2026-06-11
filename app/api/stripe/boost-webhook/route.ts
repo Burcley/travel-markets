@@ -10,6 +10,12 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
+function isStripeCustomer(
+  customer: string | Stripe.Customer | Stripe.DeletedCustomer
+): customer is Stripe.Customer {
+  return typeof customer !== "string" && !customer.deleted;
+}
+
 async function syncSubscription(subscriptionId: string) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["customer", "items.data.price"],
@@ -25,7 +31,7 @@ async function syncSubscription(subscriptionId: string) {
 
   const userId =
     subscription.metadata?.user_id ||
-    (typeof subscription.customer !== "string"
+    (isStripeCustomer(subscription.customer)
       ? subscription.customer.metadata?.user_id
       : null);
 
@@ -37,6 +43,7 @@ async function syncSubscription(subscriptionId: string) {
   await supabaseAdmin.from("owner_subscriptions").upsert(
     {
       user_id: userId,
+      owner_id: userId,
       plan:
         subscription.status === "active" || subscription.status === "trialing"
           ? plan
