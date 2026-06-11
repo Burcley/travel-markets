@@ -8,6 +8,7 @@ import ReportButton from "@/components/ReportButton";
 import SaveListingButton from "@/components/SaveListingButton";
 import SimilarListings from "@/components/SimilarListings";
 import OwnerTrustCard from "@/components/OwnerTrustCard";
+import ListingImageGallery from "@/components/listings/listing-image-gallery";
 
 type Profile = {
   id: string;
@@ -40,9 +41,11 @@ type ListingImage = {
   id: string;
   listing_id: string;
   image_url: string;
-  image_path: string;
+  image_path: string | null;
+  storage_path?: string | null;
   sort_order: number | null;
   is_cover: boolean | null;
+  created_at?: string | null;
 };
 
 type Review = {
@@ -90,10 +93,36 @@ export default function ListingDetailsPage() {
     return (total / reviews.length).toFixed(1);
   }, [reviews]);
 
+  const galleryImages = useMemo(() => {
+    return images.map((image) => ({
+      id: image.id,
+      listing_id: image.listing_id,
+      image_url: image.image_url,
+      storage_path: image.storage_path || image.image_path || null,
+      sort_order: image.sort_order,
+      is_cover: image.is_cover,
+      created_at: image.created_at || null,
+    }));
+  }, [images]);
+
   useEffect(() => {
     loadListing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function trackRecentlyViewed(listingId: string) {
+    try {
+      await fetch("/api/recently-viewed", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ listingId }),
+      });
+    } catch (error) {
+      console.error("TRACK RECENTLY VIEWED ERROR:", error);
+    }
+  }
 
   async function loadListing() {
     try {
@@ -127,6 +156,10 @@ export default function ListingDetailsPage() {
 
       const safeListing = listingData as Listing;
       setListing(safeListing);
+
+      if (user?.id && user.id !== safeListing.user_id) {
+        trackRecentlyViewed(safeListing.id);
+      }
 
       let canSeeAddress = false;
       let acceptedInquiryExists = false;
@@ -177,7 +210,7 @@ export default function ListingDetailsPage() {
 
       const { data: ownerData, error: ownerError } = await supabase
         .from("profiles")
-        .select("id, full_name, role, bio, phone, avatar_url, is_verified")
+        .select("id, full_name, role, bio, phone, avatar_url, is_verified, identity_verified, identity_verification_status, trust_score, trust_level, phone_verified, student_email_verified")
         .eq("id", safeListing.user_id)
         .maybeSingle();
 
@@ -224,16 +257,14 @@ export default function ListingDetailsPage() {
 
       const reviewerIds = Array.from(
         new Set(
-          listingReviews
-            .map((review) => review.reviewer_id)
-            .filter(Boolean)
+          listingReviews.map((review) => review.reviewer_id).filter(Boolean)
         )
       );
 
       if (reviewerIds.length > 0) {
         const { data: reviewerData, error: reviewerError } = await supabase
           .from("profiles")
-          .select("id, full_name, role, bio, phone, avatar_url, is_verified")
+          .select("id, full_name, role, bio, phone, avatar_url, is_verified, identity_verified, identity_verification_status, trust_score, trust_level, phone_verified, student_email_verified")
           .in("id", reviewerIds);
 
         if (reviewerError) {
@@ -285,7 +316,9 @@ export default function ListingDetailsPage() {
     try {
       setDeleting(true);
 
-      const imagePaths = images.map((image) => image.image_path).filter(Boolean);
+      const imagePaths = images
+        .map((image) => image.image_path || image.storage_path)
+        .filter(Boolean) as string[];
 
       if (imagePaths.length > 0) {
         await supabase.storage.from("listing-images").remove(imagePaths);
@@ -412,7 +445,7 @@ export default function ListingDetailsPage() {
     <main className="min-h-screen bg-black px-4 py-8 text-white">
       <div className="mx-auto max-w-7xl space-y-8">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/search")}
           className="text-sm text-gray-300 hover:text-white"
         >
           ← Back to Listings
@@ -446,36 +479,7 @@ export default function ListingDetailsPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-3xl border border-gray-800">
-          {images.length > 0 ? (
-            <div className="grid h-[420px] grid-cols-1 gap-2 md:grid-cols-4">
-              <div className="relative md:col-span-2 md:row-span-2">
-                <img
-                  src={images[0].image_url}
-                  alt={listing.title}
-                  className="h-full w-full object-cover"
-                />
-
-                <div className="absolute left-4 top-4">
-                  <StatusBadge />
-                </div>
-              </div>
-
-              {images.slice(1, 5).map((image) => (
-                <img
-                  key={image.id}
-                  src={image.image_url}
-                  alt={listing.title}
-                  className="hidden h-full w-full object-cover md:block"
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex h-[300px] items-center justify-center bg-gray-900 text-gray-400">
-              No images uploaded.
-            </div>
-          )}
-        </section>
+        <ListingImageGallery images={galleryImages} />
 
         <section className="grid gap-8 lg:grid-cols-[1fr_420px]">
           <div className="space-y-8">
@@ -522,21 +526,12 @@ export default function ListingDetailsPage() {
                     shown after the owner accepts your viewing request.
                   </p>
 
-                  {hasAcceptedInquiry ? (
-                    <Link
-                      href="/inquiries/sent"
-                      className="mt-4 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black hover:bg-gray-200"
-                    >
-                      Request Viewing to Unlock Address
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={handleContactOwner}
-                      className="mt-4 rounded-xl bg-white px-5 py-3 font-semibold text-black hover:bg-gray-200"
-                    >
-                      Contact Owner First
-                    </button>
-                  )}
+                  <Link
+                    href={`/listings/${listing.id}/book-viewing`}
+                    className="mt-4 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black hover:bg-gray-200"
+                  >
+                    Book Viewing to Unlock Address
+                  </Link>
                 </div>
               )}
 
@@ -678,21 +673,21 @@ export default function ListingDetailsPage() {
                       Listing Unavailable
                     </button>
                   ) : (
-                    <button
-                      onClick={handleContactOwner}
-                      className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-gray-200"
-                    >
-                      Contact Owner
-                    </button>
-                  )}
+                    <>
+                      <button
+                        onClick={handleContactOwner}
+                        className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-gray-200"
+                      >
+                        Contact Owner
+                      </button>
 
-                  {hasAcceptedInquiry && !addressUnlocked && (
-                    <Link
-                      href="/inquiries/sent"
-                      className="flex w-full items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
-                    >
-                      Request Viewing
-                    </Link>
+                      <Link
+                        href={`/listings/${listing.id}/book-viewing`}
+                        className="flex w-full items-center justify-center rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 font-semibold text-blue-300 transition hover:bg-blue-500/20"
+                      >
+                        Book Viewing
+                      </Link>
+                    </>
                   )}
 
                   <Link
@@ -718,6 +713,13 @@ export default function ListingDetailsPage() {
                   </button>
 
                   <button
+                    onClick={() => router.push("/availability/calendar")}
+                    className="mt-3 w-full rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 font-semibold text-blue-300 hover:bg-blue-500/20"
+                  >
+                    Manage Calendar
+                  </button>
+
+                  <button
                     onClick={() => router.push("/viewings")}
                     className="mt-3 w-full rounded-xl border border-gray-700 bg-white/5 px-5 py-4 font-semibold text-white hover:bg-white/10"
                   >
@@ -736,6 +738,12 @@ export default function ListingDetailsPage() {
                       className="w-full rounded-xl bg-blue-600 px-5 py-4 font-semibold text-white"
                     >
                       Edit Listing
+                    </button>
+                    <button
+                      onClick={() => router.push(`/listings/${listing.id}/boost`)}
+                      className="w-full rounded-xl bg-yellow-400 px-5 py-4 font-black text-black hover:bg-yellow-300"
+                    >
+                      Boost Listing
                     </button>
 
                     <button

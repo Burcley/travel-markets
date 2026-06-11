@@ -9,6 +9,7 @@ type Listing = {
   id: string;
   title: string;
   user_id: string;
+  status?: "available" | "pending" | "rented" | null;
 };
 
 export default function ContactOwnerPage() {
@@ -32,6 +33,7 @@ export default function ContactOwnerPage() {
 
   async function loadData() {
     setLoading(true);
+    setErrorMessage("");
 
     const {
       data: { user },
@@ -44,7 +46,6 @@ export default function ContactOwnerPage() {
 
     setCurrentUserId(user.id);
 
-    // 🔒 check if user is banned
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, status")
@@ -81,8 +82,30 @@ export default function ContactOwnerPage() {
       return;
     }
 
-    setListing(data);
+    setListing(data as Listing);
     setLoading(false);
+  }
+
+  async function sendNewInquiryEmail(inquiryId: string) {
+    try {
+      const response = await fetch("/api/emails/new-inquiry", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inquiryId,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("NEW INQUIRY EMAIL ERROR:", data);
+      }
+    } catch (error) {
+      console.error("NEW INQUIRY EMAIL FETCH ERROR:", error);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -98,22 +121,41 @@ export default function ContactOwnerPage() {
 
     setSubmitting(true);
 
-    const { error } = await supabase.from("inquiries").insert({
-      listing_id: listing.id,
-      requester_id: currentUserId,
-      owner_id: listing.user_id,
-      message: message.trim(),
-      phone: phone.trim() || null,
-      status: "pending",
-    });
-
-    setSubmitting(false);
+    const { data: inquiry, error } = await supabase
+      .from("inquiries")
+      .insert({
+        listing_id: listing.id,
+        requester_id: currentUserId,
+        owner_id: listing.user_id,
+        message: message.trim(),
+        phone: phone.trim() || null,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     if (error) {
       console.error(error.message);
       setErrorMessage(error.message);
+      setSubmitting(false);
       return;
     }
+
+    await supabase.from("notifications").insert({
+      user_id: listing.user_id,
+      inquiry_id: inquiry?.id || null,
+      title: "New Housing Inquiry",
+      body: "A student sent an inquiry for your listing.",
+      message: "A student sent an inquiry for your listing.",
+      type: "inquiry_received",
+      link: "/inquiries/received",
+    });
+
+    if (inquiry?.id) {
+      await sendNewInquiryEmail(inquiry.id);
+    }
+
+    setSubmitting(false);
 
     router.push("/inquiries/sent");
     router.refresh();
@@ -171,11 +213,12 @@ export default function ContactOwnerPage() {
               <label className="mb-2 block text-sm font-medium text-zinc-300">
                 Message
               </label>
+
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Hi, I am interested in this listing. Is it still available?"
-                className="w-full min-h-[140px] rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                className="min-h-[140px] w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
                 required
               />
             </div>
@@ -184,6 +227,7 @@ export default function ContactOwnerPage() {
               <label className="mb-2 block text-sm font-medium text-zinc-300">
                 Phone (optional)
               </label>
+
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}

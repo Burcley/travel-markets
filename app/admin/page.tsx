@@ -49,6 +49,15 @@ type Report = {
   created_at: string;
 };
 
+type IdentityVerification = {
+  id: string;
+  user_id: string;
+  full_legal_name: string;
+  document_type: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -59,15 +68,18 @@ export default function AdminDashboardPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
-  const [reportFilter, setReportFilter] = useState<"pending" | "resolved">(
-    "pending"
-  );
+  const [verifications, setVerifications] = useState<IdentityVerification[]>([]);
+  const [reportFilter, setReportFilter] = useState<"pending" | "resolved">("pending");
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<string | null>(null);
 
   const filteredReports = useMemo(() => {
     return reports.filter((report) => report.status === reportFilter);
   }, [reports, reportFilter]);
+
+  const pendingVerifications = verifications.filter((item) => item.status === "pending");
+  const approvedVerifications = verifications.filter((item) => item.status === "approved");
+  const rejectedVerifications = verifications.filter((item) => item.status === "rejected");
 
   useEffect(() => {
     loadAdminDashboard();
@@ -122,10 +134,16 @@ export default function AdminDashboardPage() {
         .select("*")
         .order("created_at", { ascending: false });
 
+      const { data: verificationsData } = await supabase
+        .from("identity_verifications")
+        .select("id, user_id, full_legal_name, document_type, status, created_at")
+        .order("created_at", { ascending: false });
+
       setProfiles((profilesData || []) as Profile[]);
       setListings((listingsData || []) as Listing[]);
       setReviews((reviewsData || []) as Review[]);
       setReports((reportsData || []) as Report[]);
+      setVerifications((verificationsData || []) as IdentityVerification[]);
     } catch (error) {
       console.error("Admin dashboard error:", error);
       router.push("/");
@@ -158,10 +176,7 @@ export default function AdminDashboardPage() {
     try {
       setWorkingId(profile.id);
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({ role })
-        .eq("id", profile.id);
+      const { error } = await supabase.from("profiles").update({ role }).eq("id", profile.id);
 
       if (error) {
         alert(error.message);
@@ -180,10 +195,7 @@ export default function AdminDashboardPage() {
     try {
       setWorkingId(listingId);
 
-      const { error } = await supabase
-        .from("listings")
-        .delete()
-        .eq("id", listingId);
+      const { error } = await supabase.from("listings").delete().eq("id", listingId);
 
       if (error) {
         alert(error.message);
@@ -202,10 +214,7 @@ export default function AdminDashboardPage() {
     try {
       setWorkingId(reviewId);
 
-      const { error } = await supabase
-        .from("reviews")
-        .delete()
-        .eq("id", reviewId);
+      const { error } = await supabase.from("reviews").delete().eq("id", reviewId);
 
       if (error) {
         alert(error.message);
@@ -248,10 +257,7 @@ export default function AdminDashboardPage() {
     try {
       setWorkingId(userId);
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({ role: "banned" })
-        .eq("id", userId);
+      const { error } = await supabase.from("profiles").update({ role: "banned" }).eq("id", userId);
 
       if (error) {
         alert(error.message);
@@ -287,19 +293,11 @@ export default function AdminDashboardPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-black p-10 text-white">
-        Loading admin dashboard...
-      </main>
-    );
+    return <main className="min-h-screen bg-black p-10 text-white">Loading admin dashboard...</main>;
   }
 
   if (!currentProfile?.is_admin) {
-    return (
-      <main className="min-h-screen bg-black p-10 text-white">
-        Access denied.
-      </main>
-    );
+    return <main className="min-h-screen bg-black p-10 text-white">Access denied.</main>;
   }
 
   return (
@@ -310,23 +308,89 @@ export default function AdminDashboardPage() {
             <div>
               <h1 className="text-4xl font-bold">Admin Dashboard</h1>
               <p className="mt-2 text-gray-400">
-                Manage users, listings, reviews, reports, and moderation.
+                Manage users, listings, reviews, reports, verification, and moderation.
               </p>
             </div>
 
-            <Link
-              href="/"
-              className="rounded-xl bg-white px-5 py-3 font-semibold text-black"
-            >
+            <Link href="/" className="rounded-xl bg-white px-5 py-3 font-semibold text-black">
               Back to App
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
+          <div className="mt-8 grid gap-4 md:grid-cols-5">
             <Stat label="Users" value={profiles.length} />
             <Stat label="Listings" value={listings.length} />
             <Stat label="Reviews" value={reviews.length} />
             <Stat label="Reports" value={reports.length} />
+            <Stat label="Pending IDs" value={pendingVerifications.length} />
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                TRUST & SAFETY
+              </div>
+              <h2 className="text-2xl font-bold">Identity Verifications</h2>
+              <p className="mt-1 text-sm text-gray-400">
+                Review submitted IDs, approve verified users, and reject suspicious submissions.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300">
+                  Pending: {pendingVerifications.length}
+                </span>
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                  Approved: {approvedVerifications.length}
+                </span>
+                <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
+                  Rejected: {rejectedVerifications.length}
+                </span>
+              </div>
+            </div>
+
+            <Link
+              href="/admin/verifications"
+              className="rounded-xl bg-emerald-500 px-5 py-3 font-bold text-black hover:bg-emerald-400"
+            >
+              Review Verifications
+            </Link>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-black p-5">
+            {pendingVerifications.length === 0 ? (
+              <p className="text-sm text-gray-400">No pending identity verification requests.</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingVerifications.slice(0, 3).map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold">{item.full_legal_name}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.document_type} · {formatDate(item.created_at)}
+                      </p>
+                    </div>
+
+                    <Link
+                      href="/admin/verifications"
+                      className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/10"
+                    >
+                      Review
+                    </Link>
+                  </div>
+                ))}
+
+                {pendingVerifications.length > 3 && (
+                  <p className="text-xs text-gray-500">
+                    +{pendingVerifications.length - 3} more pending request(s).
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -334,16 +398,12 @@ export default function AdminDashboardPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Reports & Moderation</h2>
-              <p className="mt-1 text-sm text-gray-400">
-                Review reported listings and users.
-              </p>
+              <p className="mt-1 text-sm text-gray-400">Review reported listings and users.</p>
             </div>
 
             <select
               value={reportFilter}
-              onChange={(e) =>
-                setReportFilter(e.target.value as "pending" | "resolved")
-              }
+              onChange={(e) => setReportFilter(e.target.value as "pending" | "resolved")}
               className="rounded-xl border border-gray-700 bg-black px-4 py-3 text-white"
             >
               <option value="pending">Pending</option>
@@ -358,10 +418,7 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               filteredReports.map((report) => (
-                <div
-                  key={report.id}
-                  className="rounded-2xl border border-gray-800 bg-black p-5"
-                >
+                <div key={report.id} className="rounded-2xl border border-gray-800 bg-black p-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="flex flex-wrap gap-2">
@@ -374,9 +431,7 @@ export default function AdminDashboardPage() {
                         </span>
                       </div>
 
-                      <h3 className="mt-3 text-lg font-bold">
-                        {report.reason}
-                      </h3>
+                      <h3 className="mt-3 text-lg font-bold">{report.reason}</h3>
 
                       <p className="mt-2 text-sm leading-6 text-gray-300">
                         {report.description || "No description provided."}
@@ -399,27 +454,24 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                      {report.target_type === "listing" &&
-                        report.target_listing_id && (
-                          <>
-                            <Link
-                              href={`/listings/${report.target_listing_id}`}
-                              className="rounded-xl border border-gray-700 bg-white/5 px-5 py-3 font-semibold text-white"
-                            >
-                              View Listing
-                            </Link>
+                      {report.target_type === "listing" && report.target_listing_id && (
+                        <>
+                          <Link
+                            href={`/listings/${report.target_listing_id}`}
+                            className="rounded-xl border border-gray-700 bg-white/5 px-5 py-3 font-semibold text-white"
+                          >
+                            View Listing
+                          </Link>
 
-                            <button
-                              onClick={() =>
-                                deleteListing(report.target_listing_id as string)
-                              }
-                              disabled={workingId === report.target_listing_id}
-                              className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white disabled:bg-gray-600"
-                            >
-                              Delete Listing
-                            </button>
-                          </>
-                        )}
+                          <button
+                            onClick={() => deleteListing(report.target_listing_id as string)}
+                            disabled={workingId === report.target_listing_id}
+                            className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white disabled:bg-gray-600"
+                          >
+                            Delete Listing
+                          </button>
+                        </>
+                      )}
 
                       {report.target_type === "user" && report.target_user_id && (
                         <>
@@ -462,10 +514,7 @@ export default function AdminDashboardPage() {
 
           <div className="mt-5 space-y-4">
             {profiles.map((profile) => (
-              <div
-                key={profile.id}
-                className="rounded-2xl border border-gray-800 bg-black p-5"
-              >
+              <div key={profile.id} className="rounded-2xl border border-gray-800 bg-black p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 overflow-hidden rounded-full bg-gray-800">
@@ -483,9 +532,7 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <div>
-                      <p className="font-semibold">
-                        {profile.full_name || "Unnamed user"}
-                      </p>
+                      <p className="font-semibold">{profile.full_name || "Unnamed user"}</p>
                       <p className="text-xs text-gray-500">{profile.id}</p>
 
                       <div className="mt-2 flex gap-2">
@@ -548,10 +595,7 @@ export default function AdminDashboardPage() {
 
           <div className="mt-5 space-y-4">
             {listings.map((listing) => (
-              <div
-                key={listing.id}
-                className="rounded-2xl border border-gray-800 bg-black p-5"
-              >
+              <div key={listing.id} className="rounded-2xl border border-gray-800 bg-black p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h3 className="text-lg font-bold">{listing.title}</h3>
@@ -559,9 +603,8 @@ export default function AdminDashboardPage() {
                       Owner: {getProfileName(listing.user_id)}
                     </p>
                     <p className="mt-1 text-sm text-gray-400">
-                      {[listing.city, listing.address].filter(Boolean).join(", ") ||
-                        "No location"}{" "}
-                      · ${listing.price || 0}
+                      {[listing.city, listing.address].filter(Boolean).join(", ") || "No location"} · $
+                      {listing.price || 0}
                     </p>
                   </div>
 
@@ -592,22 +635,15 @@ export default function AdminDashboardPage() {
 
           <div className="mt-5 space-y-4">
             {reviews.map((review) => (
-              <div
-                key={review.id}
-                className="rounded-2xl border border-gray-800 bg-black p-5"
-              >
+              <div key={review.id} className="rounded-2xl border border-gray-800 bg-black p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
                     <p className="text-yellow-400">
                       {"★".repeat(review.rating)}
-                      <span className="text-gray-700">
-                        {"★".repeat(5 - review.rating)}
-                      </span>
+                      <span className="text-gray-700">{"★".repeat(5 - review.rating)}</span>
                     </p>
 
-                    <p className="mt-3 text-gray-300">
-                      {review.comment || "No comment"}
-                    </p>
+                    <p className="mt-3 text-gray-300">{review.comment || "No comment"}</p>
 
                     <p className="mt-3 text-xs text-gray-500">
                       Reviewer: {getProfileName(review.reviewer_id)} · Owner:{" "}

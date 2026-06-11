@@ -112,6 +112,26 @@ export default function RequestViewingPage() {
     setLoading(false);
   }
 
+  async function sendViewingRequestedEmail(viewingId: string) {
+    try {
+      const response = await fetch("/api/emails/viewing-requested", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ viewingId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("VIEWING REQUESTED EMAIL API ERROR:", data);
+      }
+    } catch (error) {
+      console.error("VIEWING REQUESTED EMAIL FETCH ERROR:", error);
+    }
+  }
+
   async function submitViewing(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -125,22 +145,40 @@ export default function RequestViewingPage() {
     setSubmitting(true);
     setErrorMessage("");
 
-    const { error } = await supabase.from("viewings").insert({
-      inquiry_id: inquiry.id,
-      listing_id: inquiry.listing_id,
-      owner_id: inquiry.owner_id,
-      requester_id: inquiry.requester_id,
-      requested_date: requestedDate,
-      requested_time: requestedTime,
-      note: note.trim() || null,
-      status: "pending",
-    });
+    const { data: insertedViewing, error } = await supabase
+      .from("viewings")
+      .insert({
+        inquiry_id: inquiry.id,
+        listing_id: inquiry.listing_id,
+        owner_id: inquiry.owner_id,
+        requester_id: inquiry.requester_id,
+        requested_date: requestedDate,
+        requested_time: requestedTime,
+        note: note.trim() || null,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     setSubmitting(false);
 
     if (error) {
       setErrorMessage(error.message);
       return;
+    }
+
+    await supabase.from("notifications").insert({
+      user_id: inquiry.owner_id,
+      inquiry_id: inquiry.id,
+      title: "New viewing request",
+      body: "A student requested a viewing for your listing.",
+      message: "A student requested a viewing for your listing.",
+      type: "viewing_requested",
+      link: "/viewings",
+    });
+
+    if (insertedViewing?.id) {
+      await sendViewingRequestedEmail(insertedViewing.id);
     }
 
     router.push("/viewings");

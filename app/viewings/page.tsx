@@ -2,19 +2,36 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Calendar, Clock, Home, Lock, MessageCircle, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+type ViewingStatus = "pending" | "accepted" | "declined" | "completed";
 
 type Viewing = {
   id: string;
-  inquiry_id: string;
+  inquiry_id: string | null;
   listing_id: string;
   owner_id: string;
   requester_id: string;
-  requested_date: string;
-  requested_time: string;
+  slot_id: string | null;
+  requested_date: string | null;
+  requested_time: string | null;
   note: string | null;
-  status: "pending" | "accepted" | "declined" | "completed";
+  status: ViewingStatus;
   created_at: string;
+  viewing_slot?: {
+    id: string;
+    slot_date: string;
+    start_time: string;
+    end_time: string;
+  } | null;
+  listing?: {
+    id: string;
+    title: string | null;
+    address: string | null;
+    city: string | null;
+    campus: string | null;
+  } | null;
 };
 
 export default function ViewingsPage() {
@@ -34,11 +51,7 @@ export default function ViewingsPage() {
       .channel("viewings-live")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "viewings",
-        },
+        { event: "*", schema: "public", table: "viewings" },
         () => loadViewings()
       )
       .subscribe();
@@ -46,6 +59,7 @@ export default function ViewingsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadViewings() {
@@ -76,20 +90,112 @@ export default function ViewingsPage() {
       return;
     }
 
-    const { data, error } = await supabase
+    const { data: viewingData, error: viewingError } = await supabase
       .from("viewings")
       .select("*")
       .or(`owner_id.eq.${user.id},requester_id.eq.${user.id}`)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      setError(error.message);
+    if (viewingError) {
+      setError(viewingError.message);
       setViewings([]);
-    } else {
-      setViewings((data || []) as Viewing[]);
+      setLoading(false);
+      return;
     }
 
+    const baseViewings = (viewingData || []) as Viewing[];
+
+    const slotIds = baseViewings
+      .map((viewing) => viewing.slot_id)
+      .filter(Boolean) as string[];
+
+    const listingIds = baseViewings
+      .map((viewing) => viewing.listing_id)
+      .filter(Boolean);
+
+    let slots: any[] = [];
+    let listings: any[] = [];
+
+    if (slotIds.length > 0) {
+      const { data: slotData } = await supabase
+        .from("viewing_slots")
+        .select("id, slot_date, start_time, end_time")
+        .in("id", slotIds);
+
+      slots = slotData || [];
+    }
+
+    if (listingIds.length > 0) {
+      const { data: listingData } = await supabase
+        .from("listings")
+        .select("id, title, address, city, campus")
+        .in("id", listingIds);
+
+      listings = listingData || [];
+    }
+
+    const merged = baseViewings.map((viewing) => ({
+      ...viewing,
+      viewing_slot: slots.find((slot) => slot.id === viewing.slot_id) || null,
+      listing:
+        listings.find((listing) => listing.id === viewing.listing_id) || null,
+    }));
+
+    setViewings(merged);
     setLoading(false);
+  }
+
+  async function cancelViewing(viewing: Viewing) {
+    const confirmCancel = confirm("Cancel this viewing request?");
+    if (!confirmCancel) return;
+
+    setUpdatingId(viewing.id);
+
+    const { error: cancelError } = await supabase.rpc(
+      "cancel_viewing_and_reopen_slot",
+      {
+        p_viewing_id: viewing.id,
+      }
+    );
+
+    if (cancelError) {
+      alert(cancelError.message);
+      setUpdatingId("");
+      return;
+    }
+
+    await supabase.from("notifications").insert({
+      user_id: viewing.owner_id,
+      title: "Viewing cancelled",
+      message: "A student cancelled their viewing request.",
+      type: "viewing_cancelled",
+      link: `/viewings`,
+    });
+
+    await loadViewings();
+    setUpdatingId("");
+  }
+
+  async function sendViewingApprovedEmail(viewingId: string) {
+    try {
+      const response = await fetch("/api/emails/viewing-approved", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          viewingId,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("VIEWING APPROVED EMAIL API ERROR:", data);
+      }
+    } catch (error) {
+      console.error("VIEWING APPROVED EMAIL FETCH ERROR:", error);
+    }
   }
 
   async function updateViewingStatus(
@@ -97,6 +203,33 @@ export default function ViewingsPage() {
     status: "accepted" | "declined" | "completed"
   ) {
     setUpdatingId(viewing.id);
+
+    if (status === "declined") {
+      const { error: declineError } = await supabase.rpc(
+        "decline_viewing_and_reopen_slot",
+        {
+          p_viewing_id: viewing.id,
+        }
+      );
+
+      if (declineError) {
+        alert(declineError.message);
+        setUpdatingId("");
+        return;
+      }
+
+      await supabase.from("notifications").insert({
+        user_id: viewing.requester_id,
+        title: "Viewing declined",
+        message: "The owner declined your viewing request.",
+        type: "viewing_declined",
+        link: `/viewings`,
+      });
+
+      await loadViewings();
+      setUpdatingId("");
+      return;
+    }
 
     const { error } = await supabase
       .from("viewings")
@@ -121,16 +254,8 @@ export default function ViewingsPage() {
         type: "viewing_confirmed",
         link: `/address-unlocked/${viewing.listing_id}`,
       });
-    }
 
-    if (status === "declined") {
-      await supabase.from("notifications").insert({
-        user_id: viewing.requester_id,
-        title: "Viewing declined",
-        message: "The owner declined your viewing request.",
-        type: "viewing_declined",
-        link: `/viewings`,
-      });
+      await sendViewingApprovedEmail(viewing.id);
     }
 
     if (status === "completed") {
@@ -174,6 +299,36 @@ export default function ViewingsPage() {
     return "bg-yellow-500/15 text-yellow-300 border border-yellow-500/20";
   }
 
+  function getViewingDate(viewing: Viewing) {
+    return (
+      viewing.viewing_slot?.slot_date ||
+      viewing.requested_date ||
+      "Date unavailable"
+    );
+  }
+
+  function getViewingTime(viewing: Viewing) {
+    const start = viewing.viewing_slot?.start_time || viewing.requested_time;
+    const end = viewing.viewing_slot?.end_time;
+
+    if (start && end) return `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+    if (start) return start.slice(0, 5);
+
+    return "Time unavailable";
+  }
+
+  function getListingTitle(viewing: Viewing) {
+    return viewing.listing?.title || "Property Viewing";
+  }
+
+  function getLocationText(viewing: Viewing) {
+    const parts = [viewing.listing?.city, viewing.listing?.campus].filter(
+      Boolean
+    );
+
+    return parts.length > 0 ? parts.join(" • ") : "Location not added";
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
@@ -189,7 +344,6 @@ export default function ViewingsPage() {
           <h1 className="text-2xl font-bold text-red-300">
             Account Restricted
           </h1>
-
           <p className="mt-3 text-red-200">
             You cannot access viewing appointments.
           </p>
@@ -206,14 +360,13 @@ export default function ViewingsPage() {
             <h1 className="text-4xl font-bold tracking-tight">
               Viewing Appointments
             </h1>
-
             <p className="mt-2 text-zinc-400">
               Manage approvals, address unlocks, and completed property tours.
             </p>
           </div>
 
           <Link
-            href="/listings"
+            href="/"
             className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold transition hover:bg-white/10"
           >
             Browse Listings
@@ -239,17 +392,27 @@ export default function ViewingsPage() {
               return (
                 <div
                   key={viewing.id}
-                  className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950"
+                  className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl"
                 >
                   {viewing.status === "accepted" && (
                     <div className="border-b border-emerald-500/20 bg-emerald-500/10 px-6 py-4">
                       <p className="font-semibold text-emerald-300">
                         Viewing Approved
                       </p>
-
                       <p className="mt-1 text-sm text-emerald-200/80">
                         Secure address access is now unlocked for the approved
-                        user.
+                        student.
+                      </p>
+                    </div>
+                  )}
+
+                  {viewing.status === "declined" && (
+                    <div className="border-b border-red-500/20 bg-red-500/10 px-6 py-4">
+                      <p className="font-semibold text-red-300">
+                        Viewing Cancelled / Declined
+                      </p>
+                      <p className="mt-1 text-sm text-red-200/80">
+                        This time slot has been reopened for other students.
                       </p>
                     </div>
                   )}
@@ -258,13 +421,40 @@ export default function ViewingsPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <h2 className="text-xl font-semibold">
-                          Property Viewing
+                          {getListingTitle(viewing)}
                         </h2>
 
-                        <p className="mt-2 text-zinc-400">
-                          {viewing.requested_date} at{" "}
-                          {viewing.requested_time}
-                        </p>
+                        <div className="mt-4 grid gap-3 text-sm text-zinc-300 sm:grid-cols-3">
+                          <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+                            <p className="flex items-center gap-2 font-semibold text-white">
+                              <Calendar className="h-4 w-4" />
+                              Date
+                            </p>
+                            <p className="mt-2 text-zinc-400">
+                              {getViewingDate(viewing)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+                            <p className="flex items-center gap-2 font-semibold text-white">
+                              <Clock className="h-4 w-4" />
+                              Time
+                            </p>
+                            <p className="mt-2 text-zinc-400">
+                              {getViewingTime(viewing)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+                            <p className="flex items-center gap-2 font-semibold text-white">
+                              <Home className="h-4 w-4" />
+                              Location
+                            </p>
+                            <p className="mt-2 text-zinc-400">
+                              {getLocationText(viewing)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
                       <span
@@ -284,13 +474,29 @@ export default function ViewingsPage() {
                       </div>
                     )}
 
+                    {viewing.status === "accepted" && isRequester && (
+                      <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
+                        <p className="flex items-center gap-2 font-semibold text-emerald-300">
+                          <Lock className="h-4 w-4" />
+                          Address unlocked
+                        </p>
+                        <p className="mt-2 text-sm text-emerald-100/80">
+                          You can now view the exact secure address for this
+                          accepted viewing.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="mt-6 flex flex-wrap gap-3">
-                      <Link
-                        href={`/messages/${viewing.inquiry_id}`}
-                        className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/20"
-                      >
-                        Open Chat
-                      </Link>
+                      {viewing.inquiry_id && (
+                        <Link
+                          href={`/messages/${viewing.inquiry_id}`}
+                          className="flex items-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/20"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          Open Chat
+                        </Link>
+                      )}
 
                       <Link
                         href={`/listings/${viewing.listing_id}`}
@@ -307,10 +513,23 @@ export default function ViewingsPage() {
                           View Unlocked Address
                         </Link>
                       )}
+
+                      {isRequester && viewing.status === "pending" && (
+                        <button
+                          onClick={() => cancelViewing(viewing)}
+                          disabled={updatingId === viewing.id}
+                          className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          {updatingId === viewing.id
+                            ? "Cancelling..."
+                            : "Cancel Viewing"}
+                        </button>
+                      )}
                     </div>
 
                     {isOwner && viewing.status === "pending" && (
-                      <div className="mt-6 flex gap-3">
+                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
                         <button
                           onClick={() =>
                             updateViewingStatus(viewing, "accepted")

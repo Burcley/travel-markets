@@ -1,5 +1,6 @@
 @import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
+@import "mapbox-gl/dist/mapbox-gl.css";
 
 :root {
   --background: #ffffff;

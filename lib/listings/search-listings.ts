@@ -1,0 +1,414 @@
+import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import type { ListingSearchParams } from "./search-types";
+
+const PAGE_SIZE = 12;
+
+const PLAN_TIER: Record<string, number> = {
+  free: 1,
+  pro: 2,
+  premium: 3,
+};
+
+const TRUST_TIER: Record<string, number> = {
+  new: 1,
+  basic: 2,
+  trusted: 3,
+  elite: 4,
+};
+
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
+
+function clean(value?: string | null) {
+  if (!value || value === "all") return undefined;
+  return value.trim();
+}
+
+function toNumber(value?: string | null) {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function getApproxCoordinates(city?: string | null, campus?: string | null) {
+  const text = `${city || ""} ${campus || ""}`.toLowerCase();
+
+  if (text.includes("whitby")) return { latitude: 43.8971, longitude: -78.9429 };
+  if (text.includes("oshawa")) return { latitude: 43.8975, longitude: -78.8658 };
+  if (text.includes("durham")) return { latitude: 43.9452, longitude: -78.896 };
+  if (text.includes("toronto")) return { latitude: 43.6532, longitude: -79.3832 };
+
+  return { latitude: 43.8975, longitude: -78.8658 };
+}
+
+function normalizeSort(sort?: string) {
+  if (sort === "price-low") return "price-low";
+  if (sort === "price-high") return "price-high";
+  if (sort === "trust-high") return "trust-high";
+  return "newest";
+}
+
+function escapeSearchValue(value: string) {
+  return value.replaceAll("%", "").replaceAll(",", " ").trim();
+}
+
+function isFeaturedActive(featuredUntil?: string | null) {
+  if (!featuredUntil) return true;
+  return new Date(featuredUntil).getTime() > Date.now();
+}
+
+function isBoostActive(boostUntil?: string | null) {
+  if (!boostUntil) return false;
+  return new Date(boostUntil).getTime() > Date.now();
+}
+
+function getOwnerPlan(subscription?: {
+  plan?: string | null;
+  status?: string | null;
+}) {
+  const active =
+    subscription?.status === "active" || subscription?.status === "trialing";
+
+  if (!active) return "free";
+  if (subscription?.plan === "premium") return "premium";
+  if (subscription?.plan === "pro") return "pro";
+
+  return "free";
+}
+
+function compareByMarketplacePriority(a: any, b: any) {
+  const aFeatured = Boolean(a.is_featured) && isFeaturedActive(a.featured_until);
+  const bFeatured = Boolean(b.is_featured) && isFeaturedActive(b.featured_until);
+
+  if (aFeatured !== bFeatured) return bFeatured ? 1 : -1;
+
+  const aBoosted = isBoostActive(a.boost_until);
+  const bBoosted = isBoostActive(b.boost_until);
+
+  if (aBoosted !== bBoosted) return bBoosted ? 1 : -1;
+
+  const aBoostRank = Number(a.boost_rank || 0);
+  const bBoostRank = Number(b.boost_rank || 0);
+
+  if (aBoostRank !== bBoostRank) return bBoostRank - aBoostRank;
+
+  const aTrustTier = TRUST_TIER[a.trust_level || "new"] || 1;
+  const bTrustTier = TRUST_TIER[b.trust_level || "new"] || 1;
+
+  if (aTrustTier !== bTrustTier) return bTrustTier - aTrustTier;
+
+  const aTrustScore = Number(a.trust_score || 0);
+  const bTrustScore = Number(b.trust_score || 0);
+
+  if (aTrustScore !== bTrustScore) return bTrustScore - aTrustScore;
+
+  const aTier = PLAN_TIER[a.owner_plan || "free"] || 1;
+  const bTier = PLAN_TIER[b.owner_plan || "free"] || 1;
+
+  if (aTier !== bTier) return bTier - aTier;
+
+  const aFeaturedRank = Number(a.featured_rank || 0);
+  const bFeaturedRank = Number(b.featured_rank || 0);
+
+  if (aFeaturedRank !== bFeaturedRank) return bFeaturedRank - aFeaturedRank;
+
+  const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+  const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+  return bDate - aDate;
+}
+
+function compareByTrust(a: any, b: any) {
+  const aTrustTier = TRUST_TIER[a.trust_level || "new"] || 1;
+  const bTrustTier = TRUST_TIER[b.trust_level || "new"] || 1;
+
+  if (aTrustTier !== bTrustTier) return bTrustTier - aTrustTier;
+
+  const aTrustScore = Number(a.trust_score || 0);
+  const bTrustScore = Number(b.trust_score || 0);
+
+  if (aTrustScore !== bTrustScore) return bTrustScore - aTrustScore;
+
+  const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+  const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+  return bDate - aDate;
+}
+
+export async function searchListings(params: ListingSearchParams) {
+  const supabase = await createClient();
+
+  const page = Math.max(toNumber(params.page) || 1, 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const q = clean(params.q);
+  const city = clean(params.city);
+  const campus = clean(params.campus);
+  const status = clean(params.status);
+
+  const minPrice = toNumber(params.minPrice);
+  const maxPrice = toNumber(params.maxPrice);
+  const bedrooms = toNumber(params.bedrooms);
+  const bathrooms = toNumber(params.bathrooms);
+  const guests = toNumber(params.guests);
+
+  const verifiedOnly = clean((params as any).verified) === "true";
+  const trustFilter = clean((params as any).trust);
+
+  const sort = normalizeSort(clean(params.sort));
+
+  let query = supabase
+    .from("listings")
+    .select(
+      `
+      id,
+      user_id,
+      title,
+      city,
+      location,
+      campus,
+      price,
+      bedrooms,
+      bathrooms,
+      guests,
+      status,
+      latitude,
+      longitude,
+      created_at,
+      is_featured,
+      featured_until,
+      featured_rank,
+      boost_until,
+      boost_rank,
+      listing_images (
+        image_url,
+        is_cover,
+        sort_order
+      )
+    `,
+      { count: "exact" }
+    )
+    .neq("status", "rented");
+
+  if (q) {
+    const safeQ = escapeSearchValue(q);
+    query = query.or(
+      `title.ilike.%${safeQ}%,city.ilike.%${safeQ}%,location.ilike.%${safeQ}%,campus.ilike.%${safeQ}%`
+    );
+  }
+
+  if (city) {
+    const safeCity = escapeSearchValue(city);
+    query = query.or(`city.ilike.%${safeCity}%,location.ilike.%${safeCity}%`);
+  }
+
+  if (campus) {
+    const safeCampus = escapeSearchValue(campus);
+    query = query.ilike("campus", `%${safeCampus}%`);
+  }
+
+  if (status && status !== "rented") query = query.eq("status", status);
+  if (minPrice !== undefined) query = query.gte("price", minPrice);
+  if (maxPrice !== undefined) query = query.lte("price", maxPrice);
+  if (bedrooms !== undefined) query = query.gte("bedrooms", bedrooms);
+  if (bathrooms !== undefined) query = query.gte("bathrooms", bathrooms);
+  if (guests !== undefined) query = query.gte("guests", guests);
+
+  if (sort === "price-low") {
+    query = query.order("price", { ascending: true, nullsFirst: false });
+  } else if (sort === "price-high") {
+    query = query.order("price", { ascending: false, nullsFirst: false });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("SEARCH LISTINGS ERROR:", error);
+
+    return {
+      listings: [],
+      count: 0,
+      page,
+      pageSize: PAGE_SIZE,
+      hasMore: false,
+    };
+  }
+
+  const rawListings = data || [];
+
+  const ownerIds = Array.from(
+    new Set(rawListings.map((listing: any) => listing.user_id).filter(Boolean))
+  );
+
+  let subscriptionMap = new Map<
+    string,
+    { plan?: string | null; status?: string | null }
+  >();
+
+  let profileMap = new Map<
+    string,
+    {
+      is_verified?: boolean | null;
+      identity_verified?: boolean | null;
+      trust_score?: number | null;
+      trust_level?: string | null;
+    }
+  >();
+
+  if (ownerIds.length > 0) {
+    const { data: subscriptions, error: subError } = await supabaseAdmin
+      .from("owner_subscriptions")
+      .select("user_id, plan, status")
+      .in("user_id", ownerIds);
+
+    if (subError) {
+      console.error("ADMIN OWNER SUBSCRIPTIONS SEARCH ERROR:", subError);
+    }
+
+    subscriptionMap = new Map(
+      (subscriptions || []).map((sub: any) => [sub.user_id, sub])
+    );
+
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, is_verified, identity_verified, trust_score, trust_level")
+      .in("id", ownerIds);
+
+    if (profilesError) {
+      console.error("ADMIN OWNER PROFILES SEARCH ERROR:", profilesError);
+    }
+
+    profileMap = new Map(
+      (profiles || []).map((profile: any) => [profile.id, profile])
+    );
+  }
+
+  const enrichedListings = rawListings.map((listing: any) => {
+    const ownerSubscription = subscriptionMap.get(listing.user_id);
+    const ownerProfile = profileMap.get(listing.user_id);
+    const ownerPlan = getOwnerPlan(ownerSubscription);
+
+    const ownerVerified = Boolean(
+      ownerProfile?.is_verified || ownerProfile?.identity_verified
+    );
+
+    const ownerTrustScore = Number(ownerProfile?.trust_score || 0);
+    const ownerTrustLevel = ownerProfile?.trust_level || "new";
+
+    return {
+      ...listing,
+      owner_plan: ownerPlan,
+      is_verified: ownerVerified,
+      identity_verified: ownerVerified,
+      trust_score: ownerTrustScore,
+      trust_level: ownerTrustLevel,
+      owner_is_verified: ownerVerified,
+      owner_trust_score: ownerTrustScore,
+      owner_trust_level: ownerTrustLevel,
+    };
+  });
+
+  const filteredByTrust = enrichedListings.filter((listing: any) => {
+    if (verifiedOnly && !listing.owner_is_verified) return false;
+    if (trustFilter && listing.owner_trust_level !== trustFilter) return false;
+    return true;
+  });
+
+  const rankedData =
+    sort === "trust-high"
+      ? [...filteredByTrust].sort(compareByTrust)
+      : sort === "newest"
+      ? [...filteredByTrust].sort(compareByMarketplacePriority)
+      : filteredByTrust;
+
+  const totalFilteredCount = rankedData.length;
+  const paginatedData = rankedData.slice(from, to + 1);
+
+  const listings = paginatedData.map((listing: any) => {
+    const images = Array.isArray(listing.listing_images)
+      ? listing.listing_images
+      : [];
+
+    const sortedImages = [...images].sort(
+      (a: any, b: any) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
+    );
+
+    const cover =
+      images.find((img: any) => img.is_cover)?.image_url ||
+      sortedImages[0]?.image_url ||
+      null;
+
+    const displayCity = listing.city || listing.location || "";
+    const fallback = getApproxCoordinates(displayCity, listing.campus);
+
+    const activeFeatured =
+      Boolean(listing.is_featured) && isFeaturedActive(listing.featured_until);
+
+    const activeBoost = isBoostActive(listing.boost_until);
+
+    const ownerPlan = listing.owner_plan || "free";
+    const ownerVerified = Boolean(listing.owner_is_verified);
+    const ownerTrustScore = Number(listing.owner_trust_score || 0);
+    const ownerTrustLevel = listing.owner_trust_level || "new";
+
+    return {
+      id: listing.id,
+      title: listing.title || "Untitled listing",
+      city: displayCity,
+      campus: listing.campus,
+      price: listing.price,
+      status: listing.status || "available",
+      created_at: listing.created_at,
+
+      is_featured: activeFeatured,
+      featured_until: listing.featured_until ?? null,
+      featured_rank: listing.featured_rank ?? 0,
+
+      is_boosted: activeBoost,
+      boost_until: listing.boost_until ?? null,
+      boost_rank: listing.boost_rank ?? 0,
+
+      owner_plan: ownerPlan,
+      owner_badge:
+        ownerPlan === "premium"
+          ? "Premium Owner"
+          : ownerPlan === "pro"
+          ? "Pro Owner"
+          : null,
+
+      is_verified: ownerVerified,
+      identity_verified: ownerVerified,
+      owner_is_verified: ownerVerified,
+      trust_score: ownerTrustScore,
+      trust_level: ownerTrustLevel,
+      owner_trust_score: ownerTrustScore,
+      owner_trust_level: ownerTrustLevel,
+
+      image_url: cover,
+      cover_image_url: cover,
+
+      latitude: listing.latitude ?? fallback.latitude,
+      longitude: listing.longitude ?? fallback.longitude,
+
+      bedrooms: listing.bedrooms ?? null,
+      bathrooms: listing.bathrooms ?? null,
+      guests: listing.guests ?? null,
+
+      is_saved: false,
+    };
+  });
+
+  return {
+    listings,
+    count: totalFilteredCount,
+    page,
+    pageSize: PAGE_SIZE,
+    hasMore: to + 1 < totalFilteredCount,
+  };
+}

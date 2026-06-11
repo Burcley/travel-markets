@@ -29,6 +29,7 @@ export default function ReceivedInquiriesPage() {
 
   useEffect(() => {
     loadInquiries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadInquiries() {
@@ -73,6 +74,26 @@ export default function ReceivedInquiriesPage() {
     setLoading(false);
   }
 
+  async function sendInquiryAcceptedEmail(inquiryId: string) {
+    try {
+      const response = await fetch("/api/emails/inquiry-accepted", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ inquiryId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("INQUIRY ACCEPTED EMAIL API ERROR:", data);
+      }
+    } catch (error) {
+      console.error("INQUIRY ACCEPTED EMAIL FETCH ERROR:", error);
+    }
+  }
+
   async function acceptInquiry(inquiry: Inquiry) {
     try {
       setUpdatingId(inquiry.id);
@@ -99,12 +120,17 @@ export default function ReceivedInquiriesPage() {
 
       await supabase.from("notifications").insert({
         user_id: inquiry.requester_id,
-        title: "Address unlocked",
+        inquiry_id: inquiry.id,
+        title: "Inquiry accepted",
+        body:
+          "Your housing inquiry was accepted. You can now request a viewing.",
         message:
-          "Your inquiry was accepted. You can now view the protected address on the listing page.",
-        type: "address_unlocked",
-        link: `/listings/${inquiry.listing_id}`,
+          "Your housing inquiry was accepted. You can now request a viewing.",
+        type: "inquiry_accepted",
+        link: `/inquiries/sent`,
       });
+
+      await sendInquiryAcceptedEmail(inquiry.id);
 
       setInquiries((current) =>
         current.map((item) =>
@@ -134,10 +160,12 @@ export default function ReceivedInquiriesPage() {
 
       await supabase.from("notifications").insert({
         user_id: inquiry.requester_id,
+        inquiry_id: inquiry.id,
         title: "Inquiry declined",
+        body: "The owner declined your inquiry for this listing.",
         message: "The owner declined your inquiry for this listing.",
         type: "inquiry_declined",
-        link: `/listings/${inquiry.listing_id}`,
+        link: `/inquiries/sent`,
       });
 
       setInquiries((current) =>
@@ -260,7 +288,7 @@ export default function ReceivedInquiriesPage() {
 
                     {inquiry.status === "accepted" && (
                       <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-300">
-                        Accepted — address is unlocked for the student.
+                        Accepted — student can now request a viewing.
                       </div>
                     )}
 
