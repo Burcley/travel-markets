@@ -1,5 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 
+type ListingViewRow = {
+  listing_id: string | null;
+  listings:
+    | {
+        city: string | null;
+        campus: string | null;
+      }
+    | null;
+};
+
 export async function getTrendingCities() {
   const supabase = await createClient();
 
@@ -24,9 +34,11 @@ export async function getTrendingCities() {
     return [];
   }
 
+  const rows = (data ?? []) as unknown as ListingViewRow[];
+
   const grouped = new Map<string, { name: string; count: number }>();
 
-  for (const row of data || []) {
+  for (const row of rows) {
     const city = row.listings?.city?.trim();
 
     if (!city) continue;

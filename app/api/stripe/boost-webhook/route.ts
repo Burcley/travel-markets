@@ -10,35 +10,48 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
-function isStripeCustomer(
-  customer: string | Stripe.Customer | Stripe.DeletedCustomer
-): customer is Stripe.Customer {
-  return typeof customer !== "string" && !customer.deleted;
+function getSubscriptionCustomerUserId(subscription: any) {
+  if (subscription?.metadata?.user_id) {
+    return subscription.metadata.user_id;
+  }
+
+  if (
+    subscription?.customer &&
+    typeof subscription.customer !== "string" &&
+    !subscription.customer.deleted
+  ) {
+    return subscription.customer.metadata?.user_id || null;
+  }
+
+  return null;
 }
 
 async function syncSubscription(subscriptionId: string) {
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+  const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["customer", "items.data.price"],
   });
 
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
-      : subscription.customer.id;
+      : subscription.customer?.id || null;
 
-  const priceId = subscription.items.data[0]?.price?.id || null;
+  const priceId = subscription.items?.data?.[0]?.price?.id || null;
   const plan = planFromPriceId(priceId);
-
-  const userId =
-    subscription.metadata?.user_id ||
-    (isStripeCustomer(subscription.customer)
-      ? subscription.customer.metadata?.user_id
-      : null);
+  const userId = getSubscriptionCustomerUserId(subscription);
 
   if (!userId) {
     console.error("SUBSCRIPTION ERROR: Missing user_id", subscriptionId);
     return;
   }
+
+  const currentPeriodStart = subscription.current_period_start
+    ? new Date(subscription.current_period_start * 1000).toISOString()
+    : null;
+
+  const currentPeriodEnd = subscription.current_period_end
+    ? new Date(subscription.current_period_end * 1000).toISOString()
+    : null;
 
   await supabaseAdmin.from("owner_subscriptions").upsert(
     {
@@ -52,13 +65,9 @@ async function syncSubscription(subscriptionId: string) {
       stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
       stripe_price_id: priceId,
-      current_period_start: subscription.current_period_start
-        ? new Date(subscription.current_period_start * 1000).toISOString()
-        : null,
-      current_period_end: subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000).toISOString()
-        : null,
-      cancel_at_period_end: subscription.cancel_at_period_end,
+      current_period_start: currentPeriodStart,
+      current_period_end: currentPeriodEnd,
+      cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
@@ -135,7 +144,7 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.mode === "subscription" && session.subscription) {
-          await syncSubscription(session.subscription as string);
+          await syncSubscription(String(session.subscription));
         }
 
         if (
@@ -151,13 +160,13 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.resumed": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as any;
         await syncSubscription(subscription.id);
         break;
       }
 
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as any;
 
         await supabaseAdmin
           .from("owner_subscriptions")
@@ -174,7 +183,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as any;
 
         const subscriptionId =
           typeof invoice.subscription === "string"

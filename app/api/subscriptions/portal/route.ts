@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 export async function POST() {
   try {
@@ -12,11 +10,13 @@ export async function POST() {
 
     const {
       data: { user },
-      error: userError,
     } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const { data: subscription } = await supabase
@@ -27,23 +27,34 @@ export async function POST() {
 
     if (!subscription?.stripe_customer_id) {
       return NextResponse.json(
-        { error: "No billing customer found" },
-        { status: 400 }
+        { error: "No Stripe customer found" },
+        { status: 404 }
       );
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "http://localhost:3000";
 
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripe_customer_id,
-      return_url: `${appUrl}/billing`,
+    const portalSession =
+      await stripe.billingPortal.sessions.create({
+        customer: subscription.stripe_customer_id,
+        return_url: `${appUrl}/billing`,
+      });
+
+    return NextResponse.json({
+      url: portalSession.url,
     });
+  } catch (error: any) {
+    console.error("BILLING PORTAL ERROR:", error);
 
-    return NextResponse.json({ url: portalSession.url });
-  } catch (error) {
-    console.error("Billing portal error:", error);
     return NextResponse.json(
-      { error: "Failed to open billing portal" },
+      {
+        error:
+          error?.message ||
+          "Failed to create billing portal session",
+      },
       { status: 500 }
     );
   }

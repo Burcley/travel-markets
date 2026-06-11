@@ -6,28 +6,30 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, MapPin, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+type ListingImage = {
+  image_url: string | null;
+  is_cover: boolean | null;
+  sort_order: number | null;
+};
+
+type RecentlyViewedListing = {
+  id: string;
+  title: string | null;
+  city: string | null;
+  campus: string | null;
+  price: number | null;
+  status: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  guests: number | null;
+  listing_images: ListingImage[] | null;
+};
+
 type RecentlyViewedRow = {
   id: string;
   listing_id: string;
   viewed_at: string;
-  listings: {
-    id: string;
-    title: string | null;
-    city: string | null;
-    campus: string | null;
-    price: number | null;
-    status: string | null;
-    bedrooms: number | null;
-    bathrooms: number | null;
-    guests: number | null;
-    listing_images:
-      | {
-          image_url: string | null;
-          is_cover: boolean | null;
-          sort_order: number | null;
-        }[]
-      | null;
-  } | null;
+  listings: RecentlyViewedListing | null;
 };
 
 export default function RecentlyViewedPage() {
@@ -74,7 +76,7 @@ export default function RecentlyViewedPage() {
 
       if (error) throw error;
 
-      setItems((data || []) as RecentlyViewedRow[]);
+      setItems((data ?? []) as unknown as RecentlyViewedRow[]);
     } catch (error) {
       console.error("LOAD RECENTLY VIEWED ERROR:", error);
     } finally {
@@ -83,7 +85,10 @@ export default function RecentlyViewedPage() {
   }
 
   async function removeItem(id: string) {
-    const { error } = await supabase.from("recently_viewed").delete().eq("id", id);
+    const { error } = await supabase
+      .from("recently_viewed")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       alert("Could not remove item.");
@@ -94,7 +99,7 @@ export default function RecentlyViewedPage() {
   }
 
   function getCover(item: RecentlyViewedRow) {
-    const images = item.listings?.listing_images || [];
+    const images = item.listings?.listing_images ?? [];
 
     const sorted = [...images].sort(
       (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
@@ -136,7 +141,10 @@ export default function RecentlyViewedPage() {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center">
-            <h2 className="text-2xl font-semibold">No recently viewed listings yet</h2>
+            <h2 className="text-2xl font-semibold">
+              No recently viewed listings yet
+            </h2>
+
             <p className="mt-3 text-sm text-white/50">
               Open a listing and it will appear here.
             </p>
@@ -177,6 +185,7 @@ export default function RecentlyViewedPage() {
                     )}
 
                     <button
+                      type="button"
                       onClick={() => removeItem(item.id)}
                       className="absolute right-3 top-3 rounded-full bg-black/60 p-2 text-white backdrop-blur hover:bg-red-500/80"
                     >
@@ -195,6 +204,7 @@ export default function RecentlyViewedPage() {
 
                     <div className="mt-2 flex items-center gap-2 text-sm text-white/50">
                       <MapPin size={15} />
+
                       <span className="line-clamp-1">
                         {listing.city || "City hidden"}
                         {listing.campus ? ` • ${listing.campus}` : ""}
@@ -202,7 +212,8 @@ export default function RecentlyViewedPage() {
                     </div>
 
                     <div className="mt-4 text-xs text-white/40">
-                      Viewed {new Date(item.viewed_at).toLocaleDateString("en-CA")}
+                      Viewed{" "}
+                      {new Date(item.viewed_at).toLocaleDateString("en-CA")}
                     </div>
                   </Link>
                 </div>

@@ -3,9 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { OWNER_PLANS, OwnerPlan } from "@/lib/subscriptions/plans";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-04-30.basil",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,17 +34,15 @@ export async function POST(request: NextRequest) {
 
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json(
-        { error: "Missing STRIPE_SECRET_KEY in .env.local" },
+        { error: "Missing STRIPE_SECRET_KEY environment variable" },
         { status: 500 }
       );
     }
 
-    if (!process.env.NEXT_PUBLIC_APP_URL) {
-      return NextResponse.json(
-        { error: "Missing NEXT_PUBLIC_APP_URL in .env.local" },
-        { status: 500 }
-      );
-    }
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "http://localhost:3000";
 
     const supabase = await createClient();
 
@@ -97,6 +93,7 @@ export async function POST(request: NextRequest) {
         .upsert(
           {
             user_id: user.id,
+            owner_id: user.id,
             plan: existingSub?.plan || "free",
             status: existingSub?.status || "inactive",
             stripe_customer_id: customerId,
@@ -118,8 +115,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -133,11 +128,13 @@ export async function POST(request: NextRequest) {
       cancel_url: `${appUrl}/billing?canceled=true`,
       metadata: {
         user_id: user.id,
+        owner_id: user.id,
         plan,
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
+          owner_id: user.id,
           plan,
         },
       },

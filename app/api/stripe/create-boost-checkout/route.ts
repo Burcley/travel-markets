@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-04-30.basil",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,15 +10,16 @@ export async function POST(request: NextRequest) {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_")) {
+    if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json(
-        { error: "Invalid STRIPE_SECRET_KEY in .env.local" },
+        { error: "Missing STRIPE_SECRET_KEY environment variable" },
         { status: 500 }
       );
     }
@@ -35,23 +34,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: listing, error } = await supabase
+    const { data: listing, error: listingError } = await supabase
       .from("listings")
-      .select("id, user_id, title")
+      .select("id, user_id, owner_id, title")
       .eq("id", listingId)
       .maybeSingle();
 
-    if (error) throw error;
+    if (listingError) {
+      return NextResponse.json(
+        { error: listingError.message },
+        { status: 500 }
+      );
+    }
 
     if (!listing) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    if (listing.user_id !== user.id) {
+    const listingOwnerId = listing.owner_id || listing.user_id;
+
+    if (listingOwnerId !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "http://localhost:3000";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -72,8 +81,10 @@ export async function POST(request: NextRequest) {
         },
       ],
       metadata: {
+        type: "listing_boost",
         listing_id: listing.id,
         user_id: user.id,
+        owner_id: user.id,
         boost_days: "7",
       },
       success_url: `${siteUrl}/listings/${listing.id}/boost?success=1`,
