@@ -53,10 +53,9 @@ async function syncSubscription(subscriptionId: string) {
     ? new Date(subscription.current_period_end * 1000).toISOString()
     : null;
 
-  await supabaseAdmin.from("owner_subscriptions").upsert(
+  const { error } = await supabaseAdmin.from("owner_subscriptions").upsert(
     {
       user_id: userId,
-      owner_id: userId,
       plan:
         subscription.status === "active" || subscription.status === "trialing"
           ? plan
@@ -72,6 +71,11 @@ async function syncSubscription(subscriptionId: string) {
     },
     { onConflict: "user_id" }
   );
+
+  if (error) {
+    console.error("OWNER SUBSCRIPTION WEBHOOK UPSERT ERROR:", error);
+    throw error;
+  }
 }
 
 async function activateListingBoost(session: Stripe.Checkout.Session) {
@@ -84,10 +88,15 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
     return;
   }
 
+  if (![1, 7, 30].includes(boostDays)) {
+    console.error("BOOST ERROR: Invalid boost_days metadata", boostDays);
+    return;
+  }
+
   const boostUntil = new Date();
   boostUntil.setDate(boostUntil.getDate() + boostDays);
 
-  const boostRank = boostDays === 30 ? 300 : boostDays === 14 ? 200 : 100;
+  const boostRank = boostDays === 30 ? 300 : boostDays === 7 ? 200 : 100;
 
   const { error } = await supabaseAdmin
     .from("listings")
@@ -104,13 +113,6 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
     console.error("SUPABASE BOOST UPDATE ERROR:", error);
     throw error;
   }
-
-  console.log("BOOST ACTIVATED:", {
-    listingId,
-    userId,
-    boostUntil: boostUntil.toISOString(),
-    boostRank,
-  });
 }
 
 export async function POST(request: NextRequest) {

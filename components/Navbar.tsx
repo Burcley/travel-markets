@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/logo";
@@ -23,27 +23,84 @@ type Profile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  role?: string | null;
 };
 
-const navLinks = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/inquiries", label: "Inquiries" },
-  { href: "/my-listings", label: "My Listings" },
+type NavLink = {
+  href: string;
+  label: string;
+};
+
+const studentNavLinks: NavLink[] = [
+  { href: "/", label: "Explore" },
   { href: "/saved-listings", label: "Saved" },
   { href: "/saved-searches", label: "Searches" },
   { href: "/recently-viewed", label: "Viewed" },
+  { href: "/inquiries/sent", label: "Inquiries" },
   { href: "/messages", label: "Messages" },
   { href: "/viewings", label: "Viewings" },
 ];
 
-const accountLinks = [
-  { href: "/profile", label: "Profile" },
+const hostNavLinks: NavLink[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/my-listings", label: "My Listings" },
+  { href: "/inquiries/received", label: "Inquiries" },
+  { href: "/messages", label: "Messages" },
+  { href: "/viewings", label: "Viewings" },
+  { href: "/billing", label: "Billing" },
+];
+
+const adminNavLinks: NavLink[] = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/admin", label: "Admin" },
+  { href: "/my-listings", label: "My Listings" },
   { href: "/inquiries", label: "Inquiries" },
+  { href: "/messages", label: "Messages" },
+  { href: "/viewings", label: "Viewings" },
+];
+
+const studentAccountLinks: NavLink[] = [
+  { href: "/profile", label: "Profile" },
+  { href: "/saved-listings", label: "Saved Listings" },
   { href: "/saved-searches", label: "Saved Searches" },
   { href: "/recently-viewed", label: "Recently Viewed" },
+  { href: "/inquiries/sent", label: "Sent Inquiries" },
   { href: "/verify-identity", label: "Verify Identity" },
 ];
+
+const hostAccountLinks: NavLink[] = [
+  { href: "/profile", label: "Profile" },
+  { href: "/dashboard", label: "Host Dashboard" },
+  { href: "/my-listings", label: "My Listings" },
+  { href: "/inquiries/received", label: "Received Inquiries" },
+  { href: "/billing", label: "Billing" },
+  { href: "/verify-identity", label: "Verify Identity" },
+];
+
+const adminAccountLinks: NavLink[] = [
+  { href: "/profile", label: "Profile" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/admin", label: "Admin Panel" },
+  { href: "/my-listings", label: "My Listings" },
+  { href: "/billing", label: "Billing" },
+  { href: "/verify-identity", label: "Verify Identity" },
+];
+
+function normalizeRole(role?: string | null) {
+  const value = (role || "").toLowerCase();
+
+  if (value === "admin") return "admin";
+  if (
+    value === "owner" ||
+    value === "host" ||
+    value === "landlord" ||
+    value === "property_owner"
+  ) {
+    return "host";
+  }
+
+  return "student";
+}
 
 export default function Navbar() {
   const router = useRouter();
@@ -65,9 +122,22 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
 
   const isSignedIn = Boolean(userId);
+  const role = normalizeRole(profile?.role);
+
+  const navLinks = useMemo(() => {
+    if (!isSignedIn) return [];
+    if (role === "admin") return adminNavLinks;
+    if (role === "host") return hostNavLinks;
+    return studentNavLinks;
+  }, [isSignedIn, role]);
+
+  const accountLinks = useMemo(() => {
+    if (role === "admin") return adminAccountLinks;
+    if (role === "host") return hostAccountLinks;
+    return studentAccountLinks;
+  }, [role]);
 
   const displayName =
     profile?.full_name?.trim() || userEmail?.split("@")[0] || "User";
@@ -75,6 +145,7 @@ export default function Navbar() {
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   function isActive(href: string) {
+    if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -82,8 +153,6 @@ export default function Navbar() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
-    setAuthChecked(true);
 
     if (!user) {
       setUserId("");
@@ -100,7 +169,7 @@ export default function Navbar() {
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, avatar_url, role")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -532,7 +601,13 @@ export default function Navbar() {
                 </p>
 
                 <p className="truncate text-xs text-zinc-500">
-                  {isSignedIn ? userEmail : "Log in or create account"}
+                  {isSignedIn
+                    ? role === "host"
+                      ? "Host account"
+                      : role === "admin"
+                      ? "Admin account"
+                      : userEmail
+                    : "Log in or create account"}
                 </p>
               </div>
 
@@ -565,6 +640,14 @@ export default function Navbar() {
                           <p className="mt-1 truncate text-sm text-zinc-500">
                             {userEmail}
                           </p>
+
+                          <p className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold capitalize text-zinc-300">
+                            {role === "host"
+                              ? "Host"
+                              : role === "admin"
+                              ? "Admin"
+                              : "Student"}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -584,6 +667,16 @@ export default function Navbar() {
                           {link.label}
                         </Link>
                       ))}
+
+                      {role !== "host" && role !== "admin" && (
+                        <Link
+                          href="/post"
+                          onClick={() => setAccountOpen(false)}
+                          className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20"
+                        >
+                          Become a Host
+                        </Link>
+                      )}
 
                       <button
                         type="button"
@@ -642,7 +735,7 @@ export default function Navbar() {
             href={isSignedIn ? "/post" : "/auth"}
             className="hidden h-12 items-center rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg transition hover:bg-zinc-200 md:flex"
           >
-            Post Listing
+            {role === "host" || role === "admin" ? "Post Listing" : "Become a Host"}
           </Link>
 
           <button
@@ -664,7 +757,13 @@ export default function Navbar() {
               </p>
 
               <p className="mt-1 truncate text-xs text-zinc-500">
-                {isSignedIn ? userEmail : "Log in or create your account"}
+                {isSignedIn
+                  ? role === "host"
+                    ? "Host account"
+                    : role === "admin"
+                    ? "Admin account"
+                    : userEmail
+                  : "Log in or create your account"}
               </p>
             </div>
 
@@ -719,7 +818,9 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                     className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
                   >
-                    Post Listing
+                    {role === "host" || role === "admin"
+                      ? "Post Listing"
+                      : "Become a Host"}
                   </Link>
 
                   <button
@@ -754,7 +855,7 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                     className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white hover:bg-white/10"
                   >
-                    Post Listing
+                    Become a Host
                   </Link>
                 </>
               )}

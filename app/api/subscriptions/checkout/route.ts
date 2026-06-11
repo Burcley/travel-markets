@@ -16,6 +16,13 @@ export async function POST(request: NextRequest) {
 
     const selectedPlan = OWNER_PLANS[plan];
 
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "Missing STRIPE_SECRET_KEY environment variable" },
+        { status: 500 }
+      );
+    }
+
     if (!selectedPlan?.priceId) {
       return NextResponse.json(
         { error: `Missing Stripe price ID for ${plan}` },
@@ -29,13 +36,6 @@ export async function POST(request: NextRequest) {
           error: `Invalid Stripe Price ID for ${plan}. It must start with price_, not prod_.`,
         },
         { status: 400 }
-      );
-    }
-
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json(
-        { error: "Missing STRIPE_SECRET_KEY environment variable" },
-        { status: 500 }
       );
     }
 
@@ -93,7 +93,6 @@ export async function POST(request: NextRequest) {
         .upsert(
           {
             user_id: user.id,
-            owner_id: user.id,
             plan: existingSub?.plan || "free",
             status: existingSub?.status || "inactive",
             stripe_customer_id: customerId,
@@ -108,7 +107,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "Could not create owner subscription record. Check Supabase RLS/table.",
+              upsertError.message ||
+              "Could not create owner subscription record.",
           },
           { status: 500 }
         );
@@ -128,13 +128,11 @@ export async function POST(request: NextRequest) {
       cancel_url: `${appUrl}/billing?canceled=true`,
       metadata: {
         user_id: user.id,
-        owner_id: user.id,
         plan,
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
-          owner_id: user.id,
           plan,
         },
       },
