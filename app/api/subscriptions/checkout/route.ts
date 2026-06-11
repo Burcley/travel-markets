@@ -33,11 +33,18 @@ function getAppUrl(request: NextRequest) {
     return `https://${host}`;
   }
 
-  return "http://localhost:3000";
+  return "https://travel-markets.vercel.app";
 }
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "Missing STRIPE_SECRET_KEY environment variable" },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json().catch(() => null);
     const plan = body?.plan as OwnerPlan | undefined;
 
@@ -46,13 +53,6 @@ export async function POST(request: NextRequest) {
     }
 
     const selectedPlan = OWNER_PLANS[plan];
-
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json(
-        { error: "Missing STRIPE_SECRET_KEY environment variable" },
-        { status: 500 }
-      );
-    }
 
     if (!selectedPlan?.priceId) {
       return NextResponse.json(
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${appUrl}/billing?success=true`,
+      success_url: `${appUrl}/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/billing?canceled=true`,
       metadata: {
         user_id: user.id,
