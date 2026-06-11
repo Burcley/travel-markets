@@ -3,9 +3,7 @@ import Stripe from "stripe";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { planFromPriceId } from "@/lib/subscriptions/plans";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-04-30.basil",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -62,7 +60,7 @@ async function syncSubscription(subscriptionId: string) {
 
 async function activateListingBoost(session: Stripe.Checkout.Session) {
   const listingId = session.metadata?.listing_id;
-  const userId = session.metadata?.user_id;
+  const userId = session.metadata?.user_id || session.metadata?.owner_id;
   const boostDays = Number(session.metadata?.boost_days || 7);
 
   if (!listingId || !userId) {
@@ -73,21 +71,18 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
   const boostUntil = new Date();
   boostUntil.setDate(boostUntil.getDate() + boostDays);
 
-  const boostRank =
-    boostDays === 30
-      ? 300
-      : boostDays === 7
-      ? 200
-      : 100;
+  const boostRank = boostDays === 30 ? 300 : boostDays === 14 ? 200 : 100;
 
   const { error } = await supabaseAdmin
     .from("listings")
     .update({
       boost_until: boostUntil.toISOString(),
       boost_rank: boostRank,
+      is_featured: true,
+      updated_at: new Date().toISOString(),
     })
     .eq("id", listingId)
-    .eq("user_id", userId);
+    .or(`user_id.eq.${userId},owner_id.eq.${userId}`);
 
   if (error) {
     console.error("SUPABASE BOOST UPDATE ERROR:", error);
