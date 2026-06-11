@@ -6,7 +6,6 @@ export default function Footer() {
       <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
         <div>
           <div className="mb-3 text-xl font-black">Travel Markets</div>
-
           <p className="text-sm leading-6 text-zinc-400">
             A safer marketplace for student housing, travel stays, and trusted
             owner connections.
@@ -28,7 +27,7 @@ export default function Footer() {
           links={[
             ["Profile", "/profile"],
             ["Messages", "/messages"],
-            ["Inquiries", "/inquiries/sent"],
+            ["Inquiries", "/inquiries"],
             ["Viewings", "/viewings"],
           ]}
         />
@@ -37,9 +36,9 @@ export default function Footer() {
           title="Trust"
           links={[
             ["Admin", "/admin"],
-            ["Reports", "/admin/reports"],
-            ["Safety", "/"],
-            ["Support", "/"],
+            ["Reports", "/reports"],
+            ["Safety", "/safety"],
+            ["Support", "/contact"],
           ]}
         />
       </div>
@@ -68,7 +67,7 @@ function FooterGroup({
       <div className="space-y-2">
         {links.map(([label, href]) => (
           <Link
-            key={label}
+            key={`${label}-${href}`}
             href={href}
             className="block text-sm text-zinc-500 hover:text-white"
           >

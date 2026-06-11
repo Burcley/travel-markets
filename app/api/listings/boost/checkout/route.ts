@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const { data: listing, error: listingError } = await supabase
       .from("listings")
-      .select("id, title, user_id, owner_id")
+      .select("id, title, user_id")
       .eq("id", listingId)
       .maybeSingle();
 
@@ -93,9 +93,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const listingOwnerId = listing.owner_id || listing.user_id;
-
-    if (listingOwnerId !== user.id) {
+    if (listing.user_id !== user.id) {
       return NextResponse.json(
         { error: "You can only boost your own listing." },
         { status: 403 }
@@ -130,7 +128,6 @@ export async function POST(request: NextRequest) {
         type: "listing_boost",
         listing_id: listing.id,
         user_id: user.id,
-        owner_id: user.id,
         boost_days: String(boost.days),
         boost_rank: String(boost.rank),
       },

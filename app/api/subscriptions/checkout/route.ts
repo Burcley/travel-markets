@@ -5,6 +5,37 @@ import { OWNER_PLANS, OwnerPlan } from "@/lib/subscriptions/plans";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
+function getAppUrl(request: NextRequest) {
+  const envUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.VERCEL_URL;
+
+  if (envUrl) {
+    const cleanUrl = envUrl.startsWith("http")
+      ? envUrl
+      : `https://${envUrl}`;
+
+    if (!cleanUrl.includes("localhost")) {
+      return cleanUrl.replace(/\/$/, "");
+    }
+  }
+
+  const origin = request.headers.get("origin");
+
+  if (origin && !origin.includes("localhost")) {
+    return origin.replace(/\/$/, "");
+  }
+
+  const host = request.headers.get("host");
+
+  if (host && !host.includes("localhost")) {
+    return `https://${host}`;
+  }
+
+  return "http://localhost:3000";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null);
@@ -39,11 +70,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "http://localhost:3000";
-
+    const appUrl = getAppUrl(request);
     const supabase = await createClient();
 
     const {
