@@ -2,78 +2,121 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-04-30.basil",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
-const BOOST_OPTIONS: Record<string, { days: number; amount: number; name: string }> = {
-  "1": { days: 1, amount: 499, name: "1 Day Boost" },
-  "7": { days: 7, amount: 1999, name: "7 Day Boost" },
-  "30": { days: 30, amount: 4999, name: "30 Day Boost" },
+const BOOST_OPTIONS: Record<
+  string,
+  { days: number; amount: number; name: string }
+> = {
+  "7": {
+    days: 7,
+    amount: 999,
+    name: "7-Day Featured Boost",
+  },
+  "14": {
+    days: 14,
+    amount: 1499,
+    name: "14-Day Featured Boost",
+  },
+  "30": {
+    days: 30,
+    amount: 2499,
+    name: "30-Day Featured Boost",
+  },
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { listingId, days } = await request.json();
-
-    const option = BOOST_OPTIONS[String(days)];
-
-    if (!listingId || !option) {
-      return NextResponse.json({ error: "Invalid boost option" }, { status: 400 });
-    }
-
     const supabase = await createClient();
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: listing } = await supabase
-      .from("listings")
-      .select("id, title, user_id")
-      .eq("id", listingId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const body = await request.json();
 
-    if (!listing) {
-      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    const listingId = body.listingId as string | undefined;
+    const boostDays = String(body.days || "7");
+
+    if (!listingId) {
+      return NextResponse.json(
+        { error: "Missing listingId" },
+        { status: 400 }
+      );
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const boost = BOOST_OPTIONS[boostDays];
+
+    if (!boost) {
+      return NextResponse.json(
+        { error: "Invalid boost option" },
+        { status: 400 }
+      );
+    }
+
+    const { data: listing, error: listingError } = await supabase
+      .from("listings")
+      .select("id, title, owner_id")
+      .eq("id", listingId)
+      .single();
+
+    if (listingError || !listing) {
+      return NextResponse.json(
+        { error: "Listing not found" },
+        { status: 404 }
+      );
+    }
+
+    if (listing.owner_id !== user.id) {
+      return NextResponse.json(
+        { error: "You can only boost your own listing" },
+        { status: 403 }
+      );
+    }
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "http://localhost:3000";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      customer_email: user.email || undefined,
       line_items: [
         {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `Travel Markets ${option.name}`,
-              description: `Boost "${listing.title}" for ${option.days} day(s).`,
-            },
-            unit_amount: option.amount,
-          },
           quantity: 1,
+          price_data: {
+            currency: "cad",
+            unit_amount: boost.amount,
+            product_data: {
+              name: boost.name,
+              description: `Feature "${listing.title || "Listing"}" for ${
+                boost.days
+              } days on Travel Markets.`,
+            },
+          },
         },
       ],
-      success_url: `${appUrl}/my-listings?boost=success`,
-      cancel_url: `${appUrl}/my-listings?boost=canceled`,
       metadata: {
         type: "listing_boost",
         listing_id: listing.id,
-        user_id: user.id,
-        boost_days: String(option.days),
+        owner_id: user.id,
+        boost_days: String(boost.days),
       },
+      success_url: `${appUrl}/my-listings?boost=success`,
+      cancel_url: `${appUrl}/listings/${listing.id}?boost=cancelled`,
     });
 
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
     console.error("BOOST CHECKOUT ERROR:", error);
+
     return NextResponse.json(
       { error: error?.message || "Failed to create boost checkout" },
       { status: 500 }
