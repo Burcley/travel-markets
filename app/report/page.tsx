@@ -11,8 +11,8 @@ export default function ReportsPage() {
         <h1 className="text-4xl font-black">Report a problem</h1>
 
         <p className="mt-4 max-w-2xl text-zinc-400">
-          Use this page to report unsafe listings, fake housing posts, suspicious
-          users, scams, harassment, or platform abuse.
+          Report unsafe listings, fake housing posts, suspicious users, scams,
+          harassment, or platform abuse.
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
