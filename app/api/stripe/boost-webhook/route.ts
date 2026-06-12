@@ -11,7 +11,9 @@ const supabaseAdmin = createAdminClient(
 );
 
 function getUserIdFromSubscription(subscription: any) {
-  if (subscription?.metadata?.user_id) return subscription.metadata.user_id;
+  if (subscription?.metadata?.user_id) {
+    return subscription.metadata.user_id;
+  }
 
   if (
     subscription?.customer &&
@@ -61,12 +63,13 @@ async function syncSubscription(subscriptionId: string) {
         ? new Date(subscription.current_period_end * 1000).toISOString()
         : null,
       cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
-      updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
   );
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 }
 
 async function activateListingBoost(session: Stripe.Checkout.Session) {
@@ -78,13 +81,19 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
     throw new Error("Missing listing_id or user_id in boost metadata.");
   }
 
+  if (![1, 7, 30].includes(boostDays)) {
+    throw new Error("Invalid boost_days in boost metadata.");
+  }
+
   const { data: listing, error: listingReadError } = await supabaseAdmin
     .from("listings")
-    .select("*")
+    .select("id, user_id")
     .eq("id", listingId)
     .maybeSingle();
 
-  if (listingReadError) throw listingReadError;
+  if (listingReadError) {
+    throw listingReadError;
+  }
 
   if (!listing) {
     throw new Error(`Listing not found for boost: ${listingId}`);
@@ -99,25 +108,20 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
 
   const boostRank = boostDays === 30 ? 300 : boostDays === 7 ? 200 : 100;
 
-  const payload: Record<string, any> = {
-    is_featured: true,
-    updated_at: new Date().toISOString(),
-  };
-
-  if ("boost_until" in listing) payload.boost_until = boostUntil.toISOString();
-  if ("featured_until" in listing) payload.featured_until = boostUntil.toISOString();
-  if ("boost_rank" in listing) payload.boost_rank = boostRank;
-  if ("featured_rank" in listing) payload.featured_rank = boostRank;
-  if ("boosted_at" in listing) payload.boosted_at = new Date().toISOString();
-
   const { data: updatedRows, error: updateError } = await supabaseAdmin
     .from("listings")
-    .update(payload)
+    .update({
+      boost_until: boostUntil.toISOString(),
+      boost_rank: boostRank,
+      is_featured: true,
+    })
     .eq("id", listingId)
     .eq("user_id", userId)
-    .select("id, is_featured");
+    .select("id, is_featured, boost_until, boost_rank");
 
-  if (updateError) throw updateError;
+  if (updateError) {
+    throw updateError;
+  }
 
   if (!updatedRows || updatedRows.length === 0) {
     throw new Error("Boost payment succeeded but no listing row was updated.");
@@ -130,7 +134,10 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("stripe-signature");
 
     if (!signature) {
-      return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing Stripe signature" },
+        { status: 400 }
+      );
     }
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
@@ -153,7 +160,10 @@ export async function POST(request: NextRequest) {
         await syncSubscription(String(session.subscription));
       }
 
-      if (session.mode === "payment" && session.metadata?.type === "listing_boost") {
+      if (
+        session.mode === "payment" &&
+        session.metadata?.type === "listing_boost"
+      ) {
         await activateListingBoost(session);
       }
     }
@@ -177,11 +187,12 @@ export async function POST(request: NextRequest) {
           status: "canceled",
           stripe_price_id: null,
           cancel_at_period_end: false,
-          updated_at: new Date().toISOString(),
         })
         .eq("stripe_subscription_id", subscription.id);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
     }
 
     if (event.type === "invoice.payment_failed") {
@@ -197,11 +208,12 @@ export async function POST(request: NextRequest) {
           .from("owner_subscriptions")
           .update({
             status: "past_due",
-            updated_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", subscriptionId);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
       }
     }
 
