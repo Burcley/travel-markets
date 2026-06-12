@@ -10,10 +10,8 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
-function getSubscriptionCustomerUserId(subscription: any) {
-  if (subscription?.metadata?.user_id) {
-    return subscription.metadata.user_id;
-  }
+function getUserIdFromSubscription(subscription: any) {
+  if (subscription?.metadata?.user_id) return subscription.metadata.user_id;
 
   if (
     subscription?.customer &&
@@ -31,6 +29,12 @@ async function syncSubscription(subscriptionId: string) {
     expand: ["customer", "items.data.price"],
   });
 
+  const userId = getUserIdFromSubscription(subscription);
+
+  if (!userId) {
+    throw new Error("Missing user_id on Stripe subscription metadata.");
+  }
+
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
@@ -38,12 +42,6 @@ async function syncSubscription(subscriptionId: string) {
 
   const priceId = subscription.items?.data?.[0]?.price?.id || null;
   const plan = planFromPriceId(priceId);
-  const userId = getSubscriptionCustomerUserId(subscription);
-
-  if (!userId) {
-    console.error("SUBSCRIPTION ERROR: Missing user_id", subscriptionId);
-    return;
-  }
 
   const currentPeriodStart = subscription.current_period_start
     ? new Date(subscription.current_period_start * 1000).toISOString()
@@ -53,13 +51,13 @@ async function syncSubscription(subscriptionId: string) {
     ? new Date(subscription.current_period_end * 1000).toISOString()
     : null;
 
+  const active =
+    subscription.status === "active" || subscription.status === "trialing";
+
   const { error } = await supabaseAdmin.from("owner_subscriptions").upsert(
     {
       user_id: userId,
-      plan:
-        subscription.status === "active" || subscription.status === "trialing"
-          ? plan
-          : "free",
+      plan: active ? plan : "free",
       status: subscription.status,
       stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
@@ -73,24 +71,21 @@ async function syncSubscription(subscriptionId: string) {
   );
 
   if (error) {
-    console.error("OWNER SUBSCRIPTION WEBHOOK UPSERT ERROR:", error);
     throw error;
   }
 }
 
 async function activateListingBoost(session: Stripe.Checkout.Session) {
   const listingId = session.metadata?.listing_id;
-  const userId = session.metadata?.user_id || session.metadata?.owner_id;
+  const userId = session.metadata?.user_id;
   const boostDays = Number(session.metadata?.boost_days || 7);
 
   if (!listingId || !userId) {
-    console.error("BOOST ERROR: Missing listing_id or user_id metadata");
-    return;
+    throw new Error("Missing listing_id or user_id in boost metadata.");
   }
 
   if (![1, 7, 30].includes(boostDays)) {
-    console.error("BOOST ERROR: Invalid boost_days metadata", boostDays);
-    return;
+    throw new Error("Invalid boost_days in boost metadata.");
   }
 
   const boostUntil = new Date();
@@ -107,114 +102,79 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", listingId)
-    .or(`user_id.eq.${userId},owner_id.eq.${userId}`);
+    .eq("user_id", userId);
 
   if (error) {
-    console.error("SUPABASE BOOST UPDATE ERROR:", error);
     throw error;
   }
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.text();
-  const signature = request.headers.get("stripe-signature");
-
-  if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-  }
-
-  let event: Stripe.Event;
-
   try {
-    event = stripe.webhooks.constructEvent(
+    const body = await request.text();
+    const signature = request.headers.get("stripe-signature");
+
+    if (!signature) {
+      return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
+    }
+
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      return NextResponse.json(
+        { error: "Missing STRIPE_WEBHOOK_SECRET" },
+        { status: 500 }
+      );
+    }
+
+    const event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET || ""
+      process.env.STRIPE_WEBHOOK_SECRET
     );
-  } catch (error: any) {
-    console.error("STRIPE WEBHOOK SIGNATURE ERROR:", error.message);
 
-    return NextResponse.json(
-      { error: "Invalid webhook signature" },
-      { status: 400 }
-    );
-  }
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
 
-  try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-
-        if (session.mode === "subscription" && session.subscription) {
-          await syncSubscription(String(session.subscription));
-        }
-
-        if (
-          session.mode === "payment" &&
-          session.metadata?.type === "listing_boost"
-        ) {
-          await activateListingBoost(session);
-        }
-
-        break;
+      if (session.mode === "subscription" && session.subscription) {
+        await syncSubscription(String(session.subscription));
       }
 
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.resumed": {
-        const subscription = event.data.object as any;
-        await syncSubscription(subscription.id);
-        break;
+      if (session.mode === "payment" && session.metadata?.type === "listing_boost") {
+        await activateListingBoost(session);
       }
+    }
 
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as any;
+    if (
+      event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.resumed"
+    ) {
+      const subscription = event.data.object as any;
+      await syncSubscription(subscription.id);
+    }
 
-        await supabaseAdmin
-          .from("owner_subscriptions")
-          .update({
-            plan: "free",
-            status: "canceled",
-            stripe_price_id: null,
-            cancel_at_period_end: false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("stripe_subscription_id", subscription.id);
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as any;
 
-        break;
-      }
+      const { error } = await supabaseAdmin
+        .from("owner_subscriptions")
+        .update({
+          plan: "free",
+          status: "canceled",
+          stripe_price_id: null,
+          cancel_at_period_end: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_subscription_id", subscription.id);
 
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as any;
-
-        const subscriptionId =
-          typeof invoice.subscription === "string"
-            ? invoice.subscription
-            : invoice.subscription?.id;
-
-        if (subscriptionId) {
-          await supabaseAdmin
-            .from("owner_subscriptions")
-            .update({
-              status: "past_due",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("stripe_subscription_id", subscriptionId);
-        }
-
-        break;
-      }
-
-      default:
-        break;
+      if (error) throw error;
     }
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error("STRIPE WEBHOOK PROCESSING ERROR:", error);
+    console.error("STRIPE WEBHOOK ERROR:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Webhook processing failed" },
+      { error: error?.message || "Webhook failed" },
       { status: 500 }
     );
   }

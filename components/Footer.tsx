@@ -69,7 +69,7 @@ function FooterGroup({
           <Link
             key={`${label}-${href}`}
             href={href}
-            className="block text-sm text-zinc-500 hover:text-white"
+            className="block text-sm text-zinc-500 transition hover:text-white"
           >
             {label}
           </Link>
