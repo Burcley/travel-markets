@@ -43,14 +43,6 @@ async function syncSubscription(subscriptionId: string) {
   const priceId = subscription.items?.data?.[0]?.price?.id || null;
   const plan = planFromPriceId(priceId);
 
-  const currentPeriodStart = subscription.current_period_start
-    ? new Date(subscription.current_period_start * 1000).toISOString()
-    : null;
-
-  const currentPeriodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000).toISOString()
-    : null;
-
   const active =
     subscription.status === "active" || subscription.status === "trialing";
 
@@ -62,17 +54,19 @@ async function syncSubscription(subscriptionId: string) {
       stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
       stripe_price_id: priceId,
-      current_period_start: currentPeriodStart,
-      current_period_end: currentPeriodEnd,
+      current_period_start: subscription.current_period_start
+        ? new Date(subscription.current_period_start * 1000).toISOString()
+        : null,
+      current_period_end: subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000).toISOString()
+        : null,
       cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
   );
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 }
 
 async function activateListingBoost(session: Stripe.Checkout.Session) {
@@ -84,8 +78,20 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
     throw new Error("Missing listing_id or user_id in boost metadata.");
   }
 
-  if (![1, 7, 30].includes(boostDays)) {
-    throw new Error("Invalid boost_days in boost metadata.");
+  const { data: listing, error: listingReadError } = await supabaseAdmin
+    .from("listings")
+    .select("*")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingReadError) throw listingReadError;
+
+  if (!listing) {
+    throw new Error(`Listing not found for boost: ${listingId}`);
+  }
+
+  if (listing.user_id !== userId) {
+    throw new Error("Boost user_id does not match listing.user_id.");
   }
 
   const boostUntil = new Date();
@@ -93,27 +99,28 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
 
   const boostRank = boostDays === 30 ? 300 : boostDays === 7 ? 200 : 100;
 
-  const updatePayload = {
-    boost_until: boostUntil.toISOString(),
-    boost_rank: boostRank,
+  const payload: Record<string, any> = {
     is_featured: true,
-    featured_until: boostUntil.toISOString(),
     updated_at: new Date().toISOString(),
   };
 
-  const { data: updatedRows, error } = await supabaseAdmin
+  if ("boost_until" in listing) payload.boost_until = boostUntil.toISOString();
+  if ("featured_until" in listing) payload.featured_until = boostUntil.toISOString();
+  if ("boost_rank" in listing) payload.boost_rank = boostRank;
+  if ("featured_rank" in listing) payload.featured_rank = boostRank;
+  if ("boosted_at" in listing) payload.boosted_at = new Date().toISOString();
+
+  const { data: updatedRows, error: updateError } = await supabaseAdmin
     .from("listings")
-    .update(updatePayload)
+    .update(payload)
     .eq("id", listingId)
     .eq("user_id", userId)
-    .select("id");
+    .select("id, is_featured");
 
-  if (error) {
-    throw error;
-  }
+  if (updateError) throw updateError;
 
   if (!updatedRows || updatedRows.length === 0) {
-    throw new Error("Boost payment succeeded, but no matching listing was updated.");
+    throw new Error("Boost payment succeeded but no listing row was updated.");
   }
 }
 
@@ -123,10 +130,7 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("stripe-signature");
 
     if (!signature) {
-      return NextResponse.json(
-        { error: "Missing Stripe signature" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
     }
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
@@ -149,10 +153,7 @@ export async function POST(request: NextRequest) {
         await syncSubscription(String(session.subscription));
       }
 
-      if (
-        session.mode === "payment" &&
-        session.metadata?.type === "listing_boost"
-      ) {
+      if (session.mode === "payment" && session.metadata?.type === "listing_boost") {
         await activateListingBoost(session);
       }
     }
