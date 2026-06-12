@@ -93,19 +93,27 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
 
   const boostRank = boostDays === 30 ? 300 : boostDays === 7 ? 200 : 100;
 
-  const { error } = await supabaseAdmin
+  const updatePayload = {
+    boost_until: boostUntil.toISOString(),
+    boost_rank: boostRank,
+    is_featured: true,
+    featured_until: boostUntil.toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: updatedRows, error } = await supabaseAdmin
     .from("listings")
-    .update({
-      boost_until: boostUntil.toISOString(),
-      boost_rank: boostRank,
-      is_featured: true,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", listingId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id");
 
   if (error) {
     throw error;
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new Error("Boost payment succeeded, but no matching listing was updated.");
   }
 }
 
@@ -115,7 +123,10 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("stripe-signature");
 
     if (!signature) {
-      return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing Stripe signature" },
+        { status: 400 }
+      );
     }
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
@@ -138,7 +149,10 @@ export async function POST(request: NextRequest) {
         await syncSubscription(String(session.subscription));
       }
 
-      if (session.mode === "payment" && session.metadata?.type === "listing_boost") {
+      if (
+        session.mode === "payment" &&
+        session.metadata?.type === "listing_boost"
+      ) {
         await activateListingBoost(session);
       }
     }
@@ -167,6 +181,27 @@ export async function POST(request: NextRequest) {
         .eq("stripe_subscription_id", subscription.id);
 
       if (error) throw error;
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as any;
+
+      const subscriptionId =
+        typeof invoice.subscription === "string"
+          ? invoice.subscription
+          : invoice.subscription?.id;
+
+      if (subscriptionId) {
+        const { error } = await supabaseAdmin
+          .from("owner_subscriptions")
+          .update({
+            status: "past_due",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("stripe_subscription_id", subscriptionId);
+
+        if (error) throw error;
+      }
     }
 
     return NextResponse.json({ received: true });
