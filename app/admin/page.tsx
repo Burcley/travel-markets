@@ -58,6 +58,19 @@ type IdentityVerification = {
   created_at: string;
 };
 
+type SupportTicket = {
+  id: string;
+  user_id: string | null;
+  name: string | null;
+  email: string | null;
+  category: string | null;
+  subject: string | null;
+  message: string | null;
+  status: string | null;
+  admin_note: string | null;
+  created_at: string;
+};
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -68,14 +81,20 @@ export default function AdminDashboardPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [verifications, setVerifications] = useState<IdentityVerification[]>([]);
   const [reportFilter, setReportFilter] = useState<"pending" | "resolved">("pending");
+  const [ticketFilter, setTicketFilter] = useState<"open" | "reviewing" | "resolved">("open");
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<string | null>(null);
 
   const filteredReports = useMemo(() => {
     return reports.filter((report) => report.status === reportFilter);
   }, [reports, reportFilter]);
+
+  const filteredSupportTickets = useMemo(() => {
+    return supportTickets.filter((ticket) => (ticket.status || "open") === ticketFilter);
+  }, [supportTickets, ticketFilter]);
 
   const pendingVerifications = verifications.filter((item) => item.status === "pending");
   const approvedVerifications = verifications.filter((item) => item.status === "approved");
@@ -134,6 +153,11 @@ export default function AdminDashboardPage() {
         .select("*")
         .order("created_at", { ascending: false });
 
+      const { data: ticketsData } = await supabase
+        .from("support_tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
+
       const { data: verificationsData } = await supabase
         .from("identity_verifications")
         .select("id, user_id, full_legal_name, document_type, status, created_at")
@@ -143,12 +167,33 @@ export default function AdminDashboardPage() {
       setListings((listingsData || []) as Listing[]);
       setReviews((reviewsData || []) as Review[]);
       setReports((reportsData || []) as Report[]);
+      setSupportTickets((ticketsData || []) as SupportTicket[]);
       setVerifications((verificationsData || []) as IdentityVerification[]);
     } catch (error) {
       console.error("Admin dashboard error:", error);
       router.push("/");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function updateTicketStatus(ticketId: string, status: string) {
+    try {
+      setWorkingId(ticketId);
+
+      const { error } = await supabase
+        .from("support_tickets")
+        .update({ status })
+        .eq("id", ticketId);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      await loadAdminDashboard();
+    } finally {
+      setWorkingId(null);
     }
   }
 
@@ -282,7 +327,9 @@ export default function AdminDashboardPage() {
     return listing?.title || "Unknown listing";
   }
 
-  function formatDate(date: string) {
+  function formatDate(date: string | null) {
+    if (!date) return "Unknown date";
+
     return new Date(date).toLocaleString("en-CA", {
       year: "numeric",
       month: "short",
@@ -308,7 +355,7 @@ export default function AdminDashboardPage() {
             <div>
               <h1 className="text-4xl font-bold">Admin Dashboard</h1>
               <p className="mt-2 text-gray-400">
-                Manage users, listings, reviews, reports, verification, and moderation.
+                Manage users, listings, reviews, reports, support, verification, and moderation.
               </p>
             </div>
 
@@ -317,12 +364,108 @@ export default function AdminDashboardPage() {
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-5">
+          <div className="mt-8 grid gap-4 md:grid-cols-6">
             <Stat label="Users" value={profiles.length} />
             <Stat label="Listings" value={listings.length} />
             <Stat label="Reviews" value={reviews.length} />
             <Stat label="Reports" value={reports.length} />
+            <Stat label="Support" value={supportTickets.length} />
             <Stat label="Pending IDs" value={pendingVerifications.length} />
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-300">
+                SUPPORT CENTER
+              </div>
+              <h2 className="text-2xl font-bold">Support Tickets</h2>
+              <p className="mt-1 text-sm text-gray-400">
+                Review messages submitted through Contact Support.
+              </p>
+            </div>
+
+            <select
+              value={ticketFilter}
+              onChange={(e) =>
+                setTicketFilter(e.target.value as "open" | "reviewing" | "resolved")
+              }
+              className="rounded-xl border border-gray-700 bg-black px-4 py-3 text-white"
+            >
+              <option value="open">Open</option>
+              <option value="reviewing">Reviewing</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {filteredSupportTickets.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-cyan-500/20 p-6 text-gray-400">
+                No {ticketFilter} support tickets.
+              </div>
+            ) : (
+              filteredSupportTickets.map((ticket) => (
+                <div key={ticket.id} className="rounded-2xl border border-gray-800 bg-black p-5">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+                          {ticket.category || "support"}
+                        </span>
+
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-300">
+                          {ticket.status || "open"}
+                        </span>
+                      </div>
+
+                      <h3 className="mt-3 text-lg font-bold">
+                        {ticket.subject || "No subject"}
+                      </h3>
+
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-300">
+                        {ticket.message || "No message provided."}
+                      </p>
+
+                      <p className="mt-3 text-xs text-gray-500">
+                        From: {ticket.name || "Unknown"} • {ticket.email || "No email"}
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-500">
+                        Created: {formatDate(ticket.created_at)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => updateTicketStatus(ticket.id, "reviewing")}
+                        disabled={workingId === ticket.id}
+                        className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-300 disabled:opacity-50"
+                      >
+                        Reviewing
+                      </button>
+
+                      <button
+                        onClick={() => updateTicketStatus(ticket.id, "resolved")}
+                        disabled={workingId === ticket.id}
+                        className="rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                      >
+                        Resolve
+                      </button>
+
+                      <a
+                        href={`mailto:${ticket.email || ""}?subject=Travel Markets Support: ${
+                          ticket.subject || "Support Ticket"
+                        }`}
+                        className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-black"
+                      >
+                        Email User
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
@@ -603,8 +746,9 @@ export default function AdminDashboardPage() {
                       Owner: {getProfileName(listing.user_id)}
                     </p>
                     <p className="mt-1 text-sm text-gray-400">
-                      {[listing.city, listing.address].filter(Boolean).join(", ") || "No location"} · $
-                      {listing.price || 0}
+                      {[listing.city, listing.address].filter(Boolean).join(", ") ||
+                        "No location"}{" "}
+                      · ${listing.price || 0}
                     </p>
                   </div>
 
