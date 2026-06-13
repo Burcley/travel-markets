@@ -26,6 +26,22 @@ function getUserIdFromSubscription(subscription: any) {
   return null;
 }
 
+function getSubscriptionPeriodStart(subscription: any) {
+  return (
+    subscription?.current_period_start ||
+    subscription?.items?.data?.[0]?.current_period_start ||
+    null
+  );
+}
+
+function getSubscriptionPeriodEnd(subscription: any) {
+  return (
+    subscription?.current_period_end ||
+    subscription?.items?.data?.[0]?.current_period_end ||
+    null
+  );
+}
+
 async function syncSubscription(subscriptionId: string) {
   const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["customer", "items.data.price"],
@@ -48,6 +64,9 @@ async function syncSubscription(subscriptionId: string) {
   const active =
     subscription.status === "active" || subscription.status === "trialing";
 
+  const periodStart = getSubscriptionPeriodStart(subscription);
+  const periodEnd = getSubscriptionPeriodEnd(subscription);
+
   const { error } = await supabaseAdmin.from("owner_subscriptions").upsert(
     {
       user_id: userId,
@@ -56,11 +75,11 @@ async function syncSubscription(subscriptionId: string) {
       stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
       stripe_price_id: priceId,
-      current_period_start: subscription.current_period_start
-        ? new Date(subscription.current_period_start * 1000).toISOString()
+      current_period_start: periodStart
+        ? new Date(periodStart * 1000).toISOString()
         : null,
-      current_period_end: subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000).toISOString()
+      current_period_end: periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
         : null,
       cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
     },
@@ -186,6 +205,8 @@ export async function POST(request: NextRequest) {
           plan: "free",
           status: "canceled",
           stripe_price_id: null,
+          current_period_start: null,
+          current_period_end: null,
           cancel_at_period_end: false,
         })
         .eq("stripe_subscription_id", subscription.id);
