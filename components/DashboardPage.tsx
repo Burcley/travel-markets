@@ -141,21 +141,45 @@ export default function DashboardPage() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (ownerSubscription) {
-      const activePlan =
-        ownerSubscription.status === "active" ||
-        ownerSubscription.status === "trialing"
-          ? ownerSubscription.plan || "free"
-          : "free";
+   if (ownerSubscription) {
+  let freshSubscription = ownerSubscription;
 
-      setSubscription({
-        plan: activePlan,
-        status: ownerSubscription.status || "inactive",
-        current_period_end: ownerSubscription.current_period_end,
-        cancel_at_period_end: ownerSubscription.cancel_at_period_end,
-        monthly_boosts_used: ownerSubscription.monthly_boosts_used || 0,
-      });
+  const isActive =
+    ownerSubscription.status === "active" ||
+    ownerSubscription.status === "trialing";
+
+  if (isActive && !ownerSubscription.current_period_end) {
+    await fetch("/api/subscriptions/sync", {
+      method: "POST",
+    });
+
+    const { data: syncedSub } = await supabase
+      .from("owner_subscriptions")
+      .select(
+        "plan, status, current_period_end, cancel_at_period_end, monthly_boosts_used"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (syncedSub) {
+      freshSubscription = syncedSub;
     }
+  }
+
+  const activePlan =
+    freshSubscription.status === "active" ||
+    freshSubscription.status === "trialing"
+      ? freshSubscription.plan || "free"
+      : "free";
+
+  setSubscription({
+    plan: activePlan,
+    status: freshSubscription.status || "inactive",
+    current_period_end: freshSubscription.current_period_end,
+    cancel_at_period_end: freshSubscription.cancel_at_period_end,
+    monthly_boosts_used: freshSubscription.monthly_boosts_used || 0,
+  });
+}
 
     const { data: ownerListings, count: listings } = await supabase
       .from("listings")
