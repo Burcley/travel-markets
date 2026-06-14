@@ -20,6 +20,8 @@ import {
   Crown,
   ShieldCheck,
   Star,
+  Map,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { HomeListing } from "@/types/home-listing";
@@ -72,11 +74,9 @@ export default function TravelMarketsHome({
   const [verifiedOnly, setVerifiedOnly] = useState<VerifiedOption>(
     (searchParams.get("verified") as VerifiedOption) || ""
   );
-
   const [trustLevel, setTrustLevel] = useState<TrustOption>(
     (searchParams.get("trust") as TrustOption) || ""
   );
-
   const [sort, setSort] = useState<SortOption>(
     (searchParams.get("sort") as SortOption) || "newest"
   );
@@ -85,6 +85,9 @@ export default function TravelMarketsHome({
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [savingSearch, setSavingSearch] = useState(false);
+
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [mobileMapOpen, setMobileMapOpen] = useState(false);
 
   useEffect(() => {
     setListings(initialListings);
@@ -185,6 +188,7 @@ export default function TravelMarketsHome({
 
   function handleSearch() {
     setSuggestionsOpen(false);
+    setMobileFiltersOpen(false);
 
     startTransition(() => {
       router.push(buildSearchUrl());
@@ -217,6 +221,7 @@ export default function TravelMarketsHome({
     setSort("newest");
     setSuggestions([]);
     setSuggestionsOpen(false);
+    setMobileFiltersOpen(false);
 
     startTransition(() => {
       router.push("/search");
@@ -312,7 +317,7 @@ export default function TravelMarketsHome({
     } = await supabase.auth.getUser();
 
     if (!user) {
-      window.location.href = "/login";
+      window.location.href = "/auth";
       return;
     }
 
@@ -390,35 +395,47 @@ export default function TravelMarketsHome({
     };
   }
 
-  return (
-    <main className="min-h-screen bg-[#050505] text-white">
-      <section className="relative overflow-hidden border-b border-white/10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_35%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.12),transparent_30%)]" />
+  const activeFilterCount = [
+    city,
+    campus,
+    bedrooms,
+    bathrooms,
+    guests,
+    maxPrice,
+    verifiedOnly,
+    trustLevel,
+    sort !== "newest" ? sort : "",
+  ].filter(Boolean).length;
 
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+  return (
+    <main className="min-h-screen bg-[#050505] pb-20 text-white lg:pb-0">
+      <section className="relative overflow-hidden border-b border-white/10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_35%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.1),transparent_30%)]" />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
             className="max-w-3xl"
           >
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 backdrop-blur">
-              <Sparkles size={16} />
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur sm:mb-5 sm:px-4 sm:py-2 sm:text-sm">
+              <Sparkles size={14} />
               Premium rentals near campus
             </div>
 
-            <h1 className="text-4xl font-semibold tracking-tight sm:text-6xl">
+            <h1 className="max-w-[760px] text-3xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
               Find your next stay with{" "}
               <span className="text-white/70">Travel Markets</span>
             </h1>
 
-            <p className="mt-5 max-w-2xl text-base leading-7 text-white/60 sm:text-lg">
-              Search verified rentals, preview locations safely, book viewings,
-              and unlock exact addresses only after approval.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60 sm:mt-5 sm:text-lg sm:leading-7">
+              Search verified rentals, book viewings, and unlock exact addresses
+              only after approval.
             </p>
           </motion.div>
 
-          <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.06] p-4 shadow-2xl backdrop-blur-xl">
+          <div className="mt-6 rounded-[1.6rem] border border-white/10 bg-white/[0.06] p-3 shadow-2xl backdrop-blur-xl sm:mt-10 sm:rounded-3xl sm:p-4">
             <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_0.8fr_auto]">
               <div className="relative">
                 <div className="flex items-center gap-3 rounded-2xl bg-black/40 px-4 py-3 ring-1 ring-white/10">
@@ -471,14 +488,14 @@ export default function TravelMarketsHome({
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="City"
-                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
+                className="hidden rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35 lg:block"
               />
 
               <input
                 value={campus}
                 onChange={(e) => setCampus(e.target.value)}
                 placeholder="Campus"
-                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
+                className="hidden rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35 lg:block"
               />
 
               <input
@@ -486,7 +503,7 @@ export default function TravelMarketsHome({
                 onChange={(e) => setMaxPrice(e.target.value)}
                 placeholder="Max price"
                 type="number"
-                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
+                className="hidden rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35 lg:block"
               />
 
               <button
@@ -497,7 +514,32 @@ export default function TravelMarketsHome({
               </button>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-2 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                <SlidersHorizontal size={16} />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-black text-black">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMobileMapOpen(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                <Map size={16} />
+                Map
+              </button>
+            </div>
+
+            <div className="mt-4 hidden gap-3 lg:grid lg:grid-cols-4">
               <select
                 value={bedrooms}
                 onChange={(e) => setBedrooms(e.target.value)}
@@ -542,7 +584,7 @@ export default function TravelMarketsHome({
               </select>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]">
+            <div className="mt-4 hidden gap-3 lg:grid lg:grid-cols-[1fr_1fr_auto_auto]">
               <select
                 value={verifiedOnly}
                 onChange={(e) => setVerifiedOnly(e.target.value as VerifiedOption)}
@@ -589,16 +631,20 @@ export default function TravelMarketsHome({
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-5 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-8">
         <div>
-          <TrendingLocations cities={trendingCities} />
-          <TrendingListings listings={trendingListings} />
+          <div className="hidden lg:block">
+            <TrendingLocations cities={trendingCities} />
+            <TrendingListings listings={trendingListings} />
+          </div>
 
-          <div className="mb-5 flex items-end justify-between">
+          <div className="mb-4 flex items-end justify-between sm:mb-5">
             <div>
-              <h2 className="text-2xl font-semibold">Featured stays</h2>
+              <h2 className="text-xl font-semibold sm:text-2xl">
+                Featured stays
+              </h2>
 
-              <p className="mt-1 text-sm text-white/50">
+              <p className="mt-1 text-xs text-white/50 sm:text-sm">
                 {listings.length} visible listing
                 {listings.length === 1 ? "" : "s"}
                 {typeof totalCount === "number" && totalCount > listings.length
@@ -608,7 +654,7 @@ export default function TravelMarketsHome({
             </div>
 
             {isPending && (
-              <div className="flex items-center gap-2 text-sm text-white/40">
+              <div className="flex items-center gap-2 text-xs text-white/40 sm:text-sm">
                 <Loader2 size={15} className="animate-spin" />
                 Updating...
               </div>
@@ -616,8 +662,10 @@ export default function TravelMarketsHome({
           </div>
 
           {listings.length === 0 ? (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center">
-              <h3 className="text-xl font-semibold">No listings found</h3>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 text-center sm:p-10">
+              <h3 className="text-lg font-semibold sm:text-xl">
+                No listings found
+              </h3>
 
               <p className="mt-2 text-sm text-white/50">
                 Try another city, campus, price range, or trust filter.
@@ -625,7 +673,7 @@ export default function TravelMarketsHome({
             </div>
           ) : (
             <>
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                 {listings.map((listing, index) => {
                   const isFeatured = Boolean((listing as any).is_featured);
                   const ownerPlan = (listing as any).owner_plan || "free";
@@ -640,7 +688,7 @@ export default function TravelMarketsHome({
                       transition={{ delay: index * 0.03 }}
                       onMouseEnter={() => setActiveListingId(listing.id)}
                       onMouseLeave={() => setActiveListingId(null)}
-                      className={`group overflow-hidden rounded-3xl border bg-white/[0.04] transition duration-300 hover:-translate-y-1 hover:bg-white/[0.07] ${
+                      className={`group overflow-hidden rounded-[1.4rem] border bg-white/[0.04] transition duration-300 hover:-translate-y-1 hover:bg-white/[0.07] sm:rounded-3xl ${
                         activeListingId === listing.id
                           ? "border-white/35"
                           : isFeatured
@@ -677,7 +725,7 @@ export default function TravelMarketsHome({
                           className="absolute right-3 top-3 rounded-full bg-black/55 p-2 backdrop-blur transition hover:bg-black/80"
                         >
                           <Heart
-                            size={19}
+                            size={18}
                             className={
                               listing.is_saved
                                 ? "fill-white text-white"
@@ -686,43 +734,43 @@ export default function TravelMarketsHome({
                           />
                         </button>
 
-                        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5 sm:gap-2">
                           {isFeatured && (
-                            <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black shadow-lg">
+                            <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black text-black shadow-lg sm:px-3 sm:text-xs">
                               ⭐ Featured
                             </span>
                           )}
 
-                          <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white backdrop-blur">
+                          <span className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur sm:px-3 sm:text-xs">
                             {listing.status || "available"}
                           </span>
                         </div>
 
-                        <div className="absolute bottom-12 left-3 flex max-w-[92%] flex-wrap gap-2">
+                        <div className="absolute bottom-11 left-3 flex max-w-[92%] flex-wrap gap-1.5 sm:bottom-12 sm:gap-2">
                           {ownerBadge && (
                             <div
-                              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black shadow-lg ${
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black shadow-lg sm:gap-2 sm:px-3 sm:text-xs ${
                                 ownerPlan === "premium"
                                   ? "bg-yellow-400 text-black"
                                   : "bg-purple-500 text-white"
                               }`}
                             >
                               {ownerPlan === "premium" ? (
-                                <Crown size={14} />
+                                <Crown size={12} />
                               ) : (
-                                <Sparkles size={14} />
+                                <Sparkles size={12} />
                               )}
                               {ownerBadge}
                             </div>
                           )}
 
                           <div
-                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black shadow-lg ${trust.className}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black shadow-lg sm:gap-2 sm:px-3 sm:text-xs ${trust.className}`}
                           >
                             {trust.verified ? (
-                              <ShieldCheck size={14} />
+                              <ShieldCheck size={12} />
                             ) : (
-                              <Star size={14} />
+                              <Star size={12} />
                             )}
                             {trust.label}
                             {trust.score !== null && (
@@ -733,26 +781,29 @@ export default function TravelMarketsHome({
                           </div>
                         </div>
 
-                        <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-lg">
+                        <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-xs font-bold text-black shadow-lg sm:text-sm">
                           ${listing.price ?? "Ask"}/mo
                         </div>
                       </div>
 
-                      <Link href={`/listings/${listing.id}`} className="block p-4">
+                      <Link
+                        href={`/listings/${listing.id}`}
+                        className="block p-3.5 sm:p-4"
+                      >
                         <div className="flex items-start justify-between gap-3">
-                          <h3 className="line-clamp-1 text-base font-semibold">
+                          <h3 className="line-clamp-1 text-sm font-semibold sm:text-base">
                             {listing.title}
                           </h3>
 
                           {trust.verified && (
-                            <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
+                            <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black text-emerald-300 sm:text-[10px]">
                               ✓ Verified
                             </span>
                           )}
                         </div>
 
-                        <div className="mt-2 flex items-center gap-2 text-sm text-white/50">
-                          <MapPin size={15} />
+                        <div className="mt-2 flex items-center gap-2 text-xs text-white/50 sm:text-sm">
+                          <MapPin size={14} />
 
                           <span className="line-clamp-1">
                             {listing.city || "City hidden"}
@@ -760,25 +811,25 @@ export default function TravelMarketsHome({
                           </span>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-white/60">
-                          <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-                            <BedDouble size={14} />
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-white/60 sm:mt-4 sm:text-xs">
+                          <span className="inline-flex items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+                            <BedDouble size={13} />
                             {listing.bedrooms ?? "-"} bed
                           </span>
 
-                          <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-                            <Bath size={14} />
+                          <span className="inline-flex items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+                            <Bath size={13} />
                             {listing.bathrooms ?? "-"} bath
                           </span>
 
-                          <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-                            <Users size={14} />
+                          <span className="inline-flex items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+                            <Users size={13} />
                             {listing.guests ?? "-"}
                           </span>
                         </div>
 
-                        <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
-                          <Building2 size={14} />
+                        <div className="mt-3 flex items-center gap-2 text-[11px] text-white/40 sm:mt-4 sm:text-xs">
+                          <Building2 size={13} />
                           Exact address unlocks after approved viewing
                         </div>
                       </Link>
@@ -788,11 +839,11 @@ export default function TravelMarketsHome({
               </div>
 
               {canLoadMore && (
-                <div className="mt-10 flex justify-center">
+                <div className="mt-8 flex justify-center sm:mt-10">
                   <button
                     onClick={loadMoreListings}
                     disabled={loadingMore}
-                    className="rounded-2xl border border-white/10 bg-white/[0.06] px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-2xl border border-white/10 bg-white/[0.06] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:py-4"
                   >
                     {loadingMore ? "Loading more..." : "Load more listings"}
                   </button>
@@ -802,7 +853,7 @@ export default function TravelMarketsHome({
           )}
         </div>
 
-        <div className="lg:sticky lg:top-24 lg:h-[calc(100vh-7rem)]">
+        <div className="hidden lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-7rem)]">
           <ListingMap
             listings={listings}
             activeListingId={activeListingId}
@@ -813,6 +864,178 @@ export default function TravelMarketsHome({
           />
         </div>
       </section>
+
+      {mobileFiltersOpen && (
+        <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-sm lg:hidden">
+          <div className="absolute inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#080808] p-4 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold">Filters</h3>
+                <p className="text-xs text-white/45">
+                  Refine your rental search
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="rounded-full border border-white/10 bg-white/5 p-2 text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid gap-3">
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="City"
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
+              />
+
+              <input
+                value={campus}
+                onChange={(e) => setCampus(e.target.value)}
+                placeholder="Campus"
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
+              />
+
+              <input
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                placeholder="Max price"
+                type="number"
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
+              />
+
+              <select
+                value={bedrooms}
+                onChange={(e) => setBedrooms(e.target.value)}
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10"
+              >
+                <option value="">Bedrooms</option>
+                <option value="1">1+ Bedroom</option>
+                <option value="2">2+ Bedrooms</option>
+                <option value="3">3+ Bedrooms</option>
+              </select>
+
+              <select
+                value={bathrooms}
+                onChange={(e) => setBathrooms(e.target.value)}
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10"
+              >
+                <option value="">Bathrooms</option>
+                <option value="1">1+ Bathroom</option>
+                <option value="2">2+ Bathrooms</option>
+              </select>
+
+              <select
+                value={guests}
+                onChange={(e) => setGuests(e.target.value)}
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10"
+              >
+                <option value="">Guests</option>
+                <option value="1">1+ Guest</option>
+                <option value="2">2+ Guests</option>
+                <option value="3">3+ Guests</option>
+              </select>
+
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10"
+              >
+                <option value="newest">Newest</option>
+                <option value="trust-high">Highest Trust</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+              </select>
+
+              <select
+                value={verifiedOnly}
+                onChange={(e) => setVerifiedOnly(e.target.value as VerifiedOption)}
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10"
+              >
+                <option value="">All Owners</option>
+                <option value="true">Verified Owners Only</option>
+              </select>
+
+              <select
+                value={trustLevel}
+                onChange={(e) => setTrustLevel(e.target.value as TrustOption)}
+                className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10"
+              >
+                <option value="">All Trust Levels</option>
+                <option value="elite">Elite Owners</option>
+                <option value="trusted">Trusted Owners</option>
+                <option value="basic">Basic Trust</option>
+                <option value="new">New Owners</option>
+              </select>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={handleReset}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 hover:bg-white/10"
+                >
+                  Reset
+                </button>
+
+                <button
+                  onClick={handleSearch}
+                  className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-black hover:bg-zinc-200"
+                >
+                  Apply
+                </button>
+              </div>
+
+              <button
+                onClick={saveSearch}
+                disabled={savingSearch}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingSearch ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Bookmark size={16} />
+                )}
+                {savingSearch ? "Saving..." : "Save Search"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mobileMapOpen && (
+        <div className="fixed inset-0 z-[99999] bg-[#050505] lg:hidden">
+          <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+            <div>
+              <h3 className="text-base font-bold">Map view</h3>
+              <p className="text-xs text-white/45">
+                Approximate locations only
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMobileMapOpen(false)}
+              className="rounded-full border border-white/10 bg-white/5 p-2 text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="h-[calc(100vh-4rem)]">
+            <ListingMap
+              listings={listings}
+              activeListingId={activeListingId}
+              setActiveListingId={setActiveListingId}
+              query={query}
+              city={city}
+              campus={campus}
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
