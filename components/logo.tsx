@@ -11,6 +11,7 @@ export default function Logo() {
         <p className="text-base font-bold tracking-tight text-white">
           Travel Markets
         </p>
+
         <p className="text-[11px] font-medium text-zinc-500">
           Stay • Rent • Explore
         </p>
