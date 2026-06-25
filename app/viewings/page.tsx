@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Clock, Home, Lock, MessageCircle, XCircle } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Home,
+  Lock,
+  MessageCircle,
+  XCircle,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type ViewingStatus = "pending" | "accepted" | "declined" | "completed";
@@ -80,11 +87,16 @@ export default function ViewingsPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, status")
+      .select("role, status, account_status")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profile?.role === "banned" || profile?.status === "banned") {
+    if (
+      profile?.role === "banned" ||
+      profile?.status === "banned" ||
+      profile?.account_status === "banned" ||
+      profile?.account_status === "suspended"
+    ) {
       setIsBanned(true);
       setLoading(false);
       return;
@@ -145,6 +157,46 @@ export default function ViewingsPage() {
     setLoading(false);
   }
 
+  async function sendViewingApprovedEmail(viewingId: string) {
+    try {
+      const response = await fetch("/api/emails/viewing-approved", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ viewingId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("VIEWING APPROVED EMAIL API ERROR:", data);
+      }
+    } catch (error) {
+      console.error("VIEWING APPROVED EMAIL FETCH ERROR:", error);
+    }
+  }
+
+  async function sendViewingDeclinedEmail(viewingId: string) {
+    try {
+      const response = await fetch("/api/emails/viewing-declined", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ viewingId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("VIEWING DECLINED EMAIL API ERROR:", data);
+      }
+    } catch (error) {
+      console.error("VIEWING DECLINED EMAIL FETCH ERROR:", error);
+    }
+  }
+
   async function cancelViewing(viewing: Viewing) {
     const confirmCancel = confirm("Cancel this viewing request?");
     if (!confirmCancel) return;
@@ -168,34 +220,14 @@ export default function ViewingsPage() {
       user_id: viewing.owner_id,
       title: "Viewing cancelled",
       message: "A student cancelled their viewing request.",
+      body: "A student cancelled their viewing request.",
       type: "viewing_cancelled",
       link: `/viewings`,
+      is_read: false,
     });
 
     await loadViewings();
     setUpdatingId("");
-  }
-
-  async function sendViewingApprovedEmail(viewingId: string) {
-    try {
-      const response = await fetch("/api/emails/viewing-approved", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          viewingId,
-        }),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        console.error("VIEWING APPROVED EMAIL API ERROR:", data);
-      }
-    } catch (error) {
-      console.error("VIEWING APPROVED EMAIL FETCH ERROR:", error);
-    }
   }
 
   async function updateViewingStatus(
@@ -222,9 +254,13 @@ export default function ViewingsPage() {
         user_id: viewing.requester_id,
         title: "Viewing declined",
         message: "The owner declined your viewing request.",
+        body: "The owner declined your viewing request.",
         type: "viewing_declined",
         link: `/viewings`,
+        is_read: false,
       });
+
+      await sendViewingDeclinedEmail(viewing.id);
 
       await loadViewings();
       setUpdatingId("");
@@ -251,8 +287,11 @@ export default function ViewingsPage() {
         title: "Viewing approved",
         message:
           "Your viewing request was approved. Your address has now been unlocked.",
+        body:
+          "Your viewing request was approved. Your address has now been unlocked.",
         type: "viewing_confirmed",
         link: `/address-unlocked/${viewing.listing_id}`,
+        is_read: false,
       });
 
       await sendViewingApprovedEmail(viewing.id);
@@ -274,8 +313,10 @@ export default function ViewingsPage() {
         user_id: viewing.requester_id,
         title: "Viewing completed",
         message: "The viewing was marked as completed.",
+        body: "The viewing was marked as completed.",
         type: "viewing_completed",
         link: `/listings/${viewing.listing_id}`,
+        is_read: false,
       });
     }
 
@@ -549,9 +590,7 @@ export default function ViewingsPage() {
                           disabled={updatingId === viewing.id}
                           className="w-full rounded-2xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-500 disabled:bg-zinc-600"
                         >
-                          {updatingId === viewing.id
-                            ? "Updating..."
-                            : "Decline"}
+                          {updatingId === viewing.id ? "Updating..." : "Decline"}
                         </button>
                       </div>
                     )}

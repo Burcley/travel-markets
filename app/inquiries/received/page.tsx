@@ -94,6 +94,26 @@ export default function ReceivedInquiriesPage() {
     }
   }
 
+  async function sendInquiryDeclinedEmail(inquiryId: string) {
+    try {
+      const response = await fetch("/api/emails/inquiry-declined", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ inquiryId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("INQUIRY DECLINED EMAIL API ERROR:", data);
+      }
+    } catch (error) {
+      console.error("INQUIRY DECLINED EMAIL FETCH ERROR:", error);
+    }
+  }
+
   async function acceptInquiry(inquiry: Inquiry) {
     try {
       setUpdatingId(inquiry.id);
@@ -167,6 +187,8 @@ export default function ReceivedInquiriesPage() {
         type: "inquiry_declined",
         link: `/inquiries/sent`,
       });
+
+      await sendInquiryDeclinedEmail(inquiry.id);
 
       setInquiries((current) =>
         current.map((item) =>

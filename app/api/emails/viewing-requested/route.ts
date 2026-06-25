@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { resend } from "@/lib/email/resend";
-import { viewingRequestedTemplate } from "@/lib/email/templates/viewing-requested";
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +29,7 @@ export async function POST(request: NextRequest) {
     const { data: viewing, error: viewingError } = await supabaseAdmin
       .from("viewings")
       .select(
-        "id, owner_id, requester_id, listing_id, requested_date, requested_time, status"
+        "id, owner_id, requester_id, listing_id, requested_date, requested_time"
       )
       .eq("id", viewingId)
       .maybeSingle();
@@ -42,13 +41,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (viewing.requester_id !== user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { data: listing } = await supabaseAdmin
       .from("listings")
-      .select("id, title")
+      .select("title")
       .eq("id", viewing.listing_id)
       .maybeSingle();
 
@@ -62,29 +57,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const ownerEmail = ownerUser.user.email;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     const emailResult = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "Travel Markets <noreply@travelmarkets.ca>",
-      to: ownerUser.user.email,
-      subject: "New viewing request",
-      html: viewingRequestedTemplate({
-        listingTitle: listing?.title || "your listing",
-        viewingDate: viewing.requested_date || "Date unavailable",
-        viewingTime: viewing.requested_time || "Time unavailable",
-        viewingsUrl: `${appUrl}/viewings`,
-      }),
+      from:
+        process.env.EMAIL_FROM ||
+        "Travel Markets <noreply@travelmarkets.ca>",
+      to: ownerEmail,
+      subject: "ACTION NEEDED: New viewing request on Travel Markets",
+      text: `
+You received a new viewing request on Travel Markets.
+
+Listing: ${listing?.title || "Your listing"}
+Date: ${viewing.requested_date || "Date unavailable"}
+Time: ${viewing.requested_time || "Time unavailable"}
+
+Review it here:
+${appUrl}/viewings
+      `,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111; background: #ffffff; padding: 24px;">
+          <h1>ACTION NEEDED: New viewing request</h1>
+          <p>You received a new viewing request on Travel Markets.</p>
+
+          <p><strong>Listing:</strong> ${listing?.title || "Your listing"}</p>
+          <p><strong>Date:</strong> ${viewing.requested_date || "Date unavailable"}</p>
+          <p><strong>Time:</strong> ${viewing.requested_time || "Time unavailable"}</p>
+
+          <p>
+            <a href="${appUrl}/viewings" style="display:inline-block;background:#000;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold;">
+              Review Viewing
+            </a>
+          </p>
+        </div>
+      `,
     });
 
-    console.log("VIEWING REQUESTED EMAIL SENT:", emailResult);
+    console.log("VIEWING REQUEST EMAIL DEBUG:", {
+      viewingId,
+      ownerId: viewing.owner_id,
+      ownerEmail,
+      resendResult: emailResult,
+    });
 
     return NextResponse.json({
       success: true,
-      sentTo: ownerUser.user.email,
+      ownerEmail,
+      viewingId,
       result: emailResult,
     });
   } catch (error: any) {
-    console.error("VIEWING REQUESTED EMAIL ERROR:", error);
+    console.error("VIEWING REQUESTED EMAIL HARD ERROR:", error);
 
     return NextResponse.json(
       { error: error?.message || "Failed to send viewing request email" },

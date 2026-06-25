@@ -13,6 +13,28 @@ export default function VerifyIdentityPage() {
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
+  async function notifyAdminsIdentitySubmitted(name: string) {
+    try {
+      const response = await fetch("/api/emails/admin-identity-submitted", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullLegalName: name,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("ADMIN IDENTITY SUBMITTED API ERROR:", data);
+      }
+    } catch (error) {
+      console.error("ADMIN IDENTITY SUBMITTED FETCH ERROR:", error);
+    }
+  }
+
   async function submitVerification() {
     try {
       setLoading(true);
@@ -82,17 +104,15 @@ export default function VerifyIdentityPage() {
 
       if (profileError) throw profileError;
 
+      await notifyAdminsIdentitySubmitted(fullLegalName.trim());
+
       alert("Verification submitted successfully. Admin will review it shortly.");
 
       window.location.href = "/dashboard";
     } catch (error) {
       console.error("IDENTITY VERIFICATION ERROR:", error);
 
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong."
-      );
+      alert(error instanceof Error ? error.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -107,12 +127,11 @@ export default function VerifyIdentityPage() {
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold">
-              Identity Verification
-            </h1>
+            <h1 className="text-2xl font-bold">Identity Verification</h1>
 
             <p className="text-sm text-zinc-400">
-              Upload a student ID, passport, driver's license, or another valid document.
+              Upload a student ID, passport, driver&apos;s license, or another
+              valid document.
             </p>
           </div>
         </div>
@@ -179,10 +198,7 @@ export default function VerifyIdentityPage() {
             disabled={loading}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-bold text-black transition hover:bg-emerald-400 disabled:opacity-60"
           >
-            {loading && (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            )}
-
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Submit Verification
           </button>
         </div>

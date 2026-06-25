@@ -84,6 +84,11 @@ export default function PostListingPage() {
       return;
     }
 
+    if (!user.email_confirmed_at) {
+      router.push("/verify-email");
+      return;
+    }
+
     const { data: subscription } = await supabase
       .from("owner_subscriptions")
       .select("plan, status")
@@ -125,6 +130,12 @@ export default function PostListingPage() {
 
       if (!user) {
         router.push("/auth");
+        return;
+      }
+
+      if (!user.email_confirmed_at) {
+        alert("Please verify your email before posting a listing.");
+        router.push("/verify-email");
         return;
       }
 

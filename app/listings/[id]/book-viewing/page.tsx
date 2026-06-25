@@ -18,6 +18,15 @@ type Listing = {
   user_id: string;
 };
 
+type ViewingRow = {
+  id: string;
+  listing_id: string;
+  owner_id: string;
+  requester_id: string;
+  slot_id: string | null;
+  status: string;
+};
+
 export default function BookViewingPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -32,6 +41,7 @@ export default function BookViewingPage() {
 
   useEffect(() => {
     loadBookingData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function loadBookingData() {
@@ -67,6 +77,45 @@ export default function BookViewingPage() {
     setLoading(false);
   }
 
+  async function sendViewingRequestedEmail(viewingId: string) {
+    try {
+      const response = await fetch("/api/emails/viewing-requested", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ viewingId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("VIEWING REQUEST EMAIL API ERROR:", data);
+      } else {
+        console.log("VIEWING REQUEST EMAIL SENT:", data);
+      }
+    } catch (error) {
+      console.error("VIEWING REQUEST EMAIL FETCH ERROR:", error);
+    }
+  }
+
+  async function findLatestViewingForSlot(slotId: string) {
+    const { data, error } = await supabase
+      .from("viewings")
+      .select("id, listing_id, owner_id, requester_id, slot_id, status")
+      .eq("slot_id", slotId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("FIND LATEST VIEWING ERROR:", error);
+      return null;
+    }
+
+    return data as ViewingRow | null;
+  }
+
   async function requestViewing() {
     if (!selectedSlot) {
       alert("Choose an available time slot.");
@@ -80,21 +129,31 @@ export default function BookViewingPage() {
       p_message: message || null,
     });
 
-    setRequesting(false);
-
     if (error) {
+      setRequesting(false);
       alert(error.message);
       await loadBookingData();
       return;
     }
 
+    const latestViewing = await findLatestViewingForSlot(selectedSlot);
+
+    if (latestViewing?.id) {
+      await sendViewingRequestedEmail(latestViewing.id);
+    } else {
+      console.error("NO VIEWING FOUND AFTER RPC FOR SLOT:", selectedSlot);
+    }
+
+    setRequesting(false);
+
     alert("Viewing request sent.");
     router.push("/viewings");
+    router.refresh();
   }
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
         Loading booking calendar...
       </main>
     );
@@ -102,7 +161,7 @@ export default function BookViewingPage() {
 
   if (!listing) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
         Listing not found.
       </main>
     );
