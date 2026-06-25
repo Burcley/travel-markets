@@ -453,6 +453,25 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        <section className="mt-8 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-6">
+          <h2 className="text-2xl font-bold text-blue-300">
+            Download My Data
+          </h2>
+
+          <p className="mt-2 text-sm text-white/70">
+            Export a copy of your Travel Markets account data including profile,
+            listings, inquiries, messages, viewings, saved listings, reviews,
+            reports, and notifications.
+          </p>
+
+          <a
+            href="/api/account/export"
+            className="mt-5 inline-flex rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500"
+          >
+            Download My Data
+          </a>
+        </section>
+
         {!isAdmin && (
           <section className="mt-8 rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
             <h2 className="text-2xl font-bold text-red-300">Danger Zone</h2>
