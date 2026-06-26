@@ -32,31 +32,38 @@ type NavLink = {
 };
 
 const studentNavLinks: NavLink[] = [
-  { href: "/", label: "Explore" },
+  { href: "/", label: "Home" },
+  { href: "/search", label: "Search" },
+  { href: "/landlords", label: "For Landlords" },
+  { href: "/about", label: "About" },
   { href: "/saved-listings", label: "Saved" },
-  { href: "/saved-searches", label: "Searches" },
-  { href: "/recently-viewed", label: "Viewed" },
-  { href: "/inquiries/sent", label: "Inquiries" },
   { href: "/messages", label: "Messages" },
-  { href: "/viewings", label: "Viewings" },
 ];
 
 const hostNavLinks: NavLink[] = [
+  { href: "/", label: "Home" },
+  { href: "/search", label: "Search" },
+  { href: "/landlords", label: "For Landlords" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/my-listings", label: "My Listings" },
-  { href: "/inquiries/received", label: "Inquiries" },
   { href: "/messages", label: "Messages" },
-  { href: "/viewings", label: "Viewings" },
   { href: "/billing", label: "Billing" },
 ];
 
 const adminNavLinks: NavLink[] = [
+  { href: "/", label: "Home" },
+  { href: "/search", label: "Search" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/admin", label: "Admin" },
-  { href: "/my-listings", label: "My Listings" },
-  { href: "/inquiries", label: "Inquiries" },
   { href: "/messages", label: "Messages" },
-  { href: "/viewings", label: "Viewings" },
+];
+
+const publicNavLinks: NavLink[] = [
+  { href: "/", label: "Home" },
+  { href: "/search", label: "Search" },
+  { href: "/landlords", label: "For Landlords" },
+  { href: "/about", label: "About" },
+  { href: "/faq", label: "FAQ" },
 ];
 
 const studentAccountLinks: NavLink[] = [
@@ -90,6 +97,7 @@ function normalizeRole(role?: string | null) {
   const value = (role || "").toLowerCase();
 
   if (value === "admin") return "admin";
+
   if (
     value === "owner" ||
     value === "host" ||
@@ -127,7 +135,7 @@ export default function Navbar() {
   const role = normalizeRole(profile?.role);
 
   const navLinks = useMemo(() => {
-    if (!isSignedIn) return [];
+    if (!isSignedIn) return publicNavLinks;
     if (role === "admin") return adminNavLinks;
     if (role === "host") return hostNavLinks;
     return studentNavLinks;
@@ -198,7 +206,6 @@ export default function Navbar() {
     }
 
     const list = (data || []) as Notification[];
-
     setNotifications(list);
     setUnreadNotifications(list.filter((n) => !n.is_read).length);
   }
@@ -410,61 +417,55 @@ export default function Navbar() {
         <div className="flex min-w-0 items-center gap-5">
           <Logo />
 
-          {isSignedIn && (
-            <>
-              <nav className="hidden items-center rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-sm text-zinc-400 xl:flex">
-                {navLinks.map((link) => {
-                  const active = isActive(link.href);
+          <nav className="hidden items-center rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-sm text-zinc-400 xl:flex">
+            {navLinks.map((link) => {
+              const active = isActive(link.href);
 
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`relative inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 transition ${
-                        active
-                          ? "bg-white text-black shadow-lg"
-                          : "text-zinc-400 hover:bg-white/10 hover:text-white"
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`relative inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 transition ${
+                    active
+                      ? "bg-white text-black shadow-lg"
+                      : "text-zinc-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <span>{link.label}</span>
+
+                  {link.label === "Messages" && unreadMessages > 0 && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        active ? "bg-black text-white" : "bg-red-500 text-white"
                       }`}
                     >
-                      <span>{link.label}</span>
+                      {unreadMessages}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
 
-                      {link.label === "Messages" && unreadMessages > 0 && (
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            active
-                              ? "bg-black text-white"
-                              : "bg-red-500 text-white"
-                          }`}
-                        >
-                          {unreadMessages}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
+          <nav className="hidden items-center gap-1 text-sm text-zinc-400 lg:flex xl:hidden">
+            {navLinks.slice(0, 5).map((link) => {
+              const active = isActive(link.href);
 
-              <nav className="hidden items-center gap-1 text-sm text-zinc-400 lg:flex xl:hidden">
-                {navLinks.slice(0, 5).map((link) => {
-                  const active = isActive(link.href);
-
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`whitespace-nowrap rounded-xl px-3 py-2 transition ${
-                        active
-                          ? "bg-white text-black"
-                          : "hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </>
-          )}
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`whitespace-nowrap rounded-xl px-3 py-2 transition ${
+                    active
+                      ? "bg-white text-black"
+                      : "hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
@@ -735,7 +736,11 @@ export default function Navbar() {
             href={isSignedIn ? "/post" : "/auth"}
             className="hidden h-12 items-center rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg transition hover:bg-zinc-200 md:flex"
           >
-            {role === "host" || role === "admin" ? "Post Listing" : "Become a Host"}
+            {isSignedIn
+              ? role === "host" || role === "admin"
+                ? "Post Listing"
+                : "Become a Host"
+              : "Sign In"}
           </Link>
 
           <button
@@ -768,39 +773,37 @@ export default function Navbar() {
             </div>
 
             <div className="grid gap-2">
-              {isSignedIn ? (
-                <>
-                  {navLinks.map((link) => {
-                    const active = isActive(link.href);
+              {navLinks.map((link) => {
+                const active = isActive(link.href);
 
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMobileOpen(false)}
-                        className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                          active
-                            ? "bg-white text-black"
-                            : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                      active
+                        ? "bg-white text-black"
+                        : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span>{link.label}</span>
+
+                    {link.label === "Messages" && unreadMessages > 0 && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          active ? "bg-black text-white" : "bg-red-500 text-white"
                         }`}
                       >
-                        <span>{link.label}</span>
+                        {unreadMessages}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
 
-                        {link.label === "Messages" && unreadMessages > 0 && (
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs ${
-                              active
-                                ? "bg-black text-white"
-                                : "bg-red-500 text-white"
-                            }`}
-                          >
-                            {unreadMessages}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-
+              {isSignedIn ? (
+                <>
                   <Link
                     href="/verify-identity"
                     onClick={() => setMobileOpen(false)}
@@ -851,11 +854,11 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href="/auth"
+                    href="/landlords"
                     onClick={() => setMobileOpen(false)}
                     className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white hover:bg-white/10"
                   >
-                    Become a Host
+                    For Landlords
                   </Link>
                 </>
               )}

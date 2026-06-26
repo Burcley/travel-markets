@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Crown, ShieldCheck, Sparkles, Star } from "lucide-react";
 
@@ -50,6 +51,9 @@ export default function ListingCard({
       ? "bg-blue-500/20 text-blue-300"
       : "bg-zinc-700/80 text-zinc-300";
 
+  const image =
+    listing.cover_image || listing.cover_image_url || listing.image_url || null;
+
   function saveRecentlyViewed() {
     const item = {
       id: listing.id,
@@ -58,8 +62,7 @@ export default function ListingCard({
       campus: listing.campus,
       price: listing.price,
       status: listing.status,
-      cover_image:
-        listing.cover_image || listing.cover_image_url || listing.image_url,
+      cover_image: image,
       owner_plan: ownerPlan,
       owner_badge: ownerBadge,
       is_featured: listing.is_featured,
@@ -78,12 +81,10 @@ export default function ListingCard({
     localStorage.setItem("recentlyViewedListings", JSON.stringify(updated));
   }
 
-  const image =
-    listing.cover_image || listing.cover_image_url || listing.image_url || null;
-
   return (
     <Link
       href={`/listings/${listing.id}`}
+      prefetch={false}
       onClick={saveRecentlyViewed}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
@@ -93,12 +94,14 @@ export default function ListingCard({
           : "border-zinc-800 hover:border-zinc-600"
       }`}
     >
-      <div className="relative h-60 bg-zinc-900">
+      <div className="relative h-60 overflow-hidden bg-zinc-900">
         {image ? (
-          <img
+          <Image
             src={image}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
             alt={listing.title || "Travel Markets listing"}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-500">
@@ -106,7 +109,7 @@ export default function ListingCard({
           </div>
         )}
 
-        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+        <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
           <span
             className={`rounded-full px-3 py-1 text-xs font-bold capitalize backdrop-blur ${statusBadge}`}
           >
@@ -120,11 +123,11 @@ export default function ListingCard({
           )}
         </div>
 
-        <span className="absolute right-4 top-4 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+        <span className="absolute right-4 top-4 z-10 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white backdrop-blur">
           Approx area
         </span>
 
-        <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
+        <div className="absolute bottom-4 left-4 z-10 flex flex-wrap gap-2">
           {ownerBadge && (
             <div
               className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black shadow-xl backdrop-blur ${
