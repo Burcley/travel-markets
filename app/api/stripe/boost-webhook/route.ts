@@ -10,6 +10,110 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
+function getSiteUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://travelmarkets.ca"
+  );
+}
+
+async function getUserProfile(userId: string) {
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email, full_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return data;
+}
+
+async function createBillingNotification({
+  userId,
+  title,
+  message,
+  type = "billing",
+  href = "/billing",
+}: {
+  userId: string;
+  title: string;
+  message: string;
+  type?: string;
+  href?: string;
+}) {
+  try {
+    await supabaseAdmin.from("notifications").insert({
+      user_id: userId,
+      title,
+      message,
+      type,
+      href,
+      is_read: false,
+    });
+  } catch (error) {
+    console.error("Billing notification insert failed:", error);
+  }
+}
+
+async function sendBillingEmail({
+  userId,
+  subject,
+  heading,
+  body,
+  buttonText = "Open Billing",
+  buttonUrl = `${getSiteUrl()}/billing`,
+}: {
+  userId: string;
+  subject: string;
+  heading: string;
+  body: string;
+  buttonText?: string;
+  buttonUrl?: string;
+}) {
+  try {
+    if (!process.env.RESEND_API_KEY) return;
+
+    const profile = await getUserProfile(userId);
+    const email = profile?.email;
+
+    if (!email) return;
+
+    const fromEmail =
+      process.env.RESEND_FROM_EMAIL || "Travel Markets <noreply@travelmarkets.ca>";
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; background:#050505; padding:32px; color:#ffffff;">
+        <div style="max-width:560px; margin:0 auto; background:#111111; border:1px solid #262626; border-radius:20px; padding:28px;">
+          <h1 style="margin:0 0 16px; font-size:26px;">${heading}</h1>
+          <p style="color:#cfcfcf; line-height:1.6; font-size:15px;">${body}</p>
+          <a href="${buttonUrl}" style="display:inline-block; margin-top:22px; background:#ffffff; color:#000000; padding:12px 18px; border-radius:12px; text-decoration:none; font-weight:700;">
+            ${buttonText}
+          </a>
+          <p style="margin-top:28px; color:#777777; font-size:12px;">
+            Travel Markets
+          </p>
+        </div>
+      </div>
+    `;
+
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html,
+      }),
+    });
+  } catch (error) {
+    console.error("Billing email failed:", error);
+  }
+}
+
 function getUserIdFromSubscription(subscription: any) {
   if (subscription?.metadata?.user_id) {
     return subscription.metadata.user_id;
@@ -89,6 +193,14 @@ async function syncSubscription(subscriptionId: string) {
   if (error) {
     throw error;
   }
+
+  return {
+    userId,
+    plan,
+    status: subscription.status,
+    active,
+    cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
+  };
 }
 
 async function activateListingBoost(session: Stripe.Checkout.Session) {
@@ -106,7 +218,7 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
 
   const { data: listing, error: listingReadError } = await supabaseAdmin
     .from("listings")
-    .select("id, user_id")
+    .select("id, user_id, title")
     .eq("id", listingId)
     .maybeSingle();
 
@@ -145,6 +257,141 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
   if (!updatedRows || updatedRows.length === 0) {
     throw new Error("Boost payment succeeded but no listing row was updated.");
   }
+
+  await createBillingNotification({
+    userId,
+    title: "Listing boost activated",
+    message: `Your listing "${listing.title || "Untitled listing"}" has been boosted for ${boostDays} day(s).`,
+    type: "listing_boost",
+    href: `/listings/${listingId}`,
+  });
+
+  await sendBillingEmail({
+    userId,
+    subject: "Your Travel Markets listing boost is active",
+    heading: "Listing boost activated",
+    body: `Your listing "${listing.title || "Untitled listing"}" has been boosted for ${boostDays} day(s). It will receive higher visibility on Travel Markets.`,
+    buttonText: "View Listing",
+    buttonUrl: `${getSiteUrl()}/listings/${listingId}`,
+  });
+}
+
+async function handleSubscriptionDeleted(subscription: any) {
+  const { data: existingSubscription } = await supabaseAdmin
+    .from("owner_subscriptions")
+    .select("user_id")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+
+  const userId = existingSubscription?.user_id;
+
+  const { error } = await supabaseAdmin
+    .from("owner_subscriptions")
+    .update({
+      plan: "free",
+      status: "canceled",
+      stripe_price_id: null,
+      current_period_start: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+    })
+    .eq("stripe_subscription_id", subscription.id);
+
+  if (error) {
+    throw error;
+  }
+
+  if (userId) {
+    await createBillingNotification({
+      userId,
+      title: "Subscription canceled",
+      message:
+        "Your Travel Markets owner subscription has been canceled and your account has been moved to the Free plan.",
+      type: "subscription_canceled",
+      href: "/billing",
+    });
+
+    await sendBillingEmail({
+      userId,
+      subject: "Your Travel Markets subscription was canceled",
+      heading: "Subscription canceled",
+      body:
+        "Your Travel Markets owner subscription has been canceled and your account has been moved to the Free plan. You can reactivate or upgrade anytime from Billing.",
+    });
+  }
+}
+
+async function handleInvoicePaymentSucceeded(invoice: any) {
+  const subscriptionId =
+    typeof invoice.subscription === "string"
+      ? invoice.subscription
+      : invoice.subscription?.id;
+
+  if (!subscriptionId) return;
+
+  const subscriptionResult = await syncSubscription(subscriptionId);
+
+  await createBillingNotification({
+    userId: subscriptionResult.userId,
+    title: "Payment successful",
+    message: `Your Travel Markets ${subscriptionResult.plan} subscription payment was successful.`,
+    type: "payment_success",
+    href: "/billing",
+  });
+
+  await sendBillingEmail({
+    userId: subscriptionResult.userId,
+    subject: "Travel Markets payment successful",
+    heading: "Payment successful",
+    body: `Your Travel Markets ${subscriptionResult.plan} subscription payment was successful. Your owner plan is active.`,
+  });
+}
+
+async function handleInvoicePaymentFailed(invoice: any) {
+  const subscriptionId =
+    typeof invoice.subscription === "string"
+      ? invoice.subscription
+      : invoice.subscription?.id;
+
+  if (!subscriptionId) return;
+
+  const { data: existingSubscription } = await supabaseAdmin
+    .from("owner_subscriptions")
+    .select("user_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+
+  const { error } = await supabaseAdmin
+    .from("owner_subscriptions")
+    .update({
+      status: "past_due",
+    })
+    .eq("stripe_subscription_id", subscriptionId);
+
+  if (error) {
+    throw error;
+  }
+
+  const userId = existingSubscription?.user_id;
+
+  if (userId) {
+    await createBillingNotification({
+      userId,
+      title: "Payment failed",
+      message:
+        "Your Travel Markets subscription payment failed. Please update your billing method to avoid losing owner plan benefits.",
+      type: "payment_failed",
+      href: "/billing",
+    });
+
+    await sendBillingEmail({
+      userId,
+      subject: "Travel Markets payment failed",
+      heading: "Payment failed",
+      body:
+        "Your Travel Markets subscription payment failed. Please update your billing method to keep your owner plan active.",
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -176,7 +423,24 @@ export async function POST(request: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
 
       if (session.mode === "subscription" && session.subscription) {
-        await syncSubscription(String(session.subscription));
+        const subscriptionResult = await syncSubscription(
+          String(session.subscription)
+        );
+
+        await createBillingNotification({
+          userId: subscriptionResult.userId,
+          title: "Owner plan activated",
+          message: `Your Travel Markets ${subscriptionResult.plan} owner plan is now active.`,
+          type: "subscription_started",
+          href: "/billing",
+        });
+
+        await sendBillingEmail({
+          userId: subscriptionResult.userId,
+          subject: "Your Travel Markets owner plan is active",
+          heading: "Owner plan activated",
+          body: `Your Travel Markets ${subscriptionResult.plan} owner plan is now active. You can manage your plan anytime from Billing.`,
+        });
       }
 
       if (
@@ -193,49 +457,51 @@ export async function POST(request: NextRequest) {
       event.type === "customer.subscription.resumed"
     ) {
       const subscription = event.data.object as any;
-      await syncSubscription(subscription.id);
+      const subscriptionResult = await syncSubscription(subscription.id);
+
+      if (event.type === "customer.subscription.updated") {
+        if (subscriptionResult.cancelAtPeriodEnd) {
+          await createBillingNotification({
+            userId: subscriptionResult.userId,
+            title: "Subscription cancellation scheduled",
+            message:
+              "Your subscription is set to cancel at the end of your current billing period.",
+            type: "subscription_cancel_scheduled",
+            href: "/billing",
+          });
+
+          await sendBillingEmail({
+            userId: subscriptionResult.userId,
+            subject: "Travel Markets subscription cancellation scheduled",
+            heading: "Cancellation scheduled",
+            body:
+              "Your subscription is set to cancel at the end of your current billing period. You will keep your plan benefits until then.",
+          });
+        } else if (subscriptionResult.active) {
+          await createBillingNotification({
+            userId: subscriptionResult.userId,
+            title: "Subscription updated",
+            message: `Your Travel Markets owner plan is now ${subscriptionResult.plan}.`,
+            type: "subscription_updated",
+            href: "/billing",
+          });
+        }
+      }
     }
 
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as any;
+      await handleSubscriptionDeleted(subscription);
+    }
 
-      const { error } = await supabaseAdmin
-        .from("owner_subscriptions")
-        .update({
-          plan: "free",
-          status: "canceled",
-          stripe_price_id: null,
-          current_period_start: null,
-          current_period_end: null,
-          cancel_at_period_end: false,
-        })
-        .eq("stripe_subscription_id", subscription.id);
-
-      if (error) {
-        throw error;
-      }
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object as any;
+      await handleInvoicePaymentSucceeded(invoice);
     }
 
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object as any;
-
-      const subscriptionId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id;
-
-      if (subscriptionId) {
-        const { error } = await supabaseAdmin
-          .from("owner_subscriptions")
-          .update({
-            status: "past_due",
-          })
-          .eq("stripe_subscription_id", subscriptionId);
-
-        if (error) {
-          throw error;
-        }
-      }
+      await handleInvoicePaymentFailed(invoice);
     }
 
     return NextResponse.json({ received: true });

@@ -26,7 +26,6 @@ export default function LeaveReviewPage() {
 
   useEffect(() => {
     loadPage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
 
   async function loadPage() {
@@ -73,19 +72,38 @@ export default function LeaveReviewPage() {
     try {
       setSubmitting(true);
 
-      const { error } = await supabase.from("reviews").insert({
-        listing_id: listing.id,
-        owner_id: listing.user_id,
-        reviewer_id: currentUserId,
-        rating,
-        comment: comment.trim() || null,
-      });
+      const { data: review, error } = await supabase
+        .from("reviews")
+        .insert({
+          listing_id: listing.id,
+          owner_id: listing.user_id,
+          reviewer_id: currentUserId,
+          rating,
+          comment: comment.trim() || null,
+        })
+        .select("id")
+        .single();
 
       if (error) {
         console.error("Review error:", error);
         alert(error.message);
         return;
       }
+
+      await fetch("/api/reviews/notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          reviewId: review.id,
+          listingId: listing.id,
+          ownerId: listing.user_id,
+          rating,
+          comment: comment.trim() || null,
+          listingTitle: listing.title,
+        }),
+      });
 
       router.push(`/users/${listing.user_id}`);
       router.refresh();
@@ -133,6 +151,7 @@ export default function LeaveReviewPage() {
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
                   key={star}
+                  type="button"
                   onClick={() => setRating(star)}
                   className={`text-4xl ${
                     star <= rating ? "text-yellow-400" : "text-gray-700"

@@ -1,65 +1,67 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import "./globals.css";
+import Analytics from "@/components/Analytics";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://travelmarkets.ca";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "Travel Markets",
+    default: "Travel Markets | Student Housing & Travel Rentals",
     template: "%s | Travel Markets",
   },
   description:
-    "Find student housing, travel stays, and trusted owner listings with secure address protection.",
+    "Travel Markets helps students and travelers find trusted rentals, student housing, viewing appointments, secure messaging, and verified owners.",
   keywords: [
     "Travel Markets",
     "student housing",
-    "campus housing",
     "student rentals",
-    "Oshawa housing",
-    "Toronto housing",
-    "marketplace",
+    "campus housing",
+    "Oshawa rentals",
+    "Toronto rentals",
+    "Canada student housing",
+    "short term rentals",
   ],
   openGraph: {
     title: "Travel Markets",
     description:
-      "A safer marketplace for student housing, travel stays, and trusted owner connections.",
-    url: "https://travelmarkets.ca",
+      "Find trusted student housing, travel rentals, verified owners, and secure viewing appointments.",
+    url: siteUrl,
     siteName: "Travel Markets",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Travel Markets",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Travel Markets",
     description:
-      "Find student housing and trusted marketplace listings with protected addresses.",
+      "Find trusted student housing, travel rentals, verified owners, and secure viewing appointments.",
+    images: ["/og-image.png"],
   },
-  robots: {
-    index: true,
-    follow: true,
+  alternates: {
+    canonical: siteUrl,
   },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-black text-white antialiased`}
-      >
+      <body>
+        <Analytics />
         <Navbar />
         {children}
         <Footer />
