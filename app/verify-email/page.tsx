@@ -3,9 +3,20 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { createClient } from "@/lib/supabase/client";
+
+function isRateLimitError(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("rate limit") ||
+    normalized.includes("too many") ||
+    normalized.includes("over_email_send_rate_limit")
+  );
+}
 
 export default function VerifyEmailPage() {
   const t = useTranslations("accountPages.verifyEmail");
+  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -16,20 +27,18 @@ export default function VerifyEmailPage() {
     setMessage("");
     setError("");
 
-    const res = await fetch("/api/auth/resend-verification", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/onboarding`,
       },
-      body: JSON.stringify({ email }),
     });
-
-    const data = await res.json();
 
     setLoading(false);
 
-    if (!res.ok) {
-      setError(data.error || t("resendFailed"));
+    if (error) {
+      setError(isRateLimitError(error.message) ? t("rateLimit") : t("resendFailed"));
       return;
     }
 
@@ -40,7 +49,7 @@ export default function VerifyEmailPage() {
     <main className="min-h-screen bg-black px-6 py-16 text-white">
       <div className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-zinc-950 p-8">
         <div className="text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/10 text-3xl">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-pink-500/10 text-3xl">
             ✉️
           </div>
 
@@ -61,7 +70,7 @@ export default function VerifyEmailPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder={t("emailPlaceholder")}
             type="email"
-            className="mt-3 w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-blue-500"
+            className="mt-3 w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-pink-500"
           />
 
           {message && <p className="mt-3 text-sm text-emerald-400">{message}</p>}
@@ -70,7 +79,7 @@ export default function VerifyEmailPage() {
           <button
             onClick={resendEmail}
             disabled={loading || !email}
-            className="mt-5 w-full rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 w-full rounded-xl bg-white px-6 py-3 font-semibold text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? t("sending") : t("resendButton")}
           </button>

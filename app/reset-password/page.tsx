@@ -48,23 +48,36 @@ export default function ResetPasswordPage() {
     }
 
     setMessage(t("successMessage"));
-
-    setTimeout(async () => {
-      await supabase.auth.signOut();
-      router.push("/auth");
-      router.refresh();
-    }, 1200);
   }
 
   return (
     <main className="min-h-screen bg-black px-6 py-16 text-white">
-      <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8">
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
+      <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8 shadow-2xl">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-pink-500 text-xl font-black">
+          TM
+        </div>
 
-        <p className="mt-3 text-sm text-zinc-400">
+        <h1 className="text-center text-3xl font-bold">{t("title")}</h1>
+
+        <p className="mt-3 text-center text-sm leading-6 text-zinc-400">
           {t("subtitle")}
         </p>
 
+        {message ? (
+          <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 text-center">
+            <p className="text-sm text-emerald-300">{message}</p>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.push("/auth");
+                router.refresh();
+              }}
+              className="mt-5 w-full rounded-xl bg-white px-5 py-3 font-bold text-black hover:bg-zinc-200"
+            >
+              {t("goToLogin")}
+            </button>
+          </div>
+        ) : (
         <form onSubmit={updatePassword} className="mt-8 space-y-4">
           <input
             type="password"
@@ -105,13 +118,16 @@ export default function ResetPasswordPage() {
             {loading ? t("updating") : t("updatePassword")}
           </button>
         </form>
+        )}
 
-        <Link
-          href="/auth"
-          className="mt-5 block text-center text-sm text-zinc-500 hover:text-white"
-        >
-          {t("backToLogin")}
-        </Link>
+        {!message && (
+          <Link
+            href="/auth"
+            className="mt-5 block text-center text-sm text-zinc-500 hover:text-white"
+          >
+            {t("backToLogin")}
+          </Link>
+        )}
       </div>
     </main>
   );

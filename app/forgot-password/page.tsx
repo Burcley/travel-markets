@@ -5,6 +5,15 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
+function isRateLimitError(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("rate limit") ||
+    normalized.includes("too many") ||
+    normalized.includes("over_email_send_rate_limit")
+  );
+}
+
 export default function ForgotPasswordPage() {
   const t = useTranslations("auth.forgotPassword");
   const supabase = createClient();
@@ -30,7 +39,9 @@ export default function ForgotPasswordPage() {
     setLoading(false);
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(
+        isRateLimitError(error.message) ? t("rateLimit") : t("sendFailed")
+      );
       return;
     }
 
@@ -39,10 +50,14 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="min-h-screen bg-black px-6 py-16 text-white">
-      <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8">
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
+      <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8 shadow-2xl">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-pink-500 text-xl font-black">
+          TM
+        </div>
 
-        <p className="mt-3 text-sm text-zinc-400">
+        <h1 className="text-center text-3xl font-bold">{t("title")}</h1>
+
+        <p className="mt-3 text-center text-sm leading-6 text-zinc-400">
           {t("subtitle")}
         </p>
 

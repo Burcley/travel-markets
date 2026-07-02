@@ -504,6 +504,12 @@
     "manageSubscription": "Gérer l’abonnement",
     "secureFlowTitle": "Parcours d’adresse sécurisé actif",
     "secureFlowText": "Les adresses exactes restent protégées jusqu’à l’acceptation d’une demande de visite.",
+    "profileCompletion": {
+      "eyebrow": "Configuration du profil",
+      "title": "Complétez votre profil",
+      "text": "Votre profil est complété à {percent} %.",
+      "action": "Mettre à jour le profil"
+    },
     "stats": {
       "listings": "Annonces",
       "views": "Vues",
@@ -610,7 +616,9 @@
       "sending": "Envoi...",
       "sendResetLink": "Envoyer le lien de réinitialisation",
       "backToLogin": "Retour à la connexion",
-      "sentMessage": "Courriel de réinitialisation envoyé. Vérifiez votre boîte de réception et vos pourriels."
+      "sentMessage": "Courriel de réinitialisation envoyé. Vérifiez votre boîte de réception et vos pourriels.",
+      "sendFailed": "Nous n’avons pas pu envoyer le lien de réinitialisation. Vérifiez le courriel et réessayez.",
+      "rateLimit": "Trop de courriels ont été demandés. Veuillez attendre environ une heure avant de réessayer."
     },
     "resetPassword": {
       "title": "Créer un nouveau mot de passe",
@@ -622,7 +630,8 @@
       "backToLogin": "Retour à la connexion",
       "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères.",
       "passwordsDoNotMatch": "Les mots de passe ne correspondent pas.",
-      "successMessage": "Mot de passe mis à jour avec succès. Redirection vers la connexion..."
+      "successMessage": "Mot de passe mis à jour avec succès.",
+      "goToLogin": "Aller à la connexion"
     }
   },
   "billing": {
@@ -1211,11 +1220,16 @@
     },
     "auth": {
       "emailNotVerified": "Votre courriel n’est pas encore vérifié. Veuillez vérifier votre boîte de réception ou renvoyer le courriel de vérification.",
+      "invalidCredentials": "Le courriel ou le mot de passe est incorrect.",
+      "rateLimit": "Trop de tentatives ont été faites. Veuillez attendre un peu avant de réessayer.",
       "accountCreated": "Compte créé. Vérifiez votre courriel pour confirmer votre compte.",
       "genericError": "Une erreur s’est produite.",
+      "loginEyebrow": "Connexion sécurisée",
+      "signupEyebrow": "Créer votre compte",
+      "checkEmailEyebrow": "Presque terminé",
       "checkEmailTitle": "Vérifiez votre courriel",
       "sentVerificationTo": "Nous avons envoyé un lien de vérification à :",
-      "checkEmailText": "Cliquez sur le lien de vérification, puis revenez à Travel Markets et connectez-vous.",
+      "checkEmailText": "Cliquez sur le lien de vérification pour confirmer votre compte. Vous continuerez ensuite vers l’onboarding.",
       "backToLogin": "Retour à la connexion",
       "resendVerification": "Renvoyer le courriel de vérification",
       "welcomeBack": "Bon retour",
@@ -1235,15 +1249,50 @@
     },
     "verifyEmail": {
       "resendFailed": "Impossible de renvoyer le courriel de vérification.",
+      "rateLimit": "Trop de courriels ont été demandés. Veuillez attendre environ une heure avant de réessayer.",
       "sent": "Courriel de vérification envoyé. Vérifiez votre boîte de réception et vos pourriels.",
       "title": "Vérifiez votre courriel",
-      "subtitle": "Nous vous avons envoyé un lien de vérification. Ouvrez votre boîte de réception et cliquez sur le lien avant d’utiliser Travel Markets.",
+      "subtitle": "Ouvrez votre boîte de réception et cliquez sur le lien de vérification. Après confirmation, vous continuerez vers l’onboarding.",
       "resendLabel": "Renvoyer le courriel de vérification",
       "emailPlaceholder": "Entrez votre courriel",
       "sending": "Envoi...",
       "resendButton": "Renvoyer le courriel de vérification",
       "backToLogin": "Retour à la connexion",
       "backHome": "Retour à l’accueil"
+    },
+    "onboarding": {
+      "loading": "Chargement de votre compte...",
+      "loadError": "Nous n’avons pas pu charger votre profil. Veuillez actualiser et réessayer.",
+      "saveError": "Nous n’avons pas pu enregistrer votre profil. Veuillez réessayer.",
+      "progress": "Étape {step} sur {total}",
+      "welcomeTitle": "Bienvenue sur Travel Markets",
+      "welcomeText": "Votre compte est vérifié. Personnalisons votre expérience.",
+      "startSetup": "Commencer la configuration",
+      "skipForNow": "Ignorer pour l’instant",
+      "basicInfoTitle": "Parlez-nous de vous",
+      "basicInfoText": "Ajoutez les détails que les autres verront lorsqu’ils interagiront avec vous.",
+      "fullName": "Nom complet",
+      "fullNamePlaceholder": "Entrez votre nom complet",
+      "phone": "Numéro de téléphone (facultatif)",
+      "phonePlaceholder": "Entrez votre numéro de téléphone",
+      "roleTitle": "Comment utiliserez-vous Travel Markets?",
+      "roleText": "Choisissez l’expérience qui vous convient le mieux pour l’instant.",
+      "student": "Étudiant",
+      "studentText": "Je cherche un logement",
+      "landlord": "Propriétaire",
+      "landlordText": "Je veux publier des locations",
+      "bioTitle": "Ajoutez une courte bio",
+      "bioText": "Une courte présentation aide à établir la confiance avant les messages et visites.",
+      "bio": "Bio",
+      "bioPlaceholder": "Écrivez une courte présentation...",
+      "bioCount": "{count}/200",
+      "photoLaterTitle": "La photo de profil peut attendre",
+      "photoLaterText": "La photo de profil pourra être ajoutée plus tard dans les paramètres de votre profil.",
+      "back": "Retour",
+      "continue": "Continuer",
+      "finishSetup": "Terminer la configuration",
+      "skip": "Ignorer",
+      "saving": "Enregistrement..."
     },
     "verifyIdentity": {
       "loginFirst": "Veuillez d’abord vous connecter.",

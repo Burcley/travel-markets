@@ -23,14 +23,14 @@ export async function POST(request: Request) {
       }
     );
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const requestUrl = new URL(request.url);
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin;
 
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
       options: {
-        emailRedirectTo: `${siteUrl}/auth`,
+        emailRedirectTo: `${siteUrl}/onboarding`,
       },
     });
 

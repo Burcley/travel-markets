@@ -48,6 +48,15 @@ type ListingAnalytics = {
   conversionRate: number;
 };
 
+type ProfileCompletion = {
+  full_name: string | null;
+  role: string | null;
+  phone: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  identity_verified: boolean | null;
+};
+
 const PLAN_LIMITS: Record<string, number> = {
   free: 1,
   pro: 5,
@@ -105,6 +114,8 @@ export default function DashboardPage() {
   });
 
   const [analytics, setAnalytics] = useState<ListingAnalytics[]>([]);
+  const [profileCompletion, setProfileCompletion] =
+    useState<ProfileCompletion | null>(null);
   const [loading, setLoading] = useState(true);
 
   const displayName = getFirstName(name, t("fallbackUser"));
@@ -121,6 +132,17 @@ export default function DashboardPage() {
   const totalViews = analytics.reduce((sum, item) => sum + item.views, 0);
   const totalSaves = analytics.reduce((sum, item) => sum + item.saves, 0);
   const totalViewingRequests = analytics.reduce((sum, item) => sum + item.viewings, 0);
+  const completionItems = [
+    Boolean(profileCompletion?.full_name),
+    Boolean(profileCompletion?.role),
+    Boolean(profileCompletion?.phone),
+    Boolean(profileCompletion?.bio),
+    Boolean(profileCompletion?.avatar_url),
+    Boolean(profileCompletion?.identity_verified),
+  ];
+  const completionPercent = Math.round(
+    (completionItems.filter(Boolean).length / completionItems.length) * 100
+  );
 
   useEffect(() => {
     loadDashboard();
@@ -141,12 +163,13 @@ export default function DashboardPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, role")
+      .select("full_name, role, phone, bio, avatar_url, identity_verified")
       .eq("id", user.id)
       .maybeSingle();
 
     setName(profile?.full_name || user.email || t("fallbackUser"));
     setRole(profile?.role || "student");
+    setProfileCompletion((profile || null) as ProfileCompletion | null);
 
     const { data: ownerSubscription } = await supabase
       .from("owner_subscriptions")
@@ -320,6 +343,35 @@ export default function DashboardPage() {
                 {t("editProfile")}
               </DashboardButton>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-[1.6rem] border border-pink-500/20 bg-pink-500/10 p-5 shadow-2xl sm:rounded-[2rem] md:p-6">
+          <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-pink-200">
+                {t("profileCompletion.eyebrow")}
+              </p>
+              <h2 className="mt-1 text-2xl font-black">
+                {t("profileCompletion.title")}
+              </h2>
+              <p className="mt-2 text-sm text-pink-100/75">
+                {t("profileCompletion.text", { percent: completionPercent })}
+              </p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/40">
+                <div
+                  className="h-full rounded-full bg-white"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
+            </div>
+
+            <Link
+              href="/profile"
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-bold text-black"
+            >
+              {t("profileCompletion.action")}
+            </Link>
           </div>
         </section>
 

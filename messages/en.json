@@ -504,6 +504,12 @@
     "manageSubscription": "Manage Subscription",
     "secureFlowTitle": "Secure address flow active",
     "secureFlowText": "Exact addresses stay protected until a viewing request is accepted.",
+    "profileCompletion": {
+      "eyebrow": "Profile setup",
+      "title": "Complete your profile",
+      "text": "Your profile is {percent}% complete.",
+      "action": "Update profile"
+    },
     "stats": {
       "listings": "Listings",
       "views": "Views",
@@ -610,7 +616,9 @@
       "sending": "Sending...",
       "sendResetLink": "Send reset link",
       "backToLogin": "Back to login",
-      "sentMessage": "Password reset email sent. Check your inbox and spam folder."
+      "sentMessage": "Password reset email sent. Check your inbox and spam folder.",
+      "sendFailed": "We could not send a reset link. Check the email and try again.",
+      "rateLimit": "Too many emails were requested. Please wait about an hour before trying again."
     },
     "resetPassword": {
       "title": "Create new password",
@@ -622,7 +630,8 @@
       "backToLogin": "Back to login",
       "passwordTooShort": "Password must be at least 6 characters.",
       "passwordsDoNotMatch": "Passwords do not match.",
-      "successMessage": "Password updated successfully. Redirecting to login..."
+      "successMessage": "Password updated successfully.",
+      "goToLogin": "Go to login"
     }
   },
   "billing": {
@@ -1211,11 +1220,16 @@
     },
     "auth": {
       "emailNotVerified": "Your email is not verified yet. Please check your inbox or resend the verification email.",
+      "invalidCredentials": "The email or password you entered is incorrect.",
+      "rateLimit": "Too many attempts were made. Please wait a little while before trying again.",
       "accountCreated": "Account created. Check your email to verify your account.",
       "genericError": "Something went wrong.",
+      "loginEyebrow": "Secure sign in",
+      "signupEyebrow": "Start your account",
+      "checkEmailEyebrow": "Almost there",
       "checkEmailTitle": "Check your email",
       "sentVerificationTo": "We sent a verification link to:",
-      "checkEmailText": "Click the verification link, then return to Travel Markets and log in.",
+      "checkEmailText": "Click the verification link to confirm your account. You will continue to onboarding after verification.",
       "backToLogin": "Back to login",
       "resendVerification": "Resend verification email",
       "welcomeBack": "Welcome back",
@@ -1235,15 +1249,50 @@
     },
     "verifyEmail": {
       "resendFailed": "Failed to resend verification email.",
+      "rateLimit": "Too many emails were requested. Please wait about an hour before trying again.",
       "sent": "Verification email sent. Check your inbox and spam folder.",
       "title": "Verify your email",
-      "subtitle": "We sent you a verification link. Open your inbox and click the link before using Travel Markets.",
+      "subtitle": "Open your inbox and click the verification link. After confirmation, you will continue to onboarding.",
       "resendLabel": "Resend verification email",
       "emailPlaceholder": "Enter your email",
       "sending": "Sending...",
       "resendButton": "Resend verification email",
       "backToLogin": "Back to login",
       "backHome": "Back home"
+    },
+    "onboarding": {
+      "loading": "Loading your account...",
+      "loadError": "We could not load your profile. Please refresh and try again.",
+      "saveError": "We could not save your profile. Please try again.",
+      "progress": "Step {step} of {total}",
+      "welcomeTitle": "Welcome to Travel Markets",
+      "welcomeText": "Your account is verified. Let’s personalize your experience.",
+      "startSetup": "Start setup",
+      "skipForNow": "Skip for now",
+      "basicInfoTitle": "Tell us the basics",
+      "basicInfoText": "Add the details people will see when they interact with you.",
+      "fullName": "Full name",
+      "fullNamePlaceholder": "Enter your full name",
+      "phone": "Phone number (optional)",
+      "phonePlaceholder": "Enter your phone number",
+      "roleTitle": "How will you use Travel Markets?",
+      "roleText": "Choose the experience that fits you best right now.",
+      "student": "Student",
+      "studentText": "I’m looking for housing",
+      "landlord": "Landlord",
+      "landlordText": "I want to list rentals",
+      "bioTitle": "Add a short bio",
+      "bioText": "A quick intro helps build trust before messages and viewings.",
+      "bio": "Bio",
+      "bioPlaceholder": "Write a short intro...",
+      "bioCount": "{count}/200",
+      "photoLaterTitle": "Profile photo can wait",
+      "photoLaterText": "Profile photo can be added later from your profile settings.",
+      "back": "Back",
+      "continue": "Continue",
+      "finishSetup": "Finish setup",
+      "skip": "Skip",
+      "saving": "Saving..."
     },
     "verifyIdentity": {
       "loginFirst": "Please log in first.",
