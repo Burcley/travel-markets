@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertCircle, Crown, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -38,6 +39,7 @@ function createApproxCoordinates(city: string) {
 }
 
 export default function PostListingPage() {
+  const t = useTranslations("listingManagement.post");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -116,7 +118,7 @@ export default function PostListingPage() {
     e.preventDefault();
 
     if (limitReached) {
-      alert(`Your ${plan} plan allows ${listingLimit} active listing(s). Upgrade to post more.`);
+      alert(t("limitAlert", { plan, listingLimit }));
       router.push("/billing");
       return;
     }
@@ -134,7 +136,7 @@ export default function PostListingPage() {
       }
 
       if (!user.email_confirmed_at) {
-        alert("Please verify your email before posting a listing.");
+        alert(t("verifyEmailAlert"));
         router.push("/verify-email");
         return;
       }
@@ -146,7 +148,7 @@ export default function PostListingPage() {
         .neq("status", "rented");
 
       if ((count || 0) >= listingLimit) {
-        alert(`Your ${plan} plan allows ${listingLimit} active listing(s). Upgrade to post more.`);
+        alert(t("limitAlert", { plan, listingLimit }));
         router.push("/billing");
         return;
       }
@@ -184,7 +186,7 @@ export default function PostListingPage() {
         .single();
 
       if (error || !listing) {
-        alert(error?.message || "Failed to create listing.");
+        alert(error?.message || t("createFailed"));
         return;
       }
 
@@ -225,7 +227,7 @@ export default function PostListingPage() {
       router.refresh();
     } catch (error) {
       console.error(error);
-      alert("Something went wrong.");
+      alert(t("genericError"));
     } finally {
       setLoading(false);
     }
@@ -234,7 +236,7 @@ export default function PostListingPage() {
   if (checkingLimit) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        <p className="text-zinc-400">Checking your owner plan...</p>
+        <p className="text-zinc-400">{t("checkingPlan")}</p>
       </main>
     );
   }
@@ -246,11 +248,21 @@ export default function PostListingPage() {
           <div className="flex items-start gap-4">
             <AlertCircle className="mt-1 text-yellow-300" />
             <div>
-              <h1 className="text-3xl font-bold">Listing limit reached</h1>
+              <h1 className="text-3xl font-bold">{t("limitReachedTitle")}</h1>
               <p className="mt-3 text-zinc-300">
-                Your <span className="font-bold capitalize text-white">{plan}</span> plan allows{" "}
-                <span className="font-bold text-white">{listingLimit}</span> active listing(s).
-                You currently have <span className="font-bold text-white">{activeListings}</span>.
+                {t.rich("limitReachedText", {
+                  plan,
+                  listingLimit,
+                  activeListings,
+                  strong: (chunks) => (
+                    <span className="font-bold text-white">{chunks}</span>
+                  ),
+                  planStrong: (chunks) => (
+                    <span className="font-bold capitalize text-white">
+                      {chunks}
+                    </span>
+                  ),
+                })}
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -259,14 +271,14 @@ export default function PostListingPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-bold text-black"
                 >
                   <Crown size={18} />
-                  Upgrade Plan
+                  {t("upgradePlan")}
                 </Link>
 
                 <Link
                   href="/my-listings"
                   className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white"
                 >
-                  Manage Listings
+                  {t("manageListings")}
                 </Link>
               </div>
             </div>
@@ -284,9 +296,11 @@ export default function PostListingPage() {
             <div className="flex items-center gap-3">
               <Sparkles className="text-purple-300" />
               <div>
-                <p className="font-bold capitalize">{plan} Owner Plan</p>
+                <p className="font-bold capitalize">
+                  {t("ownerPlan", { plan })}
+                </p>
                 <p className="text-sm text-zinc-400">
-                  {activeListings}/{listingLimit} active listings used
+                  {t("activeListingsUsed", { activeListings, listingLimit })}
                 </p>
               </div>
             </div>
@@ -295,73 +309,75 @@ export default function PostListingPage() {
               href="/billing"
               className="rounded-2xl border border-purple-400/30 bg-purple-500/20 px-5 py-3 text-sm font-bold text-purple-100 hover:bg-purple-500/30"
             >
-              Manage Subscription
+              {t("manageSubscription")}
             </Link>
           </div>
         </div>
 
         <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8">
-          <h1 className="text-4xl font-bold">Post New Listing</h1>
+          <h1 className="text-4xl font-bold">{t("title")}</h1>
 
           <p className="mt-2 text-zinc-400">
-            Create a professional listing with secure viewing access.
+            {t("subtitle")}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-8">
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Listing Title" value={title} set={setTitle} />
-              <Input label="Campus" value={campus} set={setCampus} />
+              <Input label={t("listingTitle")} value={title} set={setTitle} />
+              <Input label={t("campus")} value={campus} set={setCampus} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="City" value={city} set={setCity} />
-              <Input label="Price" value={price} set={setPrice} type="number" />
+              <Input label={t("city")} value={city} set={setCity} />
+              <Input label={t("price")} value={price} set={setPrice} type="number" />
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Input label="Bedrooms" value={bedrooms} set={setBedrooms} type="number" />
-              <Input label="Bathrooms" value={bathrooms} set={setBathrooms} type="number" />
-              <Input label="Roommates" value={roommates} set={setRoommates} type="number" />
+              <Input label={t("bedrooms")} value={bedrooms} set={setBedrooms} type="number" />
+              <Input label={t("bathrooms")} value={bathrooms} set={setBathrooms} type="number" />
+              <Input label={t("roommates")} value={roommates} set={setRoommates} type="number" />
             </div>
 
             <textarea
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Listing description"
+              placeholder={t("descriptionPlaceholder")}
               className="w-full rounded-2xl border border-zinc-800 bg-black p-4 outline-none focus:border-white"
               rows={6}
             />
 
-            <Input label="Amenities (comma separated)" value={amenities} set={setAmenities} />
+            <Input label={t("amenities")} value={amenities} set={setAmenities} />
 
             <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
               <h2 className="text-2xl font-semibold text-emerald-300">
-                Secure Viewing Address
+                {t("secureAddressTitle")}
               </h2>
 
               <p className="mt-2 text-sm text-zinc-400">
-                This address stays hidden publicly and only unlocks after you approve a viewing.
+                {t("secureAddressText")}
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Input label="Street Address" value={addressLine} set={setAddressLine} />
-                <Input label="Unit / Apartment" value={unit} set={setUnit} />
-                <Input label="Province" value={province} set={setProvince} />
-                <Input label="Postal Code" value={postalCode} set={setPostalCode} />
+                <Input label={t("streetAddress")} value={addressLine} set={setAddressLine} />
+                <Input label={t("unit")} value={unit} set={setUnit} />
+                <Input label={t("province")} value={province} set={setProvince} />
+                <Input label={t("postalCode")} value={postalCode} set={setPostalCode} />
               </div>
 
               <textarea
                 value={safetyInstructions}
                 onChange={(e) => setSafetyInstructions(e.target.value)}
-                placeholder="Safety instructions for approved viewers..."
+                placeholder={t("safetyInstructionsPlaceholder")}
                 rows={4}
                 className="mt-4 w-full rounded-2xl border border-zinc-800 bg-black p-4 outline-none focus:border-emerald-400"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-zinc-400">Listing Images</label>
+              <label className="mb-2 block text-sm text-zinc-400">
+                {t("listingImages")}
+              </label>
 
               <input
                 type="file"
@@ -376,7 +392,7 @@ export default function PostListingPage() {
               disabled={loading}
               className="w-full rounded-2xl bg-white py-4 font-bold text-black transition hover:bg-zinc-200 disabled:opacity-50"
             >
-              {loading ? "Publishing Listing..." : "Publish Listing"}
+              {loading ? t("publishing") : t("publish")}
             </button>
           </form>
         </div>

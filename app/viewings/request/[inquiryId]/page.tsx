@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type Inquiry = {
@@ -18,6 +19,7 @@ type Inquiry = {
 };
 
 export default function RequestViewingPage() {
+  const t = useTranslations("viewings.request");
   const router = useRouter();
   const params = useParams();
   const supabase = useMemo(() => createClient(), []);
@@ -59,7 +61,7 @@ export default function RequestViewingPage() {
       .maybeSingle();
 
     if (profile?.role === "banned" || profile?.status === "banned") {
-      setErrorMessage("Your account is restricted. You cannot request viewings.");
+      setErrorMessage(t("restrictedError"));
       setLoading(false);
       return;
     }
@@ -83,7 +85,7 @@ export default function RequestViewingPage() {
       .single();
 
     if (error || !data) {
-      setErrorMessage(error?.message || "Inquiry not found.");
+      setErrorMessage(error?.message || t("inquiryNotFound"));
       setLoading(false);
       return;
     }
@@ -91,19 +93,19 @@ export default function RequestViewingPage() {
     const inquiryData = data as unknown as Inquiry;
 
     if (inquiryData.requester_id !== user.id) {
-      setErrorMessage("Only the student who sent this inquiry can request a viewing.");
+      setErrorMessage(t("onlyRequester"));
       setLoading(false);
       return;
     }
 
     if (inquiryData.status !== "accepted") {
-      setErrorMessage("You can only request a viewing after the owner accepts your inquiry.");
+      setErrorMessage(t("onlyAfterAccepted"));
       setLoading(false);
       return;
     }
 
     if (inquiryData.listings?.status === "rented") {
-      setErrorMessage("This listing is no longer available.");
+      setErrorMessage(t("listingUnavailable"));
       setLoading(false);
       return;
     }
@@ -138,7 +140,7 @@ export default function RequestViewingPage() {
     if (!inquiry) return;
 
     if (!requestedDate || !requestedTime) {
-      setErrorMessage("Please choose a date and time.");
+      setErrorMessage(t("chooseDateTime"));
       return;
     }
 
@@ -189,7 +191,7 @@ export default function RequestViewingPage() {
     return (
       <main className="min-h-screen bg-black px-4 py-10 text-white">
         <div className="mx-auto max-w-2xl">
-          <p className="text-zinc-400">Loading viewing form...</p>
+          <p className="text-zinc-400">{t("loading")}</p>
         </div>
       </main>
     );
@@ -199,7 +201,7 @@ export default function RequestViewingPage() {
     return (
       <main className="min-h-screen bg-black px-4 py-10 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-zinc-800 bg-zinc-950 p-8">
-          <h1 className="text-2xl font-bold">Viewing unavailable</h1>
+          <h1 className="text-2xl font-bold">{t("unavailableTitle")}</h1>
           <p className="mt-3 text-zinc-400">{errorMessage}</p>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -207,14 +209,14 @@ export default function RequestViewingPage() {
               href="/inquiries/sent"
               className="rounded-xl bg-white px-5 py-3 font-semibold text-black"
             >
-              Back to Sent Inquiries
+              {t("backToSentInquiries")}
             </Link>
 
             <Link
               href="/viewings"
               className="rounded-xl border border-zinc-700 px-5 py-3 font-semibold text-white"
             >
-              View Appointments
+              {t("viewAppointments")}
             </Link>
           </div>
         </div>
@@ -229,14 +231,14 @@ export default function RequestViewingPage() {
           href="/inquiries/sent"
           className="text-sm text-zinc-400 hover:text-white"
         >
-          ← Back to Sent Inquiries
+          {t("backToSentInquiriesArrow")}
         </Link>
 
         <div className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
-          <h1 className="text-3xl font-bold">Request Viewing</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            {inquiry?.listings?.title || "Listing"}
+            {inquiry?.listings?.title || t("listingFallback")}
           </p>
 
           {errorMessage && (
@@ -248,7 +250,7 @@ export default function RequestViewingPage() {
           <form onSubmit={submitViewing} className="mt-6 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-zinc-300">
-                Viewing date
+                {t("viewingDate")}
               </label>
               <input
                 type="date"
@@ -261,7 +263,7 @@ export default function RequestViewingPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-zinc-300">
-                Viewing time
+                {t("viewingTime")}
               </label>
               <input
                 type="time"
@@ -274,13 +276,13 @@ export default function RequestViewingPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-zinc-300">
-                Note to owner
+                {t("noteToOwner")}
               </label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={5}
-                placeholder="Example: I am available after class."
+                placeholder={t("notePlaceholder")}
                 className="w-full resize-none rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
               />
             </div>
@@ -290,7 +292,7 @@ export default function RequestViewingPage() {
               disabled={submitting}
               className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-zinc-200 disabled:opacity-50"
             >
-              {submitting ? "Submitting..." : "Request Viewing"}
+              {submitting ? t("submitting") : t("requestViewing")}
             </button>
           </form>
         </div>

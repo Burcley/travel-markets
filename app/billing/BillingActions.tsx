@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import type { OwnerPlan } from "@/lib/subscriptions/plans";
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function BillingActions({ action, plan, label, fullWidth }: Props) {
+  const t = useTranslations("accountPages.billingActions");
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
@@ -31,18 +33,18 @@ export default function BillingActions({ action, plan, label, fullWidth }: Props
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || "Billing failed");
+        alert(data.error || t("billingFailed"));
         return;
       }
 
       if (!data.url) {
-        alert("Stripe did not return a checkout URL.");
+        alert(t("missingUrl"));
         return;
       }
 
       window.location.href = data.url;
     } catch (error: any) {
-      alert(error?.message || "Something went wrong opening billing.");
+      alert(error?.message || t("openFailed"));
     } finally {
       setLoading(false);
     }
@@ -56,7 +58,7 @@ export default function BillingActions({ action, plan, label, fullWidth }: Props
         fullWidth ? "w-full" : ""
       }`}
     >
-      {loading ? "Opening..." : label}
+      {loading ? t("opening") : label}
     </button>
   );
 }

@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { HomeListing } from "@/types/home-listing";
+import { usePreferences } from "@/components/preferences/PreferencesProvider";
+import { formatMoney } from "@/lib/currency";
+import type { CurrencyCode } from "@/lib/currency";
 
 type Props = {
   listings: HomeListing[];
@@ -27,6 +31,8 @@ type ListingFeature = GeoJSON.Feature<
     owner_plan: string;
     owner_badge: string | null;
     is_featured: boolean;
+    priceLabel: string;
+    markerPriceLabel: string;
   }
 >;
 
@@ -54,12 +60,42 @@ export default function ListingMap({
   city,
   campus,
 }: Props) {
+  const t = useTranslations("home.map");
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const hoveredFeatureIdRef = useRef<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialFitDoneRef = useRef(false);
+  const { currency, convertFromCAD } = usePreferences();
+
+  function getPopupPriceLabel(amountCAD: number | null | undefined) {
+    if (amountCAD == null) return t("askForPrice");
+
+    const converted = convertFromCAD(Number(amountCAD));
+
+    if (!Number.isFinite(converted)) return t("askForPrice");
+
+    return `${formatMoney(converted, currency as CurrencyCode)}/mo`;
+  }
+
+  function getMarkerPriceLabel(amountCAD: number | null | undefined) {
+    if (amountCAD == null) return t("ask");
+
+    const converted = convertFromCAD(Number(amountCAD));
+
+    if (!Number.isFinite(converted)) return t("ask");
+
+    return new Intl.NumberFormat("en-CA", {
+      style: "currency",
+      currency: currency as CurrencyCode,
+      currencyDisplay: "narrowSymbol",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    })
+      .format(converted)
+      .replace(/\s/g, "");
+  }
 
   const mapListings = useMemo(() => {
     return listings.filter(
@@ -80,14 +116,16 @@ export default function ListingMap({
       },
       properties: {
         id: listing.id,
-        title: listing.title || "Untitled listing",
-        city: listing.city || "Location preview",
+        title: listing.title || t("untitledListing"),
+        city: listing.city || t("locationPreview"),
         campus: listing.campus || "",
         price: listing.price ?? null,
         image_url: listing.image_url || null,
         owner_plan: listing.owner_plan || "free",
         owner_badge: listing.owner_badge || null,
         is_featured: Boolean(listing.is_featured),
+        priceLabel: getPopupPriceLabel(listing.price),
+        markerPriceLabel: getMarkerPriceLabel(listing.price),
       },
     }));
 
@@ -95,24 +133,24 @@ export default function ListingMap({
       type: "FeatureCollection",
       features,
     };
-  }, [mapListings]);
+  }, [mapListings, currency, convertFromCAD, t]);
 
   function createPopupHtml(properties: ListingFeature["properties"]) {
-    const title = escapeHtml(properties.title || "Untitled listing");
-    const cityText = escapeHtml(properties.city || "Location preview");
+    const title = escapeHtml(properties.title || t("untitledListing"));
+    const cityText = escapeHtml(properties.city || t("locationPreview"));
     const campusText = escapeHtml(properties.campus || "");
     const imageUrl = properties.image_url;
-    const price = properties.price ? `$${properties.price}/mo` : "Ask for price";
+    const price = escapeHtml(properties.priceLabel || t("askForPrice"));
 
     const featuredBadge = properties.is_featured
-      ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#facc15;color:#000;padding:5px 9px;font-size:11px;font-weight:900">⭐ Featured Listing</div>`
+      ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#facc15;color:#000;padding:5px 9px;font-size:11px;font-weight:900">⭐ ${escapeHtml(t("featuredListing"))}</div>`
       : "";
 
     const planBadge =
       properties.owner_plan === "premium"
-        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#facc15;color:#000;padding:5px 9px;font-size:11px;font-weight:900">👑 Premium Owner</div>`
+        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#facc15;color:#000;padding:5px 9px;font-size:11px;font-weight:900">👑 ${escapeHtml(t("premiumOwner"))}</div>`
         : properties.owner_plan === "pro"
-        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#a855f7;color:#fff;padding:5px 9px;font-size:11px;font-weight:900">⚡ Pro Owner</div>`
+        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#a855f7;color:#fff;padding:5px 9px;font-size:11px;font-weight:900">⚡ ${escapeHtml(t("proOwner"))}</div>`
         : "";
 
     return `
@@ -120,7 +158,7 @@ export default function ListingMap({
         ${
           imageUrl
             ? `<img src="${imageUrl}" style="width:100%;height:125px;object-fit:cover" />`
-            : `<div style="height:125px;background:#171717;display:flex;align-items:center;justify-content:center;color:#777">No image</div>`
+            : `<div style="height:125px;background:#171717;display:flex;align-items:center;justify-content:center;color:#777">${escapeHtml(t("noImage"))}</div>`
         }
 
         <div style="padding:13px">
@@ -137,9 +175,7 @@ export default function ListingMap({
 
           <div style="margin-top:9px;font-weight:900;font-size:14px">${price}</div>
 
-          <div style="margin-top:9px;color:#777;font-size:11px;line-height:1.4">
-            Exact address hidden until approved viewing
-          </div>
+          <div style="margin-top:9px;color:#777;font-size:11px;line-height:1.4">${escapeHtml(t("exactAddressHidden"))}</div>
         </div>
       </div>
     `;
@@ -284,9 +320,9 @@ export default function ListingMap({
       layout: {
         "text-field": [
           "case",
-          ["has", "price"],
-          ["concat", "$", ["to-string", ["get", "price"]]],
-          "View",
+          ["has", "markerPriceLabel"],
+          ["get", "markerPriceLabel"],
+          t("view"),
         ],
         "text-size": 12,
         "text-font": ["DIN Offc Pro Bold", "Arial Unicode MS Bold"],
@@ -517,24 +553,24 @@ export default function ListingMap({
       {mapListings.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="rounded-2xl bg-black/70 px-4 py-3 text-sm text-white/70 backdrop-blur">
-            No map locations available yet
+            {t("noMapLocations")}
           </div>
         </div>
       )}
 
       <div className="pointer-events-none absolute bottom-4 left-4 rounded-2xl border border-white/10 bg-black/70 p-3 text-xs text-white/80 backdrop-blur">
-        <div className="mb-2 font-bold text-white">Map priority</div>
+        <div className="mb-2 font-bold text-white">{t("mapPriority")}</div>
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-yellow-400" />
-          Featured / Premium
+          {t("featuredPremium")}
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-purple-500" />
-          Pro Owner
+          {t("proOwner")}
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-white" />
-          Free Owner
+          {t("freeOwner")}
         </div>
       </div>
     </div>

@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations("auth.forgotPassword");
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
@@ -32,23 +34,23 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setMessage("Password reset email sent. Check your inbox and spam folder.");
+    setMessage(t("sentMessage"));
   }
 
   return (
     <main className="min-h-screen bg-black px-6 py-16 text-white">
       <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8">
-        <h1 className="text-3xl font-bold">Reset your password</h1>
+        <h1 className="text-3xl font-bold">{t("title")}</h1>
 
         <p className="mt-3 text-sm text-zinc-400">
-          Enter your email and we’ll send you a secure password reset link.
+          {t("subtitle")}
         </p>
 
         <form onSubmit={sendResetEmail} className="mt-8 space-y-4">
           <input
             type="email"
             required
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-pink-500"
@@ -70,7 +72,7 @@ export default function ForgotPasswordPage() {
             disabled={loading}
             className="w-full rounded-xl bg-white px-5 py-3 font-bold text-black hover:bg-zinc-200 disabled:opacity-50"
           >
-            {loading ? "Sending..." : "Send reset link"}
+            {loading ? t("sending") : t("sendResetLink")}
           </button>
         </form>
 
@@ -78,7 +80,7 @@ export default function ForgotPasswordPage() {
           href="/auth"
           className="mt-5 block text-center text-sm text-zinc-500 hover:text-white"
         >
-          Back to login
+          {t("backToLogin")}
         </Link>
       </div>
     </main>

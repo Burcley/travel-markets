@@ -3,6 +3,7 @@ import { searchListings } from "@/lib/listings/search-listings";
 import type { ListingSearchParams } from "@/lib/listings/search-types";
 import { getTrendingListings } from "@/lib/trending/get-trending-listings";
 import { getTrendingCities } from "@/lib/trending/get-trending-cities";
+import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,11 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const location = formatSlug(slug);
+  const t = await getTranslations("home.search");
 
   return {
-    title: `${location} Rentals | Travel Markets`,
-    description: `Find rentals near ${location}. Browse verified listings, prices, rooms, map locations, and viewing options on Travel Markets.`,
+    title: t("metadataTitle", { location }),
+    description: t("metadataDescription", { location }),
   };
 }
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import ListingCard from "./ListingCard";
 import LogoutButton from "./LogoutButton";
 import RecentlyViewedListings from "./RecentlyViewedListings";
@@ -35,6 +36,7 @@ export default function ListingsExplorer({
   initialListings: Listing[];
   userEmail: string | null;
 }) {
+  const t = useTranslations("finalBatchD.listingsExplorer");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [status, setStatus] = useState("all");
@@ -100,11 +102,11 @@ export default function ListingsExplorer({
           <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
               <h1 className="text-3xl font-bold">
-                Explore stays near campus
+                {t("title")}
               </h1>
 
               <p className="mt-1 text-sm text-zinc-400">
-                Search listings with private approximate map locations.
+                {t("subtitle")}
               </p>
             </div>
 
@@ -121,7 +123,7 @@ export default function ListingsExplorer({
                     href="/post"
                     className="rounded-full bg-white px-5 py-2 text-sm font-bold text-black"
                   >
-                    Post Listing
+                    {t("postListing")}
                   </Link>
                 </>
               ) : (
@@ -129,7 +131,7 @@ export default function ListingsExplorer({
                   href="/auth"
                   className="rounded-full bg-white px-5 py-2 text-sm font-bold text-black"
                 >
-                  Login / Sign Up
+                  {t("loginSignup")}
                 </Link>
               )}
             </div>
@@ -142,7 +144,7 @@ export default function ListingsExplorer({
                 setSearch(e.target.value);
                 resetVisibleCount();
               }}
-              placeholder="Search title, city, campus..."
+              placeholder={t("searchPlaceholder")}
               className="h-12 rounded-2xl border border-zinc-800 bg-black px-4 outline-none placeholder:text-zinc-500"
             />
 
@@ -154,9 +156,9 @@ export default function ListingsExplorer({
               }}
               className="h-12 rounded-2xl border border-zinc-800 bg-black px-4 outline-none"
             >
-              <option value="newest">Newest</option>
-              <option value="price_low">Price Low-High</option>
-              <option value="price_high">Price High-Low</option>
+              <option value="newest">{t("newest")}</option>
+              <option value="price_low">{t("priceLowHigh")}</option>
+              <option value="price_high">{t("priceHighLow")}</option>
             </select>
 
             <select
@@ -167,15 +169,18 @@ export default function ListingsExplorer({
               }}
               className="h-12 rounded-2xl border border-zinc-800 bg-black px-4 outline-none"
             >
-              <option value="all">All Status</option>
-              <option value="available">Available</option>
-              <option value="pending">Pending</option>
-              <option value="rented">Rented</option>
+              <option value="all">{t("allStatus")}</option>
+              <option value="available">{t("available")}</option>
+              <option value="pending">{t("pending")}</option>
+              <option value="rented">{t("rented")}</option>
             </select>
           </div>
 
           <p className="mt-4 text-sm text-zinc-500">
-            Showing {visibleListings.length} of {filtered.length} listings
+            {t("showing", {
+              visible: visibleListings.length,
+              total: filtered.length,
+            })}
           </p>
         </div>
       </section>
@@ -195,10 +200,10 @@ export default function ListingsExplorer({
         <div className={mobileView === "map" ? "hidden lg:block" : "block"}>
           {visibleListings.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-zinc-800 bg-zinc-950 p-10 text-center">
-              <h2 className="text-xl font-bold">No listings found</h2>
+              <h2 className="text-xl font-bold">{t("emptyTitle")}</h2>
 
               <p className="mt-2 text-sm text-zinc-400">
-                Try changing your search, sort, or status filter.
+                {t("emptyText")}
               </p>
             </div>
           ) : (
@@ -223,7 +228,7 @@ export default function ListingsExplorer({
                     }
                     className="rounded-full border border-zinc-700 px-8 py-3 text-sm font-bold hover:bg-white hover:text-black"
                   >
-                    Load more listings
+                    {t("loadMore")}
                   </button>
                 </div>
               )}
@@ -252,7 +257,7 @@ export default function ListingsExplorer({
               : "text-zinc-400"
           }`}
         >
-          List
+          {t("list")}
         </button>
 
         <button
@@ -263,7 +268,7 @@ export default function ListingsExplorer({
               : "text-zinc-400"
           }`}
         >
-          Map
+          {t("map")}
         </button>
       </div>
     </main>

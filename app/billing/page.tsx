@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   AlertTriangle,
   Check,
@@ -27,8 +28,8 @@ const PLAN_LIMITS = {
   },
 };
 
-function formatDate(date?: string | null) {
-  if (!date) return "Not available";
+function formatDate(date: string | null | undefined, notAvailableLabel: string) {
+  if (!date) return notAvailableLabel;
 
   return new Date(date).toLocaleDateString("en-US", {
     month: "short",
@@ -37,12 +38,15 @@ function formatDate(date?: string | null) {
   });
 }
 
-function getPlanStatusLabel(status?: string | null) {
-  if (!status) return "Free";
-  if (status === "active") return "Active";
-  if (status === "trialing") return "Trial";
-  if (status === "past_due") return "Past due";
-  if (status === "canceled") return "Canceled";
+function getPlanStatusLabel(
+  status: string | null | undefined,
+  labels: Record<string, string>
+) {
+  if (!status) return labels.free;
+  if (status === "active") return labels.active;
+  if (status === "trialing") return labels.trialing;
+  if (status === "past_due") return labels.pastDue;
+  if (status === "canceled") return labels.canceled;
   return status.replaceAll("_", " ");
 }
 
@@ -63,6 +67,7 @@ function getPlanStatusClass(status?: string | null) {
 }
 
 export default async function BillingPage() {
+  const t = await getTranslations("billing");
   const { user, subscription, plan } = await getCurrentUserSubscription();
 
   const currentPlanKey = (plan || "free") as keyof typeof OWNER_PLANS;
@@ -73,16 +78,16 @@ export default async function BillingPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
         <div className="max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 text-center">
-          <h1 className="text-2xl font-bold">Sign in required</h1>
+          <h1 className="text-2xl font-bold">{t("signInRequired")}</h1>
           <p className="mt-3 text-white/60">
-            You need to sign in to manage billing.
+            {t("signInText")}
           </p>
 
           <Link
             href="/auth"
             className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 font-semibold text-black"
           >
-            Sign in
+            {t("signIn")}
           </Link>
         </div>
       </main>
@@ -97,29 +102,28 @@ export default async function BillingPage() {
             <div>
               <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-purple-400/30 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
                 <Crown size={16} />
-                Owner Billing Center
+                {t("ownerBillingCenter")}
               </p>
 
               <h1 className="text-4xl font-black tracking-tight">
-                {currentPlan?.name || "Free"} Plan
+                {t("planTitle", { plan: currentPlan?.name || t("freePlanName") })}
               </h1>
 
               <p className="mt-3 max-w-2xl text-white/60">
-                Manage your subscription, listing limits, monthly boosts, and
-                payment settings for Travel Markets.
+                {t("heroText")}
               </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               {subscription?.stripe_customer_id && (
-                <BillingActions action="portal" label="Manage billing" />
+                <BillingActions action="portal" label={t("manageBilling")} />
               )}
 
               <Link
                 href="/dashboard"
                 className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10"
               >
-                Back to Dashboard
+                {t("backToDashboard")}
               </Link>
             </div>
           </div>
@@ -131,11 +135,10 @@ export default async function BillingPage() {
               <AlertTriangle className="mt-1 text-yellow-300" />
               <div>
                 <h2 className="font-bold text-yellow-200">
-                  Payment attention required
+                  {t("paymentAttentionTitle")}
                 </h2>
                 <p className="mt-1 text-sm text-yellow-100/70">
-                  Your subscription payment failed. Please update your payment
-                  method to avoid losing owner plan benefits.
+                  {t("paymentAttentionText")}
                 </p>
               </div>
             </div>
@@ -144,34 +147,40 @@ export default async function BillingPage() {
 
         <div className="grid gap-5 lg:grid-cols-4">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">Current Plan</p>
+            <p className="text-sm text-white/50">{t("currentPlan")}</p>
             <h2 className="mt-2 text-3xl font-black capitalize">
-              {currentPlan?.name || "Free"}
+              {currentPlan?.name || t("freePlanName")}
             </h2>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">Plan Status</p>
+            <p className="text-sm text-white/50">{t("planStatus")}</p>
             <span
               className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-bold capitalize ${getPlanStatusClass(
                 subscription?.status
               )}`}
             >
-              {getPlanStatusLabel(subscription?.status)}
+              {getPlanStatusLabel(subscription?.status, {
+                free: t("status.free"),
+                active: t("status.active"),
+                trialing: t("status.trialing"),
+                pastDue: t("status.pastDue"),
+                canceled: t("status.canceled"),
+              })}
             </span>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">Next Billing Date</p>
+            <p className="text-sm text-white/50">{t("nextBillingDate")}</p>
             <h2 className="mt-2 text-2xl font-black">
-              {formatDate(subscription?.current_period_end)}
+              {formatDate(subscription?.current_period_end, t("notAvailable"))}
             </h2>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">Cancel at Period End</p>
+            <p className="text-sm text-white/50">{t("cancelAtPeriodEnd")}</p>
             <h2 className="mt-2 text-2xl font-black">
-              {subscription?.cancel_at_period_end ? "Yes" : "No"}
+              {subscription?.cancel_at_period_end ? t("yes") : t("no")}
             </h2>
           </div>
         </div>
@@ -183,16 +192,16 @@ export default async function BillingPage() {
                 <FileText />
               </div>
               <div>
-                <h2 className="text-2xl font-bold">Listing Usage</h2>
+                <h2 className="text-2xl font-bold">{t("listingUsageTitle")}</h2>
                 <p className="text-sm text-white/50">
-                  Active listing slots included in your plan.
+                  {t("listingUsageText")}
                 </p>
               </div>
             </div>
 
             <div className="mt-6">
               <div className="flex justify-between text-sm">
-                <span className="text-white/60">Available slots</span>
+                <span className="text-white/60">{t("availableSlots")}</span>
                 <span className="font-bold">{limits.listings}</span>
               </div>
 
@@ -208,16 +217,16 @@ export default async function BillingPage() {
                 <Zap />
               </div>
               <div>
-                <h2 className="text-2xl font-bold">Monthly Boosts</h2>
+                <h2 className="text-2xl font-bold">{t("monthlyBoostsTitle")}</h2>
                 <p className="text-sm text-white/50">
-                  Featured visibility boosts included monthly.
+                  {t("monthlyBoostsText")}
                 </p>
               </div>
             </div>
 
             <div className="mt-6">
               <div className="flex justify-between text-sm">
-                <span className="text-white/60">Included boosts</span>
+                <span className="text-white/60">{t("includedBoosts")}</span>
                 <span className="font-bold">{limits.boosts}</span>
               </div>
 
@@ -236,20 +245,19 @@ export default async function BillingPage() {
             <div>
               <div className="flex items-center gap-3">
                 <CreditCard className="text-white/60" />
-                <h2 className="text-2xl font-bold">Payment & Invoices</h2>
+                <h2 className="text-2xl font-bold">{t("paymentInvoicesTitle")}</h2>
               </div>
 
               <p className="mt-2 text-sm text-white/50">
-                Manage card details, invoices, billing address, cancellation,
-                and subscription changes through Stripe.
+                {t("paymentInvoicesText")}
               </p>
             </div>
 
             {subscription?.stripe_customer_id ? (
-              <BillingActions action="portal" label="Open Stripe Portal" />
+              <BillingActions action="portal" label={t("openStripePortal")} />
             ) : (
               <p className="rounded-2xl border border-white/10 bg-black px-5 py-3 text-sm text-white/50">
-                No paid billing account yet.
+                {t("noPaidBilling")}
               </p>
             )}
           </div>
@@ -257,9 +265,9 @@ export default async function BillingPage() {
 
         <div className="mt-10">
           <div className="mb-5">
-            <h2 className="text-3xl font-black">Choose Your Owner Plan</h2>
+            <h2 className="text-3xl font-black">{t("choosePlanTitle")}</h2>
             <p className="mt-2 text-white/50">
-              Upgrade, downgrade, or manage your owner subscription anytime.
+              {t("choosePlanText")}
             </p>
           </div>
 
@@ -284,7 +292,7 @@ export default async function BillingPage() {
                   >
                     {isCurrent && (
                       <div className="absolute right-4 top-4 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300">
-                        Current
+                        {t("current")}
                       </div>
                     )}
 
@@ -313,19 +321,19 @@ export default async function BillingPage() {
                           disabled
                           className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-white/40"
                         >
-                          Free plan
+                          {t("freePlan")}
                         </button>
                       ) : isCurrent ? (
                         <BillingActions
                           action="portal"
-                          label="Manage plan"
+                          label={t("managePlan")}
                           fullWidth
                         />
                       ) : (
                         <BillingActions
                           action="checkout"
                           plan={key}
-                          label={`Upgrade to ${item.name}`}
+                          label={t("upgradeToPlan", { plan: item.name })}
                           fullWidth
                         />
                       )}

@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import Money from "@/components/Money";
+import { useTranslations } from "next-intl";
 
 type ListingImage = {
   image_url: string | null;
@@ -32,16 +34,18 @@ function getCoverImage(images?: ListingImage[]) {
 }
 
 export default function FeaturedListings({ listings }: { listings: Listing[] }) {
+  const t = useTranslations("home.featuredListings");
+
   return (
     <section className="px-6 py-20">
       <div className="mx-auto max-w-7xl">
         <div className="flex items-end justify-between gap-6">
           <div>
             <p className="text-sm font-bold uppercase tracking-widest text-red-400">
-              Featured Rentals
+              {t("eyebrow")}
             </p>
             <h2 className="mt-3 text-3xl font-black sm:text-5xl">
-              Explore student rentals near campus.
+              {t("title")}
             </h2>
           </div>
 
@@ -49,22 +53,21 @@ export default function FeaturedListings({ listings }: { listings: Listing[] }) 
             href="/search"
             className="hidden rounded-xl border border-white/15 px-5 py-3 font-bold hover:bg-white/10 sm:block"
           >
-            View all
+            {t("viewAll")}
           </Link>
         </div>
 
         {listings.length === 0 ? (
           <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.04] p-8">
             <p className="text-white/70">
-              Listings will appear here once landlords start posting available
-              rentals.
+              {t("emptyText")}
             </p>
 
             <Link
               href="/search"
               className="mt-6 inline-flex rounded-2xl bg-white px-6 py-3 font-bold text-black hover:bg-white/90"
             >
-              Browse Marketplace
+              {t("browseMarketplace")}
             </Link>
           </div>
         ) : (
@@ -90,19 +93,19 @@ export default function FeaturedListings({ listings }: { listings: Listing[] }) 
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center text-white/40">
-                        No image
+                        {t("noImage")}
                       </div>
                     )}
 
                     <div className="absolute left-4 top-4 z-10 flex gap-2">
                       {listing.is_featured && (
                         <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">
-                          Featured
+                          {t("featured")}
                         </span>
                       )}
 
                       <span className="rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">
-                        Available
+                        {t("available")}
                       </span>
                     </div>
                   </div>
@@ -111,28 +114,28 @@ export default function FeaturedListings({ listings }: { listings: Listing[] }) 
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <h3 className="line-clamp-1 text-lg font-black">
-                          {listing.title || "Student Rental"}
+                          {listing.title || t("fallbackTitle")}
                         </h3>
 
                         <p className="mt-1 text-sm text-white/60">
-                          {listing.city || "Canada"}{" "}
+                          {listing.city || t("fallbackCountry")}{" "}
                           {listing.campus ? `• ${listing.campus}` : ""}
                         </p>
                       </div>
 
                       <p className="shrink-0 font-black text-red-400">
-                        ${listing.price || 0}
+                        {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
                       </p>
                     </div>
 
                     <div className="mt-4 flex gap-3 text-sm text-white/60">
-                      <span>{listing.bedrooms || 0} bed</span>
+                      <span>{t("bed", { count: listing.bedrooms || 0 })}</span>
                       <span>•</span>
-                      <span>{listing.bathrooms || 0} bath</span>
+                      <span>{t("bath", { count: listing.bathrooms || 0 })}</span>
                     </div>
 
                     <div className="mt-5 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black">
-                      View Listing
+                      {t("viewListing")}
                     </div>
                   </div>
                 </Link>

@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
+  const t = useTranslations("auth.resetPassword");
   const router = useRouter();
   const supabase = createClient();
 
@@ -23,12 +25,12 @@ export default function ResetPasswordPage() {
     setErrorMessage("");
 
     if (password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters.");
+      setErrorMessage(t("passwordTooShort"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
+      setErrorMessage(t("passwordsDoNotMatch"));
       return;
     }
 
@@ -45,7 +47,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    setMessage("Password updated successfully. Redirecting to login...");
+    setMessage(t("successMessage"));
 
     setTimeout(async () => {
       await supabase.auth.signOut();
@@ -57,10 +59,10 @@ export default function ResetPasswordPage() {
   return (
     <main className="min-h-screen bg-black px-6 py-16 text-white">
       <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8">
-        <h1 className="text-3xl font-bold">Create new password</h1>
+        <h1 className="text-3xl font-bold">{t("title")}</h1>
 
         <p className="mt-3 text-sm text-zinc-400">
-          Enter a new password for your Travel Markets account.
+          {t("subtitle")}
         </p>
 
         <form onSubmit={updatePassword} className="mt-8 space-y-4">
@@ -68,7 +70,7 @@ export default function ResetPasswordPage() {
             type="password"
             required
             minLength={6}
-            placeholder="New password"
+            placeholder={t("newPassword")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-pink-500"
@@ -78,7 +80,7 @@ export default function ResetPasswordPage() {
             type="password"
             required
             minLength={6}
-            placeholder="Confirm new password"
+            placeholder={t("confirmNewPassword")}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-pink-500"
@@ -100,7 +102,7 @@ export default function ResetPasswordPage() {
             disabled={loading}
             className="w-full rounded-xl bg-white px-5 py-3 font-bold text-black hover:bg-zinc-200 disabled:opacity-50"
           >
-            {loading ? "Updating..." : "Update password"}
+            {loading ? t("updating") : t("updatePassword")}
           </button>
         </form>
 
@@ -108,7 +110,7 @@ export default function ResetPasswordPage() {
           href="/auth"
           className="mt-5 block text-center text-sm text-zinc-500 hover:text-white"
         >
-          Back to login
+          {t("backToLogin")}
         </Link>
       </div>
     </main>

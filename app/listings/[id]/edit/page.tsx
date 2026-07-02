@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type ExistingImage = {
@@ -21,6 +22,7 @@ type NewImage = {
 };
 
 export default function EditListingPage() {
+  const t = useTranslations("listingManagement.edit");
   const router = useRouter();
   const params = useParams();
   const listingId = params.id as string;
@@ -80,13 +82,13 @@ export default function EditListingPage() {
       .single();
 
     if (listingError || !listing) {
-      alert("Listing not found.");
+      alert(t("notFound"));
       router.push("/my-listings");
       return;
     }
 
     if (listing.user_id !== user.id) {
-      alert("You are not allowed to edit this listing.");
+      alert(t("notAllowed"));
       router.push("/my-listings");
       return;
     }
@@ -230,22 +232,22 @@ export default function EditListingPage() {
     e.preventDefault();
 
     if (!title.trim()) {
-      alert("Title is required.");
+      alert(t("titleRequired"));
       return;
     }
 
     if (!city.trim()) {
-      alert("City is required.");
+      alert(t("cityRequired"));
       return;
     }
 
     if (!price) {
-      alert("Price is required.");
+      alert(t("priceRequired"));
       return;
     }
 
     if (existingImages.length + newImages.length === 0) {
-      alert("You need at least one image.");
+      alert(t("imageRequired"));
       return;
     }
 
@@ -345,12 +347,12 @@ export default function EditListingPage() {
         sortOrder++;
       }
 
-      alert("Listing updated successfully.");
+      alert(t("updated"));
       router.push(`/listings/${listingId}`);
       router.refresh();
     } catch (error: any) {
       console.error(error);
-      alert(error.message || "Something went wrong while saving.");
+      alert(error.message || t("saveError"));
     } finally {
       setSaving(false);
     }
@@ -359,7 +361,7 @@ export default function EditListingPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading edit page...
+        {t("loading")}
       </main>
     );
   }
@@ -375,33 +377,32 @@ export default function EditListingPage() {
           onClick={() => router.push("/my-listings")}
           className="text-sm text-zinc-300 hover:text-white"
         >
-          ← Back to my Listings
+          {t("backToMyListings")}
         </button>
 
         <div>
-          <h1 className="text-3xl font-bold">Edit Listing</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
           <p className="mt-2 text-zinc-400">
-            Update listing details, secure address, availability, images, order,
-            and cover image.
+            {t("subtitle")}
           </p>
         </div>
 
         <section className="grid gap-5 md:grid-cols-2">
-          <Input label="Title" value={title} setValue={setTitle} />
-          <Input label="City" value={city} setValue={setCity} />
-          <Input label="Campus" value={campus} setValue={setCampus} />
+          <Input label={t("listingTitle")} value={title} setValue={setTitle} />
+          <Input label={t("city")} value={city} setValue={setCity} />
+          <Input label={t("campus")} value={campus} setValue={setCampus} />
 
           <Input
-            label="Public Area / General Address"
+            label={t("publicArea")}
             value={address}
             setValue={setAddress}
           />
 
-          <Input label="Price" value={price} setValue={setPrice} type="number" />
+          <Input label={t("price")} value={price} setValue={setPrice} type="number" />
 
           <div>
             <label className="mb-2 block text-sm font-medium">
-              Availability Status
+              {t("availabilityStatus")}
             </label>
             <select
               value={status}
@@ -410,42 +411,44 @@ export default function EditListingPage() {
               }
               className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
             >
-              <option value="available">Available</option>
-              <option value="pending">Pending</option>
-              <option value="rented">Rented</option>
+              <option value="available">{t("status.available")}</option>
+              <option value="pending">{t("status.pending")}</option>
+              <option value="rented">{t("status.rented")}</option>
             </select>
           </div>
 
           <Input
-            label="Bedrooms"
+            label={t("bedrooms")}
             value={bedrooms}
             setValue={setBedrooms}
             type="number"
           />
 
           <Input
-            label="Bathrooms"
+            label={t("bathrooms")}
             value={bathrooms}
             setValue={setBathrooms}
             type="number"
           />
 
           <Input
-            label="Guests"
+            label={t("guests")}
             value={guests}
             setValue={setGuests}
             type="number"
           />
 
           <Input
-            label="Roommates"
+            label={t("roommates")}
             value={roommates}
             setValue={setRoommates}
             type="number"
           />
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium">Description</label>
+            <label className="mb-2 block text-sm font-medium">
+              {t("description")}
+            </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -455,7 +458,7 @@ export default function EditListingPage() {
           </div>
 
           <Input
-            label="Amenities, separated by commas"
+            label={t("amenities")}
             value={amenities}
             setValue={setAmenities}
             className="md:col-span-2"
@@ -464,40 +467,39 @@ export default function EditListingPage() {
 
         <section className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
           <h2 className="text-2xl font-bold text-emerald-300">
-            Secure Viewing Address
+            {t("secureAddressTitle")}
           </h2>
 
           <p className="mt-2 text-sm text-zinc-400">
-            This exact address stays hidden publicly and only unlocks after you
-            approve a viewing.
+            {t("secureAddressText")}
           </p>
 
           <div className="mt-6 grid gap-5 md:grid-cols-2">
             <Input
-              label="Street Address"
+              label={t("streetAddress")}
               value={addressLine}
               setValue={setAddressLine}
             />
 
-            <Input label="Unit / Apartment" value={unit} setValue={setUnit} />
+            <Input label={t("unit")} value={unit} setValue={setUnit} />
 
-            <Input label="Province" value={province} setValue={setProvince} />
+            <Input label={t("province")} value={province} setValue={setProvince} />
 
             <Input
-              label="Postal Code"
+              label={t("postalCode")}
               value={postalCode}
               setValue={setPostalCode}
             />
 
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium">
-                Safety Instructions
+                {t("safetyInstructions")}
               </label>
               <textarea
                 value={safetyInstructions}
                 onChange={(e) => setSafetyInstructions(e.target.value)}
                 rows={4}
-                placeholder="Example: Please arrive on time. Use the front entrance. Do not share this address publicly."
+                placeholder={t("safetyInstructionsPlaceholder")}
                 className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
               />
             </div>
@@ -507,15 +509,17 @@ export default function EditListingPage() {
         <section className="rounded-2xl border border-zinc-800 p-5">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold">Images</h2>
+              <h2 className="text-2xl font-bold">{t("images")}</h2>
               <p className="text-sm text-zinc-400">
-                Current images: {existingImages.length} | New images:{" "}
-                {newImages.length}
+                {t("imageCounts", {
+                  existingImages: existingImages.length,
+                  newImages: newImages.length,
+                })}
               </p>
             </div>
 
             <label className="cursor-pointer rounded-xl bg-white px-5 py-3 font-semibold text-black">
-              Add Images
+              {t("addImages")}
               <input
                 type="file"
                 accept="image/*"
@@ -534,7 +538,7 @@ export default function EditListingPage() {
               >
                 <img
                   src={image.image_url}
-                  alt="Listing image"
+                  alt={t("listingImageAlt")}
                   className="h-64 w-full object-cover"
                 />
 
@@ -552,8 +556,8 @@ export default function EditListingPage() {
                     }`}
                   >
                     {coverType === "existing" && coverId === image.id
-                      ? "Cover Image"
-                      : "Set as Cover"}
+                      ? t("coverImage")
+                      : t("setAsCover")}
                   </button>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -562,7 +566,7 @@ export default function EditListingPage() {
                       onClick={() => moveExisting(index, "up")}
                       className="rounded-xl bg-zinc-800 px-4 py-3"
                     >
-                      Move Up
+                      {t("moveUp")}
                     </button>
 
                     <button
@@ -570,7 +574,7 @@ export default function EditListingPage() {
                       onClick={() => moveExisting(index, "down")}
                       className="rounded-xl bg-zinc-800 px-4 py-3"
                     >
-                      Move Down
+                      {t("moveDown")}
                     </button>
                   </div>
 
@@ -579,7 +583,7 @@ export default function EditListingPage() {
                     onClick={() => deleteExistingImage(image)}
                     className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold"
                   >
-                    Delete Image
+                    {t("deleteImage")}
                   </button>
                 </div>
               </div>
@@ -592,7 +596,7 @@ export default function EditListingPage() {
               >
                 <img
                   src={image.previewUrl}
-                  alt="New image"
+                  alt={t("newImageAlt")}
                   className="h-64 w-full object-cover"
                 />
 
@@ -610,8 +614,8 @@ export default function EditListingPage() {
                     }`}
                   >
                     {coverType === "new" && coverId === image.localId
-                      ? "Cover Image"
-                      : "Set as Cover"}
+                      ? t("coverImage")
+                      : t("setAsCover")}
                   </button>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -620,7 +624,7 @@ export default function EditListingPage() {
                       onClick={() => moveNew(index, "up")}
                       className="rounded-xl bg-blue-800 px-4 py-3"
                     >
-                      Move Up
+                      {t("moveUp")}
                     </button>
 
                     <button
@@ -628,7 +632,7 @@ export default function EditListingPage() {
                       onClick={() => moveNew(index, "down")}
                       className="rounded-xl bg-blue-800 px-4 py-3"
                     >
-                      Move Down
+                      {t("moveDown")}
                     </button>
                   </div>
 
@@ -637,7 +641,7 @@ export default function EditListingPage() {
                     onClick={() => deleteNewImage(image)}
                     className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold"
                   >
-                    Remove New Image
+                    {t("removeNewImage")}
                   </button>
                 </div>
               </div>
@@ -651,7 +655,7 @@ export default function EditListingPage() {
             onClick={() => router.push(`/listings/${listingId}`)}
             className="rounded-xl border border-zinc-700 px-6 py-3"
           >
-            Cancel
+            {t("cancel")}
           </button>
 
           <button
@@ -659,7 +663,7 @@ export default function EditListingPage() {
             disabled={saving}
             className="rounded-xl bg-blue-600 px-6 py-3 font-semibold disabled:bg-zinc-600"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? t("saving") : t("saveChanges")}
           </button>
         </div>
       </form>

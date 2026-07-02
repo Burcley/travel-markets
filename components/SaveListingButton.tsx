@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type SaveListingButtonProps = {
@@ -9,6 +10,7 @@ type SaveListingButtonProps = {
 };
 
 export default function SaveListingButton({ listingId }: SaveListingButtonProps) {
+  const t = useTranslations("saveListing");
   const router = useRouter();
   const supabase = createClient();
 
@@ -104,12 +106,12 @@ export default function SaveListingButton({ listingId }: SaveListingButtonProps)
       }`}
     >
       {loading
-        ? "Checking..."
+        ? t("checking")
         : working
-        ? "Saving..."
+        ? t("saving")
         : saved
-        ? "★ Saved"
-        : "☆ Save Listing"}
+        ? `★ ${t("saved")}`
+        : `☆ ${t("saveListing")}`}
     </button>
   );
 }

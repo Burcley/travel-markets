@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type RecentListing = {
   id: string;
@@ -14,6 +15,7 @@ type RecentListing = {
 };
 
 export default function RecentlyViewedListings() {
+  const t = useTranslations("finalBatchD.recentlyViewedStrip");
   const [items, setItems] = useState<RecentListing[]>([]);
 
   useEffect(() => {
@@ -31,9 +33,9 @@ export default function RecentlyViewedListings() {
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">Recently viewed</h2>
+            <h2 className="text-xl font-bold">{t("title")}</h2>
             <p className="text-sm text-zinc-500">
-              Quickly return to listings you opened.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -44,7 +46,7 @@ export default function RecentlyViewedListings() {
             }}
             className="rounded-full border border-zinc-800 px-4 py-2 text-sm text-zinc-400 hover:border-white hover:text-white"
           >
-            Clear
+            {t("clear")}
           </button>
         </div>
 
@@ -64,7 +66,7 @@ export default function RecentlyViewedListings() {
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-zinc-500">
-                    No Image
+                    {t("noImage")}
                   </div>
                 )}
               </div>
@@ -75,7 +77,7 @@ export default function RecentlyViewedListings() {
                 </h3>
 
                 <p className="mt-1 line-clamp-1 text-sm text-zinc-400">
-                  {listing.city || "City hidden"}
+                  {listing.city || t("cityHidden")}
                   {listing.campus ? ` • ${listing.campus}` : ""}
                 </p>
 
@@ -83,7 +85,7 @@ export default function RecentlyViewedListings() {
                   ${listing.price || 0}
                   <span className="text-sm font-normal text-zinc-500">
                     {" "}
-                    / month
+                    {t("perMonth")}
                   </span>
                 </p>
               </div>

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Clock, MapPin, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -33,6 +34,7 @@ type RecentlyViewedRow = {
 };
 
 export default function RecentlyViewedPage() {
+  const t = useTranslations("accountPages.recentlyViewed");
   const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<RecentlyViewedRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,7 @@ export default function RecentlyViewedPage() {
       .eq("id", id);
 
     if (error) {
-      alert("Could not remove item.");
+      alert(t("removeFailed"));
       return;
     }
 
@@ -118,15 +120,15 @@ export default function RecentlyViewedPage() {
         <div className="mb-8">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
             <Clock size={16} />
-            Recently viewed
+            {t("eyebrow")}
           </div>
 
           <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
-            Recently Viewed Listings
+            {t("title")}
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">
-            Quickly return to rentals you opened recently.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -142,18 +144,18 @@ export default function RecentlyViewedPage() {
         ) : items.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center">
             <h2 className="text-2xl font-semibold">
-              No recently viewed listings yet
+              {t("emptyTitle")}
             </h2>
 
             <p className="mt-3 text-sm text-white/50">
-              Open a listing and it will appear here.
+              {t("emptyText")}
             </p>
 
             <Link
               href="/search"
               className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90"
             >
-              Browse Listings
+              {t("browseListings")}
             </Link>
           </div>
         ) : (
@@ -173,14 +175,14 @@ export default function RecentlyViewedPage() {
                     {cover ? (
                       <Image
                         src={cover}
-                        alt={listing.title || "Listing"}
+                        alt={listing.title || t("listingAlt")}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
                         className="object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-white/30">
-                        No image
+                        {t("noImage")}
                       </div>
                     )}
 
@@ -193,27 +195,30 @@ export default function RecentlyViewedPage() {
                     </button>
 
                     <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-black">
-                      ${listing.price ?? "Ask"}/mo
+                      ${listing.price ?? t("ask")}{t("perMonthCompact")}
                     </div>
                   </div>
 
                   <Link href={`/listings/${listing.id}`} className="block p-4">
                     <h2 className="line-clamp-1 text-lg font-semibold">
-                      {listing.title || "Untitled listing"}
+                      {listing.title || t("untitledListing")}
                     </h2>
 
                     <div className="mt-2 flex items-center gap-2 text-sm text-white/50">
                       <MapPin size={15} />
 
                       <span className="line-clamp-1">
-                        {listing.city || "City hidden"}
+                        {listing.city || t("cityHidden")}
                         {listing.campus ? ` • ${listing.campus}` : ""}
                       </span>
                     </div>
 
                     <div className="mt-4 text-xs text-white/40">
-                      Viewed{" "}
-                      {new Date(item.viewed_at).toLocaleDateString("en-CA")}
+                      {t("viewed", {
+                        date: new Date(item.viewed_at).toLocaleDateString(
+                          "en-CA"
+                        ),
+                      })}
                     </div>
                   </Link>
                 </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 type Filters = {
   bedrooms: string;
   bathrooms: string;
@@ -14,13 +16,15 @@ type Props = {
 };
 
 export default function AdvancedListingFilters({ filters, setFilters }: Props) {
+  const t = useTranslations("finalBatchD.advancedFilters");
+
   return (
     <div className="rounded-3xl border border-white/10 bg-[#111111] p-5 shadow-2xl">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Advanced Filters</h2>
+          <h2 className="text-lg font-semibold text-white">{t("title")}</h2>
           <p className="text-sm text-gray-400">
-            Find the right place faster.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -36,13 +40,13 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
           }
           className="rounded-full border border-white/10 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
         >
-          Reset
+          {t("reset")}
         </button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-5">
         <div>
-          <label className="mb-2 block text-sm text-gray-300">Bedrooms</label>
+          <label className="mb-2 block text-sm text-gray-300">{t("bedrooms")}</label>
           <select
             value={filters.bedrooms}
             onChange={(e) =>
@@ -50,7 +54,7 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
             }
             className="w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none"
           >
-            <option value="any">Any</option>
+            <option value="any">{t("any")}</option>
             <option value="1">1+</option>
             <option value="2">2+</option>
             <option value="3">3+</option>
@@ -60,7 +64,7 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-gray-300">Bathrooms</label>
+          <label className="mb-2 block text-sm text-gray-300">{t("bathrooms")}</label>
           <select
             value={filters.bathrooms}
             onChange={(e) =>
@@ -68,7 +72,7 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
             }
             className="w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none"
           >
-            <option value="any">Any</option>
+            <option value="any">{t("any")}</option>
             <option value="1">1+</option>
             <option value="2">2+</option>
             <option value="3">3+</option>
@@ -78,7 +82,7 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
 
         <div>
           <label className="mb-2 block text-sm text-gray-300">
-            Min Price: ${filters.minPrice}
+            {t("minPrice", { price: filters.minPrice })}
           </label>
           <input
             type="range"
@@ -98,7 +102,7 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
 
         <div>
           <label className="mb-2 block text-sm text-gray-300">
-            Max Price: ${filters.maxPrice}
+            {t("maxPrice", { price: filters.maxPrice })}
           </label>
           <input
             type="range"
@@ -118,7 +122,7 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
 
         <div>
           <label className="mb-2 block text-sm text-gray-300">
-            Availability
+            {t("availability")}
           </label>
           <select
             value={filters.status}
@@ -127,10 +131,10 @@ export default function AdvancedListingFilters({ filters, setFilters }: Props) {
             }
             className="w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none"
           >
-            <option value="any">Any</option>
-            <option value="available">Available</option>
-            <option value="pending">Pending</option>
-            <option value="rented">Rented</option>
+            <option value="any">{t("any")}</option>
+            <option value="available">{t("available")}</option>
+            <option value="pending">{t("pending")}</option>
+            <option value="rented">{t("rented")}</option>
           </select>
         </div>
       </div>

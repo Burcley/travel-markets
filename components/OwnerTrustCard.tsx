@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   BadgeCheck,
   Crown,
@@ -34,6 +35,7 @@ type OwnerTrustCardProps = {
 };
 
 export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
+  const t = useTranslations("ownerTrust");
   const supabase = createClient();
 
   const [listingCount, setListingCount] = useState(0);
@@ -85,7 +87,7 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
 
   if (!owner) return null;
 
-  const ownerName = owner.full_name || "Property Owner";
+  const ownerName = owner.full_name || t("propertyOwner");
   const ownerInitial = ownerName.charAt(0).toUpperCase();
 
   const isPremium = ownerPlan === "premium";
@@ -97,12 +99,12 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
 
   const trustLabel =
     trustLevel === "elite"
-      ? "Elite Owner"
+      ? t("trust.eliteOwner")
       : trustLevel === "trusted"
-      ? "Trusted Owner"
+      ? t("trust.trustedOwner")
       : trustLevel === "basic"
-      ? "Basic Trust"
-      : "New Owner";
+      ? t("trust.basicTrust")
+      : t("trust.newOwner");
 
   const trustColor =
     trustLevel === "elite"
@@ -127,28 +129,28 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <p className="text-sm font-semibold uppercase tracking-wide text-gray-400">
-          Owner Trust
+          {t("title")}
         </p>
 
         <div className="flex flex-wrap justify-end gap-2">
           {isPremium && (
             <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
               <Crown size={13} />
-              Premium
+              {t("premium")}
             </span>
           )}
 
           {isPro && (
             <span className="inline-flex items-center gap-1 rounded-full bg-purple-500 px-3 py-1 text-xs font-black text-white">
               <Sparkles size={13} />
-              Pro
+              {t("pro")}
             </span>
           )}
 
           {isVerified && (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">
               <BadgeCheck size={13} />
-              Verified
+              {t("verified")}
             </span>
           )}
         </div>
@@ -180,7 +182,7 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
         <div>
           <p className="text-lg font-bold">{ownerName}</p>
           <p className="text-sm capitalize text-gray-400">
-            {owner.role || "owner"}
+            {owner.role || t("ownerRole")}
           </p>
         </div>
       </div>
@@ -190,7 +192,7 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
           <div>
             <p className="text-sm font-semibold">{trustLabel}</p>
             <p className="mt-1 text-xs opacity-80">
-              Travel Markets trust score
+              {t("trustScore")}
             </p>
           </div>
 
@@ -208,15 +210,15 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-3">
-        <TrustStat label="Listings" value={listingCount} />
-        <TrustStat label="Reviews" value={reviewCount} />
-        <TrustStat label="Rating" value={averageRating} />
+        <TrustStat label={t("stats.listings")} value={listingCount} />
+        <TrustStat label={t("stats.reviews")} value={reviewCount} />
+        <TrustStat label={t("stats.rating")} value={averageRating} />
       </div>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-black/50 p-5">
         <div className="mb-4 flex items-center gap-2">
           <ShieldCheck size={18} className="text-emerald-300" />
-          <h3 className="font-bold text-white">Trust Signals</h3>
+          <h3 className="font-bold text-white">{t("signalsTitle")}</h3>
         </div>
 
         <div className="space-y-3">
@@ -224,61 +226,59 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
             icon={<BadgeCheck size={15} />}
             label={
               isVerified
-                ? "Identity Verified"
-                : "Identity Not Fully Verified"
+                ? t("signals.identityVerified")
+                : t("signals.identityNotFullyVerified")
             }
             description={
               isVerified
-                ? "This owner submitted identity verification and was approved."
-                : "This owner has not completed identity approval yet."
+                ? t("signals.identityVerifiedDescription")
+                : t("signals.identityNotFullyVerifiedDescription")
             }
             active={isVerified}
           />
 
           <HighlightItem
             icon={<ShieldCheck size={15} />}
-            label={`Verification Status: ${
-              owner.identity_verification_status || "unverified"
-            }`}
-            description="Verification status is reviewed through Travel Markets trust flow."
+            label={t("signals.verificationStatus", {
+              status: owner.identity_verification_status || t("unverified"),
+            })}
+            description={t("signals.verificationStatusDescription")}
             active={isVerified}
           />
 
           <HighlightItem
             icon={<Home size={15} />}
-            label={`${listingCount} Active Listing${
-              listingCount === 1 ? "" : "s"
-            }`}
-            description="Owner has active marketplace inventory."
+            label={t("signals.activeListings", { count: listingCount })}
+            description={t("signals.activeListingsDescription")}
             active={listingCount > 0}
           />
 
           <HighlightItem
             icon={<Star size={15} />}
-            label={`${reviewCount} Review${reviewCount === 1 ? "" : "s"}`}
-            description="Reviews help renters judge owner reliability."
+            label={t("signals.reviews", { count: reviewCount })}
+            description={t("signals.reviewsDescription")}
             active={reviewCount > 0}
           />
 
           <HighlightItem
             icon={<MessageCircle size={15} />}
-            label="Contact Through Travel Markets"
-            description="Keep messages inside the platform for safer communication."
+            label={t("signals.contactThrough")}
+            description={t("signals.contactThroughDescription")}
             active
           />
 
           <HighlightItem
             icon={<LockKeyhole size={15} />}
-            label="Address Protection"
-            description="Exact address stays hidden until approved viewing."
+            label={t("signals.addressProtection")}
+            description={t("signals.addressProtectionDescription")}
             active
           />
 
           {isPremium && (
             <HighlightItem
               icon={<Crown size={15} />}
-              label="Premium Owner"
-              description="Premium owner has paid marketplace visibility."
+              label={t("premiumOwner")}
+              description={t("signals.premiumOwnerDescription")}
               active
             />
           )}
@@ -286,16 +286,16 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
           {isPro && (
             <HighlightItem
               icon={<Sparkles size={15} />}
-              label="Pro Owner"
-              description="Pro owner has upgraded marketplace tools."
+              label={t("proOwner")}
+              description={t("signals.proOwnerDescription")}
               active
             />
           )}
 
           <HighlightItem
             icon={<Zap size={15} />}
-            label="Travel Markets Safer Flow"
-            description="Built for student housing, viewings, reviews, and address protection."
+            label={t("signals.saferFlow")}
+            description={t("signals.saferFlowDescription")}
             active
           />
         </div>
@@ -303,12 +303,10 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
 
       <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
         <p className="text-sm font-semibold text-emerald-300">
-          What this means
+          {t("whatThisMeansTitle")}
         </p>
         <p className="mt-1 text-xs leading-5 text-emerald-100/70">
-          Verification means the owner submitted identity details that were
-          reviewed by Travel Markets. It does not guarantee safety, so always
-          use viewings, messaging, and platform protections.
+          {t("whatThisMeansText")}
         </p>
       </div>
 
@@ -316,7 +314,7 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
         href={`/users/${owner.id}`}
         className="mt-5 flex w-full items-center justify-center rounded-xl border border-gray-700 bg-white/5 px-5 py-4 font-semibold text-white transition hover:bg-white/10"
       >
-        View Owner Profile
+        {t("viewOwnerProfile")}
       </Link>
     </div>
   );

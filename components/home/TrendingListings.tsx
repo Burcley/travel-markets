@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Flame, MapPin } from "lucide-react";
 
 type TrendingListing = {
@@ -21,6 +22,8 @@ type Props = {
 };
 
 export default function TrendingListings({ listings }: Props) {
+  const t = useTranslations("home.trendingListings");
+
   if (!listings || listings.length === 0) return null;
 
   return (
@@ -29,11 +32,11 @@ export default function TrendingListings({ listings }: Props) {
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-300">
             <Flame size={14} />
-            Most viewed this week
+            {t("eyebrow")}
           </div>
 
           <h2 className="text-2xl font-semibold text-white">
-            Trending listings
+            {t("title")}
           </h2>
         </div>
       </div>
@@ -49,23 +52,23 @@ export default function TrendingListings({ listings }: Props) {
               {listing.image_url ? (
                 <Image
                   src={listing.image_url}
-                  alt={listing.title || "Trending listing"}
+                  alt={listing.title || t("fallbackAlt")}
                   fill
                   sizes="(max-width: 640px) 100vw, 50vw"
                   className="object-cover transition duration-500 group-hover:scale-105"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-white/30">
-                  No image
+                  {t("noImage")}
                 </div>
               )}
 
               <div className="absolute left-3 top-3 rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-black">
-                🔥 {listing.view_count} views
+                🔥 {t("views", { count: listing.view_count })}
               </div>
 
               <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-lg">
-                ${listing.price ?? "Ask"}/mo
+                {listing.price == null ? t("ask") : `$${listing.price}`}/mo
               </div>
             </div>
 
@@ -78,22 +81,22 @@ export default function TrendingListings({ listings }: Props) {
                 <MapPin size={15} />
 
                 <span className="line-clamp-1">
-                  {listing.city || "City hidden"}
+                  {listing.city || t("cityHidden")}
                   {listing.campus ? ` • ${listing.campus}` : ""}
                 </span>
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-white/60">
                 <span className="rounded-xl bg-white/5 px-2 py-2">
-                  {listing.bedrooms ?? "-"} bed
+                  {t("bed", { count: listing.bedrooms ?? 0 })}
                 </span>
 
                 <span className="rounded-xl bg-white/5 px-2 py-2">
-                  {listing.bathrooms ?? "-"} bath
+                  {t("bath", { count: listing.bathrooms ?? 0 })}
                 </span>
 
                 <span className="rounded-xl bg-white/5 px-2 py-2">
-                  {listing.guests ?? "-"} guest
+                  {t("guest", { count: listing.guests ?? 0 })}
                 </span>
               </div>
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 
 export default function LoadMoreListings({
@@ -10,6 +11,7 @@ export default function LoadMoreListings({
   currentPage: number;
   hasMore: boolean;
 }) {
+  const t = useTranslations("finalBatchD.searchResults");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -32,7 +34,7 @@ export default function LoadMoreListings({
         disabled={isPending}
         className="rounded-2xl border border-white/10 bg-white/[0.06] px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
       >
-        {isPending ? "Loading..." : "Load more"}
+        {isPending ? t("loading") : t("loadMore")}
       </button>
     </div>
   );

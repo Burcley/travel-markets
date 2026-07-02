@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Home,
   MessageCircle,
@@ -59,8 +60,8 @@ const BOOST_LIMITS: Record<string, number> = {
   premium: 10,
 };
 
-function formatDate(date: string | null) {
-  if (!date) return "Not available";
+function formatDate(date: string | null, notAvailableLabel: string) {
+  if (!date) return notAvailableLabel;
 
   return new Intl.DateTimeFormat("en-CA", {
     month: "short",
@@ -69,19 +70,20 @@ function formatDate(date: string | null) {
   }).format(new Date(date));
 }
 
-function getFirstName(value: string) {
+function getFirstName(value: string, fallback: string) {
   const clean = value.trim();
 
-  if (!clean) return "User";
+  if (!clean) return fallback;
 
   if (clean.includes("@")) {
-    return clean.split("@")[0].split(".")[0].split("_")[0] || "User";
+    return clean.split("@")[0].split(".")[0].split("_")[0] || fallback;
   }
 
-  return clean.split(" ")[0] || "User";
+  return clean.split(" ")[0] || fallback;
 }
 
 export default function DashboardPage() {
+  const t = useTranslations("dashboard");
   const supabase = useMemo(() => createClient(), []);
 
   const [stats, setStats] = useState<Stats>({
@@ -105,7 +107,7 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<ListingAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const displayName = getFirstName(name);
+  const displayName = getFirstName(name, t("fallbackUser"));
 
   const plan = subscription.plan || "free";
   const listingLimit = PLAN_LIMITS[plan] || 1;
@@ -143,7 +145,7 @@ export default function DashboardPage() {
       .eq("id", user.id)
       .maybeSingle();
 
-    setName(profile?.full_name || user.email || "User");
+    setName(profile?.full_name || user.email || t("fallbackUser"));
     setRole(profile?.role || "student");
 
     const { data: ownerSubscription } = await supabase
@@ -254,7 +256,7 @@ export default function DashboardPage() {
 
           return {
             id: listing.id,
-            title: listing.title || "Untitled listing",
+            title: listing.title || t("untitledListing"),
             status: listing.status || "available",
             price: listing.price,
             is_featured: listing.is_featured,
@@ -278,7 +280,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        <p className="text-zinc-400">Loading dashboard...</p>
+        <p className="text-zinc-400">{t("loading")}</p>
       </main>
     );
   }
@@ -290,32 +292,32 @@ export default function DashboardPage() {
           <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-400 sm:text-sm sm:normal-case sm:tracking-normal">
-                Travel Markets Control Center
+                {t("controlCenter")}
               </p>
 
               <h1 className="mt-3 max-w-full text-[2rem] font-black leading-[1.06] tracking-tight sm:text-5xl md:text-6xl">
-                Welcome back,
+                {t("welcomeBack")}
                 <span className="block max-w-full truncate text-white/90 sm:inline sm:pl-2">
                   {displayName}
                 </span>
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
-                Manage listings, subscriptions, analytics, messages, and viewing requests.
+                {t("intro")}
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 lg:w-[440px] lg:grid-cols-1">
               <DashboardButton href="/post" variant="white" icon={<PlusCircle size={18} />}>
-                Post Listing
+                {t("postListing")}
               </DashboardButton>
 
               <DashboardButton href="/billing" variant="purple" icon={<Crown size={18} />}>
-                Billing
+                {t("billing")}
               </DashboardButton>
 
               <DashboardButton href="/profile" variant="dark" icon={<User size={18} />}>
-                Edit Profile
+                {t("editProfile")}
               </DashboardButton>
             </div>
           </div>
@@ -329,23 +331,33 @@ export default function DashboardPage() {
               </div>
 
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-purple-200">Owner Subscription</p>
-                <h2 className="mt-1 truncate text-3xl font-black capitalize">{plan} Plan</h2>
+                <p className="text-sm font-semibold text-purple-200">{t("ownerSubscription")}</p>
+                <h2 className="mt-1 truncate text-3xl font-black capitalize">
+                  {t("planTitle", { plan })}
+                </h2>
 
                 <p className="mt-2 text-sm leading-6 text-zinc-300">
-                  {stats.listings}/{listingLimit} active listing slots used.
+                  {t("listingSlotsUsed", {
+                    used: stats.listings,
+                    limit: listingLimit,
+                  })}
                   {subscription.current_period_end &&
-                    ` Renews on ${formatDate(subscription.current_period_end)}.`}
+                    ` ${t("renewsOn", {
+                      date: formatDate(
+                        subscription.current_period_end,
+                        t("notAvailable")
+                      ),
+                    })}`}
                 </p>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <UsageBar
-                    label="Listing Slots"
+                    label={t("listingSlots")}
                     value={`${stats.listings}/${listingLimit}`}
                     percent={listingUsagePercent}
                   />
                   <UsageBar
-                    label="Monthly Featured Boosts"
+                    label={t("monthlyFeaturedBoosts")}
                     value={`${boostsUsed}/${boostLimit}`}
                     percent={boostUsagePercent}
                   />
@@ -358,16 +370,16 @@ export default function DashboardPage() {
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-black"
             >
               <CreditCard size={18} />
-              Manage Subscription
+              {t("manageSubscription")}
             </Link>
           </div>
         </section>
 
         <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-          <StatCard title="Listings" value={stats.listings} icon={<Home size={20} />} href="/my-listings" />
-          <StatCard title="Views" value={totalViews} icon={<Eye size={20} />} href="/my-listings" />
-          <StatCard title="Saves" value={totalSaves} icon={<Heart size={20} />} href="/saved-listings" />
-          <StatCard title="Viewings" value={totalViewingRequests} icon={<CalendarDays size={20} />} href="/viewings" />
+          <StatCard title={t("stats.listings")} value={stats.listings} icon={<Home size={20} />} href="/my-listings" />
+          <StatCard title={t("stats.views")} value={totalViews} icon={<Eye size={20} />} href="/my-listings" />
+          <StatCard title={t("stats.saves")} value={totalSaves} icon={<Heart size={20} />} href="/saved-listings" />
+          <StatCard title={t("stats.viewings")} value={totalViewingRequests} icon={<CalendarDays size={20} />} href="/viewings" />
         </section>
 
         <section className="rounded-[1.6rem] border border-white/10 bg-[#080808] p-5 shadow-2xl sm:rounded-[2rem] md:p-6">
@@ -375,10 +387,10 @@ export default function DashboardPage() {
             <div className="min-w-0">
               <h2 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
                 <BarChart3 className="shrink-0 text-blue-300" />
-                Owner Analytics
+                {t("analytics.title")}
               </h2>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
-                Track views, saves, viewing requests, and conversion rate per listing.
+                {t("analytics.subtitle")}
               </p>
             </div>
 
@@ -387,16 +399,16 @@ export default function DashboardPage() {
                 href="/billing"
                 className="rounded-2xl border border-yellow-400/30 bg-yellow-500/20 px-5 py-3 text-center text-sm font-bold text-yellow-100"
               >
-                Upgrade analytics
+                {t("analytics.upgrade")}
               </Link>
             )}
           </div>
 
           {analytics.length === 0 ? (
             <div className="rounded-3xl border border-white/10 bg-black p-8 text-center">
-              <p className="font-semibold">No analytics yet</p>
+              <p className="font-semibold">{t("analytics.emptyTitle")}</p>
               <p className="mt-2 text-sm text-zinc-400">
-                Post a listing and analytics will appear here.
+                {t("analytics.emptyText")}
               </p>
             </div>
           ) : (
@@ -412,7 +424,7 @@ export default function DashboardPage() {
 
                       {item.is_featured && (
                         <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-bold text-black">
-                          Featured
+                          {t("analytics.featured")}
                         </span>
                       )}
 
@@ -422,14 +434,14 @@ export default function DashboardPage() {
                     </div>
 
                     <p className="mt-1 text-sm text-zinc-400">
-                      {item.price ? `$${item.price}/mo` : "No price"}
+                      {item.price ? `$${item.price}/mo` : t("analytics.noPrice")}
                     </p>
                   </div>
 
-                  <Metric label="Views" value={item.views} icon={<Eye size={16} />} />
-                  <Metric label="Saves" value={item.saves} icon={<Heart size={16} />} />
-                  <Metric label="Viewings" value={item.viewings} icon={<CalendarDays size={16} />} />
-                  <Metric label="Conv." value={`${item.conversionRate}%`} icon={<TrendingUp size={16} />} />
+                  <Metric label={t("stats.views")} value={item.views} icon={<Eye size={16} />} />
+                  <Metric label={t("stats.saves")} value={item.saves} icon={<Heart size={16} />} />
+                  <Metric label={t("stats.viewings")} value={item.viewings} icon={<CalendarDays size={16} />} />
+                  <Metric label={t("analytics.conversion")} value={`${item.conversionRate}%`} icon={<TrendingUp size={16} />} />
                 </div>
               ))}
             </div>
@@ -438,29 +450,29 @@ export default function DashboardPage() {
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
           <div className="rounded-[1.6rem] border border-white/10 bg-[#080808] p-5 shadow-2xl sm:rounded-[2rem] md:p-6">
-            <h2 className="text-xl font-bold sm:text-2xl">Quick Actions</h2>
+            <h2 className="text-xl font-bold sm:text-2xl">{t("quickActions.title")}</h2>
 
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <ActionCard href="/post" title="Create Listing" description="Post a new room, apartment, or student housing space." icon={<PlusCircle size={20} />} />
-              <ActionCard href="/billing" title="Owner Subscription" description="Upgrade, downgrade, cancel, or manage billing." icon={<Crown size={20} />} />
-              <ActionCard href="/my-listings" title="My Listings" description="Edit, delete, and manage posted listings." icon={<Home size={20} />} />
-              <ActionCard href="/viewings" title="Manage Viewings" description="Approve viewing requests and unlock addresses." icon={<CalendarDays size={20} />} />
-              <ActionCard href="/messages" title="Messages" description="Open chats and continue conversations." icon={<MessageCircle size={20} />} />
-              <ActionCard href="/billing" title="Visibility Boosts" description="Use subscription boosts to improve exposure." icon={<Zap size={20} />} />
+              <ActionCard href="/post" title={t("quickActions.createListingTitle")} description={t("quickActions.createListingText")} icon={<PlusCircle size={20} />} />
+              <ActionCard href="/billing" title={t("quickActions.ownerSubscriptionTitle")} description={t("quickActions.ownerSubscriptionText")} icon={<Crown size={20} />} />
+              <ActionCard href="/my-listings" title={t("quickActions.myListingsTitle")} description={t("quickActions.myListingsText")} icon={<Home size={20} />} />
+              <ActionCard href="/viewings" title={t("quickActions.manageViewingsTitle")} description={t("quickActions.manageViewingsText")} icon={<CalendarDays size={20} />} />
+              <ActionCard href="/messages" title={t("quickActions.messagesTitle")} description={t("quickActions.messagesText")} icon={<MessageCircle size={20} />} />
+              <ActionCard href="/billing" title={t("quickActions.visibilityBoostsTitle")} description={t("quickActions.visibilityBoostsText")} icon={<Zap size={20} />} />
             </div>
           </div>
 
           <aside className="space-y-6">
             <div className="rounded-[1.6rem] border border-white/10 bg-[#080808] p-5 shadow-2xl sm:rounded-[2rem] md:p-6">
-              <h2 className="text-xl font-bold sm:text-2xl">Account Status</h2>
+              <h2 className="text-xl font-bold sm:text-2xl">{t("accountStatus.title")}</h2>
 
               <div className="mt-5 space-y-4">
-                <InfoBox label="Role" value={role} />
-                <InfoBox label="Owner Plan" value={plan} />
-                <InfoBox label="Plan Status" value={subscription.status || "inactive"} />
-                <InfoBox label="Listing Slots" value={`${stats.listings}/${listingLimit}`} />
-                <InfoBox label="Boosts Used" value={`${boostsUsed}/${boostLimit}`} />
-                <InfoBox label="Next Billing Date" value={formatDate(subscription.current_period_end)} />
+                <InfoBox label={t("accountStatus.role")} value={role} />
+                <InfoBox label={t("accountStatus.ownerPlan")} value={plan} />
+                <InfoBox label={t("accountStatus.planStatus")} value={subscription.status || "inactive"} />
+                <InfoBox label={t("listingSlots")} value={`${stats.listings}/${listingLimit}`} />
+                <InfoBox label={t("accountStatus.boostsUsed")} value={`${boostsUsed}/${boostLimit}`} />
+                <InfoBox label={t("accountStatus.nextBillingDate")} value={formatDate(subscription.current_period_end, t("notAvailable"))} />
               </div>
             </div>
 
@@ -468,9 +480,9 @@ export default function DashboardPage() {
               <div className="flex items-start gap-3">
                 <ShieldCheck className="mt-1 shrink-0 text-emerald-300" size={24} />
                 <div className="min-w-0">
-                  <h3 className="font-bold text-emerald-300">Secure address flow active</h3>
+                  <h3 className="font-bold text-emerald-300">{t("secureFlowTitle")}</h3>
                   <p className="mt-2 text-sm leading-6 text-emerald-100/80">
-                    Exact addresses stay protected until a viewing request is accepted.
+                    {t("secureFlowText")}
                   </p>
                 </div>
               </div>

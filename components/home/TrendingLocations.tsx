@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Flame, MapPin } from "lucide-react";
 
 type TrendingCity = {
@@ -15,6 +16,8 @@ function slugify(value: string) {
 }
 
 export default function TrendingLocations({ cities }: Props) {
+  const t = useTranslations("home.trendingLocations");
+
   if (!cities || cities.length === 0) return null;
 
   return (
@@ -23,11 +26,11 @@ export default function TrendingLocations({ cities }: Props) {
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-300">
             <Flame size={14} />
-            Trending now
+            {t("eyebrow")}
           </div>
 
           <h2 className="text-2xl font-semibold text-white">
-            Popular locations
+            {t("title")}
           </h2>
         </div>
       </div>
@@ -49,7 +52,7 @@ export default function TrendingLocations({ cities }: Props) {
               </span>
 
               <span className="text-xs text-white/45">
-                {city.count} view{city.count === 1 ? "" : "s"} this week
+                {t("viewsThisWeek", { count: city.count })}
               </span>
             </span>
           </Link>

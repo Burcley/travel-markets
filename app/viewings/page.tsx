@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Calendar,
   Clock,
@@ -42,6 +43,7 @@ type Viewing = {
 };
 
 export default function ViewingsPage() {
+  const t = useTranslations("viewings.list");
   const supabase = useMemo(() => createClient(), []);
 
   const [userId, setUserId] = useState("");
@@ -78,7 +80,7 @@ export default function ViewingsPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      setError("You must be logged in.");
+      setError(t("mustBeLoggedIn"));
       setLoading(false);
       return;
     }
@@ -198,7 +200,7 @@ export default function ViewingsPage() {
   }
 
   async function cancelViewing(viewing: Viewing) {
-    const confirmCancel = confirm("Cancel this viewing request?");
+    const confirmCancel = confirm(t("confirmCancel"));
     if (!confirmCancel) return;
 
     setUpdatingId(viewing.id);
@@ -344,7 +346,7 @@ export default function ViewingsPage() {
     return (
       viewing.viewing_slot?.slot_date ||
       viewing.requested_date ||
-      "Date unavailable"
+      t("dateUnavailable")
     );
   }
 
@@ -355,11 +357,11 @@ export default function ViewingsPage() {
     if (start && end) return `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
     if (start) return start.slice(0, 5);
 
-    return "Time unavailable";
+    return t("timeUnavailable");
   }
 
   function getListingTitle(viewing: Viewing) {
-    return viewing.listing?.title || "Property Viewing";
+    return viewing.listing?.title || t("propertyViewing");
   }
 
   function getLocationText(viewing: Viewing) {
@@ -367,13 +369,13 @@ export default function ViewingsPage() {
       Boolean
     );
 
-    return parts.length > 0 ? parts.join(" • ") : "Location not added";
+    return parts.length > 0 ? parts.join(" • ") : t("locationNotAdded");
   }
 
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading viewings...
+        {t("loading")}
       </main>
     );
   }
@@ -383,10 +385,10 @@ export default function ViewingsPage() {
       <main className="min-h-screen bg-black px-6 py-10 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-red-800 bg-red-950/40 p-6">
           <h1 className="text-2xl font-bold text-red-300">
-            Account Restricted
+            {t("accountRestricted")}
           </h1>
           <p className="mt-3 text-red-200">
-            You cannot access viewing appointments.
+            {t("restrictedText")}
           </p>
         </div>
       </main>
@@ -399,10 +401,10 @@ export default function ViewingsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-4xl font-bold tracking-tight">
-              Viewing Appointments
+              {t("title")}
             </h1>
             <p className="mt-2 text-zinc-400">
-              Manage approvals, address unlocks, and completed property tours.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -410,7 +412,7 @@ export default function ViewingsPage() {
             href="/"
             className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold transition hover:bg-white/10"
           >
-            Browse Listings
+            {t("browseListings")}
           </Link>
         </div>
 
@@ -422,7 +424,7 @@ export default function ViewingsPage() {
 
         {viewings.length === 0 ? (
           <div className="mt-10 rounded-3xl border border-zinc-800 bg-zinc-950 p-10 text-center">
-            <p className="text-zinc-400">No viewing appointments yet.</p>
+            <p className="text-zinc-400">{t("empty")}</p>
           </div>
         ) : (
           <div className="mt-8 space-y-6">
@@ -438,11 +440,10 @@ export default function ViewingsPage() {
                   {viewing.status === "accepted" && (
                     <div className="border-b border-emerald-500/20 bg-emerald-500/10 px-6 py-4">
                       <p className="font-semibold text-emerald-300">
-                        Viewing Approved
+                        {t("approvedTitle")}
                       </p>
                       <p className="mt-1 text-sm text-emerald-200/80">
-                        Secure address access is now unlocked for the approved
-                        student.
+                        {t("approvedText")}
                       </p>
                     </div>
                   )}
@@ -450,10 +451,10 @@ export default function ViewingsPage() {
                   {viewing.status === "declined" && (
                     <div className="border-b border-red-500/20 bg-red-500/10 px-6 py-4">
                       <p className="font-semibold text-red-300">
-                        Viewing Cancelled / Declined
+                        {t("declinedTitle")}
                       </p>
                       <p className="mt-1 text-sm text-red-200/80">
-                        This time slot has been reopened for other students.
+                        {t("declinedText")}
                       </p>
                     </div>
                   )}
@@ -469,7 +470,7 @@ export default function ViewingsPage() {
                           <div className="rounded-2xl border border-zinc-800 bg-black p-4">
                             <p className="flex items-center gap-2 font-semibold text-white">
                               <Calendar className="h-4 w-4" />
-                              Date
+                              {t("date")}
                             </p>
                             <p className="mt-2 text-zinc-400">
                               {getViewingDate(viewing)}
@@ -479,7 +480,7 @@ export default function ViewingsPage() {
                           <div className="rounded-2xl border border-zinc-800 bg-black p-4">
                             <p className="flex items-center gap-2 font-semibold text-white">
                               <Clock className="h-4 w-4" />
-                              Time
+                              {t("time")}
                             </p>
                             <p className="mt-2 text-zinc-400">
                               {getViewingTime(viewing)}
@@ -489,7 +490,7 @@ export default function ViewingsPage() {
                           <div className="rounded-2xl border border-zinc-800 bg-black p-4">
                             <p className="flex items-center gap-2 font-semibold text-white">
                               <Home className="h-4 w-4" />
-                              Location
+                              {t("location")}
                             </p>
                             <p className="mt-2 text-zinc-400">
                               {getLocationText(viewing)}
@@ -519,11 +520,10 @@ export default function ViewingsPage() {
                       <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
                         <p className="flex items-center gap-2 font-semibold text-emerald-300">
                           <Lock className="h-4 w-4" />
-                          Address unlocked
+                          {t("addressUnlocked")}
                         </p>
                         <p className="mt-2 text-sm text-emerald-100/80">
-                          You can now view the exact secure address for this
-                          accepted viewing.
+                          {t("addressUnlockedText")}
                         </p>
                       </div>
                     )}
@@ -535,7 +535,7 @@ export default function ViewingsPage() {
                           className="flex items-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/20"
                         >
                           <MessageCircle className="h-4 w-4" />
-                          Open Chat
+                          {t("openChat")}
                         </Link>
                       )}
 
@@ -543,7 +543,7 @@ export default function ViewingsPage() {
                         href={`/listings/${viewing.listing_id}`}
                         className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold transition hover:bg-white/10"
                       >
-                        View Listing
+                        {t("viewListing")}
                       </Link>
 
                       {viewing.status === "accepted" && isRequester && (
@@ -551,7 +551,7 @@ export default function ViewingsPage() {
                           href={`/address-unlocked/${viewing.listing_id}`}
                           className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-black transition hover:bg-emerald-400"
                         >
-                          View Unlocked Address
+                          {t("viewUnlockedAddress")}
                         </Link>
                       )}
 
@@ -563,8 +563,8 @@ export default function ViewingsPage() {
                         >
                           <XCircle className="h-4 w-4" />
                           {updatingId === viewing.id
-                            ? "Cancelling..."
-                            : "Cancel Viewing"}
+                            ? t("cancelling")
+                            : t("cancelViewing")}
                         </button>
                       )}
                     </div>
@@ -579,8 +579,8 @@ export default function ViewingsPage() {
                           className="w-full rounded-2xl bg-white px-4 py-3 font-semibold text-black transition hover:bg-zinc-200 disabled:bg-zinc-600"
                         >
                           {updatingId === viewing.id
-                            ? "Updating..."
-                            : "Accept Viewing"}
+                            ? t("updating")
+                            : t("acceptViewing")}
                         </button>
 
                         <button
@@ -590,7 +590,7 @@ export default function ViewingsPage() {
                           disabled={updatingId === viewing.id}
                           className="w-full rounded-2xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-500 disabled:bg-zinc-600"
                         >
-                          {updatingId === viewing.id ? "Updating..." : "Decline"}
+                          {updatingId === viewing.id ? t("updating") : t("decline")}
                         </button>
                       </div>
                     )}
@@ -604,8 +604,8 @@ export default function ViewingsPage() {
                         className="mt-6 w-full rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:bg-zinc-600"
                       >
                         {updatingId === viewing.id
-                          ? "Completing..."
-                          : "Mark Viewing as Completed"}
+                          ? t("completing")
+                          : t("markCompleted")}
                       </button>
                     )}
                   </div>

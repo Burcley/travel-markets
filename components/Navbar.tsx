@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/logo";
 
@@ -32,65 +33,65 @@ type NavLink = {
 };
 
 const studentNavLinks: NavLink[] = [
-  { href: "/", label: "Home" },
-  { href: "/search", label: "Search" },
-  { href: "/landlords", label: "For Landlords" },
-  { href: "/about", label: "About" },
-  { href: "/saved-listings", label: "Saved" },
-  { href: "/messages", label: "Messages" },
+  { href: "/", label: "home" },
+  { href: "/search", label: "search" },
+  { href: "/landlords", label: "forLandlords" },
+  { href: "/about", label: "about" },
+  { href: "/saved-listings", label: "saved" },
+  { href: "/messages", label: "messages" },
 ];
 
 const hostNavLinks: NavLink[] = [
-  { href: "/", label: "Home" },
-  { href: "/search", label: "Search" },
-  { href: "/landlords", label: "For Landlords" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/my-listings", label: "My Listings" },
-  { href: "/messages", label: "Messages" },
-  { href: "/billing", label: "Billing" },
+  { href: "/", label: "home" },
+  { href: "/search", label: "search" },
+  { href: "/landlords", label: "forLandlords" },
+  { href: "/dashboard", label: "dashboard" },
+  { href: "/my-listings", label: "myListings" },
+  { href: "/messages", label: "messages" },
+  { href: "/billing", label: "billing" },
 ];
 
 const adminNavLinks: NavLink[] = [
-  { href: "/", label: "Home" },
-  { href: "/search", label: "Search" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/admin", label: "Admin" },
-  { href: "/messages", label: "Messages" },
+  { href: "/", label: "home" },
+  { href: "/search", label: "search" },
+  { href: "/dashboard", label: "dashboard" },
+  { href: "/admin", label: "admin" },
+  { href: "/messages", label: "messages" },
 ];
 
 const publicNavLinks: NavLink[] = [
-  { href: "/", label: "Home" },
-  { href: "/search", label: "Search" },
-  { href: "/landlords", label: "For Landlords" },
-  { href: "/about", label: "About" },
-  { href: "/faq", label: "FAQ" },
+  { href: "/", label: "home" },
+  { href: "/search", label: "search" },
+  { href: "/landlords", label: "forLandlords" },
+  { href: "/about", label: "about" },
+  { href: "/faq", label: "faq" },
 ];
 
 const studentAccountLinks: NavLink[] = [
-  { href: "/profile", label: "Profile" },
-  { href: "/saved-listings", label: "Saved Listings" },
-  { href: "/saved-searches", label: "Saved Searches" },
-  { href: "/recently-viewed", label: "Recently Viewed" },
-  { href: "/inquiries/sent", label: "Sent Inquiries" },
-  { href: "/verify-identity", label: "Verify Identity" },
+  { href: "/profile", label: "profile" },
+  { href: "/saved-listings", label: "savedListings" },
+  { href: "/saved-searches", label: "savedSearches" },
+  { href: "/recently-viewed", label: "recentlyViewed" },
+  { href: "/inquiries/sent", label: "sentInquiries" },
+  { href: "/verify-identity", label: "verifyIdentity" },
 ];
 
 const hostAccountLinks: NavLink[] = [
-  { href: "/profile", label: "Profile" },
-  { href: "/dashboard", label: "Host Dashboard" },
-  { href: "/my-listings", label: "My Listings" },
-  { href: "/inquiries/received", label: "Received Inquiries" },
-  { href: "/billing", label: "Billing" },
-  { href: "/verify-identity", label: "Verify Identity" },
+  { href: "/profile", label: "profile" },
+  { href: "/dashboard", label: "hostDashboard" },
+  { href: "/my-listings", label: "myListings" },
+  { href: "/inquiries/received", label: "receivedInquiries" },
+  { href: "/billing", label: "billing" },
+  { href: "/verify-identity", label: "verifyIdentity" },
 ];
 
 const adminAccountLinks: NavLink[] = [
-  { href: "/profile", label: "Profile" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/admin", label: "Admin Panel" },
-  { href: "/my-listings", label: "My Listings" },
-  { href: "/billing", label: "Billing" },
-  { href: "/verify-identity", label: "Verify Identity" },
+  { href: "/profile", label: "profile" },
+  { href: "/dashboard", label: "dashboard" },
+  { href: "/admin", label: "adminPanel" },
+  { href: "/my-listings", label: "myListings" },
+  { href: "/billing", label: "billing" },
+  { href: "/verify-identity", label: "verifyIdentity" },
 ];
 
 function normalizeRole(role?: string | null) {
@@ -111,6 +112,7 @@ function normalizeRole(role?: string | null) {
 }
 
 export default function Navbar() {
+  const t = useTranslations("navbar");
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -148,7 +150,7 @@ export default function Navbar() {
   }, [role]);
 
   const displayName =
-    profile?.full_name?.trim() || userEmail?.split("@")[0] || "User";
+    profile?.full_name?.trim() || userEmail?.split("@")[0] || t("account.account");
 
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
@@ -336,7 +338,7 @@ export default function Navbar() {
   }
 
   function getNotificationText(notification: Notification) {
-    return notification.body || notification.message || "You have a new update.";
+    return notification.body || notification.message || t("notifications.newUpdate");
   }
 
   function formatNotificationTime(date: string) {
@@ -431,9 +433,9 @@ export default function Navbar() {
                       : "text-zinc-400 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <span>{link.label}</span>
+                  <span>{t(`links.${link.label}`)}</span>
 
-                  {link.label === "Messages" && unreadMessages > 0 && (
+                  {link.label === "messages" && unreadMessages > 0 && (
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                         active ? "bg-black text-white" : "bg-red-500 text-white"
@@ -461,7 +463,7 @@ export default function Navbar() {
                       : "hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  {link.label}
+                  {t(`links.${link.label}`)}
                 </Link>
               );
             })}
@@ -498,12 +500,11 @@ export default function Navbar() {
                   <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                     <div>
                       <p className="text-sm font-bold text-white">
-                        Notifications
+                        {t("notifications.title")}
                       </p>
 
                       <p className="mt-1 text-xs text-zinc-500">
-                        {unreadNotifications} unread notification
-                        {unreadNotifications === 1 ? "" : "s"}
+                        {t("notifications.unread", { count: unreadNotifications })}
                       </p>
                     </div>
 
@@ -513,7 +514,7 @@ export default function Navbar() {
                         onClick={markAllRead}
                         className="text-xs font-semibold text-sky-400 hover:text-sky-300"
                       >
-                        Mark all read
+                        {t("notifications.markAllRead")}
                       </button>
                     )}
                   </div>
@@ -521,7 +522,7 @@ export default function Navbar() {
                   <div className="max-h-[420px] overflow-y-auto">
                     {notifications.length === 0 ? (
                       <div className="p-8 text-center text-sm text-zinc-500">
-                        No notifications yet
+                        {t("notifications.empty")}
                       </div>
                     ) : (
                       notifications.map((notification) => (
@@ -536,7 +537,7 @@ export default function Navbar() {
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold text-white">
-                                {notification.title || "Notification"}
+                                {notification.title || t("notifications.fallbackTitle")}
                               </p>
 
                               <p className="mt-1 line-clamp-2 text-sm text-zinc-400">
@@ -563,7 +564,7 @@ export default function Navbar() {
                       onClick={() => setOpen(false)}
                       className="flex w-full items-center justify-center rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
                     >
-                      View all notifications
+                      {t("notifications.viewAll")}
                     </Link>
                   </div>
                 </div>
@@ -598,17 +599,17 @@ export default function Navbar() {
 
               <div className="hidden max-w-[170px] text-left xl:block">
                 <p className="truncate text-sm font-bold text-white">
-                  {isSignedIn ? displayName : "Account"}
+                  {isSignedIn ? displayName : t("account.account")}
                 </p>
 
                 <p className="truncate text-xs text-zinc-500">
                   {isSignedIn
                     ? role === "host"
-                      ? "Host account"
+                      ? t("account.hostAccount")
                       : role === "admin"
-                      ? "Admin account"
+                      ? t("account.adminAccount")
                       : userEmail
-                    : "Log in or create account"}
+                    : t("account.loginOrCreate")}
                 </p>
               </div>
 
@@ -644,10 +645,10 @@ export default function Navbar() {
 
                           <p className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold capitalize text-zinc-300">
                             {role === "host"
-                              ? "Host"
+                              ? t("roles.host")
                               : role === "admin"
-                              ? "Admin"
-                              : "Student"}
+                              ? t("roles.admin")
+                              : t("roles.student")}
                           </p>
                         </div>
                       </div>
@@ -665,7 +666,7 @@ export default function Navbar() {
                               : "text-zinc-300 hover:bg-white/10 hover:text-white"
                           }`}
                         >
-                          {link.label}
+                          {t(`links.${link.label}`)}
                         </Link>
                       ))}
 
@@ -675,7 +676,7 @@ export default function Navbar() {
                           onClick={() => setAccountOpen(false)}
                           className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20"
                         >
-                          Become a Host
+                          {t("actions.becomeHost")}
                         </Link>
                       )}
 
@@ -685,7 +686,7 @@ export default function Navbar() {
                         disabled={loggingOut}
                         className="mt-2 w-full rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-left text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
                       >
-                        {loggingOut ? "Logging out..." : "Log out"}
+                        {loggingOut ? t("actions.loggingOut") : t("actions.logout")}
                       </button>
                     </div>
                   </>
@@ -699,11 +700,11 @@ export default function Navbar() {
 
                         <div className="min-w-0">
                           <p className="truncate text-lg font-bold text-white">
-                            Welcome
+                            {t("account.welcome")}
                           </p>
 
                           <p className="mt-1 truncate text-sm text-zinc-500">
-                            Sign in to save listings and book viewings
+                            {t("account.signInPrompt")}
                           </p>
                         </div>
                       </div>
@@ -715,7 +716,7 @@ export default function Navbar() {
                         onClick={() => setAccountOpen(false)}
                         className="rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black transition hover:bg-zinc-200"
                       >
-                        Log in
+                        {t("actions.login")}
                       </Link>
 
                       <Link
@@ -723,7 +724,7 @@ export default function Navbar() {
                         onClick={() => setAccountOpen(false)}
                         className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-white/10"
                       >
-                        Sign up
+                        {t("actions.signup")}
                       </Link>
                     </div>
                   </>
@@ -738,9 +739,9 @@ export default function Navbar() {
           >
             {isSignedIn
               ? role === "host" || role === "admin"
-                ? "Post Listing"
-                : "Become a Host"
-              : "Sign In"}
+                ? t("actions.postListing")
+                : t("actions.becomeHost")
+              : t("actions.signIn")}
           </Link>
 
           <button
@@ -758,17 +759,17 @@ export default function Navbar() {
           <div className="mx-auto max-w-7xl rounded-3xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl">
             <div className="mb-3 rounded-2xl border border-white/10 bg-black/40 p-4">
               <p className="font-semibold text-white">
-                {isSignedIn ? displayName : "Welcome"}
+                {isSignedIn ? displayName : t("account.welcome")}
               </p>
 
               <p className="mt-1 truncate text-xs text-zinc-500">
                 {isSignedIn
                   ? role === "host"
-                    ? "Host account"
+                    ? t("account.hostAccount")
                     : role === "admin"
-                    ? "Admin account"
+                    ? t("account.adminAccount")
                     : userEmail
-                  : "Log in or create your account"}
+                  : t("account.loginOrCreateYour")}
               </p>
             </div>
 
@@ -787,9 +788,9 @@ export default function Navbar() {
                         : "text-zinc-300 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <span>{link.label}</span>
+                    <span>{t(`links.${link.label}`)}</span>
 
-                    {link.label === "Messages" && unreadMessages > 0 && (
+                    {link.label === "messages" && unreadMessages > 0 && (
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs ${
                           active ? "bg-black text-white" : "bg-red-500 text-white"
@@ -813,7 +814,7 @@ export default function Navbar() {
                         : "text-zinc-300 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    Verify Identity
+                    {t("links.verifyIdentity")}
                   </Link>
 
                   <Link
@@ -822,8 +823,8 @@ export default function Navbar() {
                     className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
                   >
                     {role === "host" || role === "admin"
-                      ? "Post Listing"
-                      : "Become a Host"}
+                      ? t("actions.postListing")
+                      : t("actions.becomeHost")}
                   </Link>
 
                   <button
@@ -832,7 +833,7 @@ export default function Navbar() {
                     disabled={loggingOut}
                     className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
                   >
-                    {loggingOut ? "Logging out..." : "Log out"}
+                    {loggingOut ? t("actions.loggingOut") : t("actions.logout")}
                   </button>
                 </>
               ) : (
@@ -842,7 +843,7 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                     className="rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
                   >
-                    Log in
+                    {t("actions.login")}
                   </Link>
 
                   <Link
@@ -850,7 +851,7 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                     className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white hover:bg-white/10"
                   >
-                    Sign up
+                    {t("actions.signup")}
                   </Link>
 
                   <Link
@@ -858,7 +859,7 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                     className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-bold text-white hover:bg-white/10"
                   >
-                    For Landlords
+                    {t("links.forLandlords")}
                   </Link>
                 </>
               )}

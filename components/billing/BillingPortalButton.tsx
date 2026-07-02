@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { CreditCard, Loader2 } from "lucide-react";
 
 export default function BillingPortalButton() {
+  const t = useTranslations("accountPages.billingPortal");
   const [loading, setLoading] = useState(false);
 
   async function openBillingPortal() {
@@ -17,12 +19,12 @@ export default function BillingPortalButton() {
       const data = await res.json();
 
       if (!res.ok || !data.url) {
-        throw new Error(data.error || "Unable to open billing portal.");
+        throw new Error(data.error || t("openFailed"));
       }
 
       window.location.href = data.url;
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Something went wrong.");
+      alert(error instanceof Error ? error.message : t("genericError"));
     } finally {
       setLoading(false);
     }
@@ -35,7 +37,7 @@ export default function BillingPortalButton() {
       className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-      Manage Billing
+      {t("manageBilling")}
     </button>
   );
 }

@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
 import "./globals.css";
+
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Analytics from "@/components/Analytics";
 import StructuredData from "@/components/StructuredData";
+import { PreferencesProvider } from "@/components/preferences/PreferencesProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,6 +21,26 @@ const siteUrl =
 
 const siteDescription =
   "Find trusted student housing near campus across Canada. Browse verified rentals, message landlords securely, book viewings, and discover your next student home with Travel Markets.";
+
+const locales = ["en", "fr"] as const;
+
+type Locale = (typeof locales)[number];
+
+async function getMessages(locale: Locale) {
+  try {
+    return (await import(`../messages/${locale}.json`)).default;
+  } catch {
+    return (await import("../messages/en.json")).default;
+  }
+}
+
+function getSafeLocale(value: string | undefined): Locale {
+  if (locales.includes(value as Locale)) {
+    return value as Locale;
+  }
+
+  return "en";
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -81,19 +105,28 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const localeCookie = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale = getSafeLocale(localeCookie);
+  const messages = await getMessages(locale);
+
   return (
-    <html lang="en-CA" className={inter.className}>
+    <html lang={locale} className={inter.className}>
       <body className="min-h-screen bg-[#050505] text-white antialiased">
-        <StructuredData />
-        <Analytics />
-        <Navbar />
-        {children}
-        <Footer />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <PreferencesProvider>
+            <StructuredData />
+            <Analytics />
+            <Navbar />
+            {children}
+            <Footer />
+          </PreferencesProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

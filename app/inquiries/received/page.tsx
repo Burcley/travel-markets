@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type Inquiry = {
@@ -20,6 +21,7 @@ type Inquiry = {
 };
 
 export default function ReceivedInquiriesPage() {
+  const t = useTranslations("inquiries.received");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -205,7 +207,7 @@ export default function ReceivedInquiriesPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-4 py-10 text-white">
-        Loading inquiries...
+        {t("loading")}
       </main>
     );
   }
@@ -215,9 +217,9 @@ export default function ReceivedInquiriesPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Received Inquiries</h1>
+            <h1 className="text-3xl font-bold">{t("title")}</h1>
             <p className="mt-1 text-zinc-400">
-              Students who contacted you about your listings.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -225,13 +227,13 @@ export default function ReceivedInquiriesPage() {
             href="/my-listings"
             className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10"
           >
-            My Listings
+            {t("myListings")}
           </Link>
         </div>
 
         {inquiries.length === 0 ? (
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-center">
-            <p className="text-zinc-400">No inquiries received yet.</p>
+            <p className="text-zinc-400">{t("empty")}</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -243,11 +245,11 @@ export default function ReceivedInquiriesPage() {
                 <div className="flex flex-col gap-5 md:flex-row md:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold">
-                      {inquiry.listings?.title ?? "Listing"}
+                      {inquiry.listings?.title ?? t("listingFallback")}
                     </h2>
 
                     <p className="mt-2 text-sm text-zinc-500">
-                      Sent on{" "}
+                      {t("sentOn")}{" "}
                       {new Date(inquiry.created_at).toLocaleDateString("en-CA")}
                     </p>
 
@@ -257,7 +259,7 @@ export default function ReceivedInquiriesPage() {
 
                     {inquiry.phone && (
                       <p className="mt-3 text-zinc-300">
-                        Phone: {inquiry.phone}
+                        {t("phone")} {inquiry.phone}
                       </p>
                     )}
 
@@ -266,7 +268,7 @@ export default function ReceivedInquiriesPage() {
                         href={`/listings/${inquiry.listing_id}`}
                         className="rounded-xl border border-zinc-700 px-4 py-2 text-sm text-white hover:bg-white/10"
                       >
-                        View Listing
+                        {t("viewListing")}
                       </Link>
 
                       {inquiry.status === "accepted" && (
@@ -274,7 +276,7 @@ export default function ReceivedInquiriesPage() {
                           href={`/messages/${inquiry.id}`}
                           className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-300"
                         >
-                          Open Chat
+                          {t("openChat")}
                         </Link>
                       )}
                     </div>
@@ -282,7 +284,7 @@ export default function ReceivedInquiriesPage() {
 
                   <div className="min-w-[220px]">
                     <p className="mb-4 text-sm text-zinc-400">
-                      Status:{" "}
+                      {t("status")}{" "}
                       <span className="font-semibold capitalize text-white">
                         {inquiry.status}
                       </span>
@@ -295,7 +297,7 @@ export default function ReceivedInquiriesPage() {
                           disabled={updatingId === inquiry.id}
                           className="w-full rounded-xl bg-white px-4 py-3 font-semibold text-black disabled:bg-zinc-600"
                         >
-                          {updatingId === inquiry.id ? "Accepting..." : "Accept"}
+                          {updatingId === inquiry.id ? t("accepting") : t("accept")}
                         </button>
 
                         <button
@@ -303,20 +305,20 @@ export default function ReceivedInquiriesPage() {
                           disabled={updatingId === inquiry.id}
                           className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold text-white disabled:bg-zinc-600"
                         >
-                          {updatingId === inquiry.id ? "Updating..." : "Decline"}
+                          {updatingId === inquiry.id ? t("updating") : t("decline")}
                         </button>
                       </div>
                     )}
 
                     {inquiry.status === "accepted" && (
                       <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-300">
-                        Accepted — student can now request a viewing.
+                        {t("acceptedNotice")}
                       </div>
                     )}
 
                     {inquiry.status === "declined" && (
                       <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                        Declined
+                        {t("declinedNotice")}
                       </div>
                     )}
                   </div>

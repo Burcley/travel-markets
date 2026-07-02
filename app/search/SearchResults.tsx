@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import LoadMoreListings from "./LoadMoreListings";
 import type { ListingCardData } from "@/lib/listings/search-types";
 
-export default function SearchResults({
+export default async function SearchResults({
   listings,
   count,
   page,
@@ -14,22 +15,24 @@ export default function SearchResults({
   page: number;
   hasMore: boolean;
 }) {
+  const t = await getTranslations("finalBatchD.searchResults");
+
   return (
     <section>
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Search results</h2>
+          <h2 className="text-xl font-semibold">{t("title")}</h2>
           <p className="text-sm text-white/50">
-            {count} listing{count === 1 ? "" : "s"} found
+            {t("count", { count })}
           </p>
         </div>
       </div>
 
       {listings.length === 0 ? (
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-center">
-          <h3 className="text-lg font-semibold">No listings found</h3>
+          <h3 className="text-lg font-semibold">{t("emptyTitle")}</h3>
           <p className="mt-2 text-sm text-white/50">
-            Try removing filters or searching another city.
+            {t("emptyText")}
           </p>
         </div>
       ) : (
@@ -52,7 +55,7 @@ export default function SearchResults({
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-white/35">
-                      No image
+                      {t("noImage")}
                     </div>
                   )}
 
@@ -79,13 +82,13 @@ export default function SearchResults({
 
                   <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/55">
                     <span className="rounded-full bg-white/[0.06] px-3 py-1">
-                      {listing.bedrooms ?? 0} bed
+                      {t("beds", { count: listing.bedrooms ?? 0 })}
                     </span>
                     <span className="rounded-full bg-white/[0.06] px-3 py-1">
-                      {listing.bathrooms ?? 0} bath
+                      {t("baths", { count: listing.bathrooms ?? 0 })}
                     </span>
                     <span className="rounded-full bg-white/[0.06] px-3 py-1">
-                      {listing.guests ?? 0} guests
+                      {t("guests", { count: listing.guests ?? 0 })}
                     </span>
                   </div>
                 </div>

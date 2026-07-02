@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Crown, ShieldCheck, Sparkles, Star } from "lucide-react";
+import Money from "@/components/Money";
 
 export default function ListingCard({
   listing,
@@ -15,6 +17,7 @@ export default function ListingCard({
   onHover?: () => void;
   onLeave?: () => void;
 }) {
+  const t = useTranslations("finalBatchD.listingCard");
   const statusBadge =
     listing.status === "rented"
       ? "bg-red-500/20 text-red-300"
@@ -35,12 +38,12 @@ export default function ListingCard({
 
   const trustLabel =
     trustLevel === "elite"
-      ? "Elite Owner"
+      ? t("eliteOwner")
       : trustLevel === "trusted"
-      ? "Trusted Owner"
+      ? t("trustedOwner")
       : trustLevel === "basic"
-      ? "Basic Trust"
-      : "New Owner";
+      ? t("basicTrust")
+      : t("newOwner");
 
   const trustClass =
     trustLevel === "elite"
@@ -98,14 +101,14 @@ export default function ListingCard({
         {image ? (
           <Image
             src={image}
-            alt={listing.title || "Travel Markets listing"}
+            alt={listing.title || t("listingAlt")}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-500">
-            No Image
+            {t("noImage")}
           </div>
         )}
 
@@ -118,13 +121,13 @@ export default function ListingCard({
 
           {listing.is_featured && (
             <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-              Featured
+              {t("featured")}
             </span>
           )}
         </div>
 
         <span className="absolute right-4 top-4 z-10 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-          Approx area
+          {t("approxArea")}
         </span>
 
         <div className="absolute bottom-4 left-4 z-10 flex flex-wrap gap-2">
@@ -161,25 +164,25 @@ export default function ListingCard({
         <h2 className="line-clamp-1 text-lg font-bold">{listing.title}</h2>
 
         <p className="mt-2 line-clamp-1 text-sm text-zinc-400">
-          {listing.city || "City hidden"}
+          {listing.city || t("cityHidden")}
           {listing.campus ? ` • ${listing.campus}` : ""}
         </p>
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-xl font-bold">
-            ${listing.price || 0}
-            <span className="text-sm font-normal text-zinc-400"> / month</span>
+            {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
+            <span className="text-sm font-normal text-zinc-400">{t("perMonth")}</span>
           </p>
 
           {ownerVerified && (
             <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
-              ✓ Verified
+              {t("verified")}
             </span>
           )}
         </div>
 
         <p className="mt-3 text-xs text-zinc-500">
-          Exact address hidden until owner approval.
+          {t("addressHidden")}
         </p>
       </div>
     </Link>

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export default function Logo() {
+  const t = useTranslations("logo");
+
   return (
     <Link href="/" className="group flex items-center gap-3">
       <div className="relative flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#ff385c] shadow-lg shadow-[#ff385c]/20 transition group-hover:scale-105">
@@ -13,7 +16,7 @@ export default function Logo() {
         </p>
 
         <p className="text-[11px] font-medium text-zinc-500">
-          Stay • Rent • Explore
+          {t("tagline")}
         </p>
       </div>
     </Link>

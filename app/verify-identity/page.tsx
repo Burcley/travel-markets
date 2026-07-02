@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function VerifyIdentityPage() {
+  const t = useTranslations("accountPages.verifyIdentity");
   const supabase = createClient();
 
   const [fullLegalName, setFullLegalName] = useState("");
@@ -43,9 +45,9 @@ export default function VerifyIdentityPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error("Please log in first.");
-      if (!fullLegalName.trim()) throw new Error("Enter your legal name.");
-      if (!documentFile) throw new Error("Upload your document.");
+      if (!user) throw new Error(t("loginFirst"));
+      if (!fullLegalName.trim()) throw new Error(t("legalNameRequired"));
+      if (!documentFile) throw new Error(t("documentRequired"));
 
       const docPath = `${user.id}/${crypto.randomUUID()}-${documentFile.name}`;
 
@@ -106,13 +108,13 @@ export default function VerifyIdentityPage() {
 
       await notifyAdminsIdentitySubmitted(fullLegalName.trim());
 
-      alert("Verification submitted successfully. Admin will review it shortly.");
+      alert(t("submitted"));
 
       window.location.href = "/dashboard";
     } catch (error) {
       console.error("IDENTITY VERIFICATION ERROR:", error);
 
-      alert(error instanceof Error ? error.message : "Something went wrong.");
+      alert(error instanceof Error ? error.message : t("genericError"));
     } finally {
       setLoading(false);
     }
@@ -127,11 +129,10 @@ export default function VerifyIdentityPage() {
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold">Identity Verification</h1>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
 
             <p className="text-sm text-zinc-400">
-              Upload a student ID, passport, driver&apos;s license, or another
-              valid document.
+              {t("subtitle")}
             </p>
           </div>
         </div>
@@ -139,20 +140,20 @@ export default function VerifyIdentityPage() {
         <div className="space-y-5">
           <div>
             <label className="mb-2 block text-sm font-medium text-zinc-300">
-              Full legal name
+              {t("fullLegalName")}
             </label>
 
             <input
               value={fullLegalName}
               onChange={(e) => setFullLegalName(e.target.value)}
-              placeholder="Enter your full legal name"
+              placeholder={t("fullLegalNamePlaceholder")}
               className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-emerald-500"
             />
           </div>
 
           <div>
             <label className="mb-2 block text-sm font-medium text-zinc-300">
-              Document type
+              {t("documentType")}
             </label>
 
             <select
@@ -160,16 +161,16 @@ export default function VerifyIdentityPage() {
               onChange={(e) => setDocumentType(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-emerald-500"
             >
-              <option value="student_id">Student ID</option>
-              <option value="drivers_license">Driver&apos;s License</option>
-              <option value="passport">Passport</option>
-              <option value="other">Other</option>
+              <option value="student_id">{t("studentId")}</option>
+              <option value="drivers_license">{t("driversLicense")}</option>
+              <option value="passport">{t("passport")}</option>
+              <option value="other">{t("other")}</option>
             </select>
           </div>
 
           <div>
             <label className="mb-2 block text-sm font-medium text-zinc-300">
-              Document image
+              {t("documentImage")}
             </label>
 
             <input
@@ -182,7 +183,7 @@ export default function VerifyIdentityPage() {
 
           <div>
             <label className="mb-2 block text-sm font-medium text-zinc-300">
-              Selfie image (optional)
+              {t("selfieOptional")}
             </label>
 
             <input
@@ -199,7 +200,7 @@ export default function VerifyIdentityPage() {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-bold text-black transition hover:bg-emerald-400 disabled:opacity-60"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Submit Verification
+            {t("submit")}
           </button>
         </div>
       </div>

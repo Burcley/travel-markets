@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Flag, MessageCircle, Star, ThumbsUp, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -30,6 +31,7 @@ type Review = {
 };
 
 export default function OwnerReviews({ ownerId }: { ownerId: string }) {
+  const t = useTranslations("finalBatchD.ownerReviews");
   const supabase = createClient();
 
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -149,7 +151,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
     const text = replyText[reviewId]?.trim();
 
     if (!text) {
-      alert("Write a reply first.");
+      alert(t("writeReplyFirst"));
       return;
     }
 
@@ -178,7 +180,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
   async function deleteOwnReview(reviewId: string) {
     if (!currentUserId) return;
 
-    const confirmed = confirm("Delete this review?");
+    const confirmed = confirm(t("deleteConfirm"));
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -198,7 +200,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
   if (loading) {
     return (
       <section className="rounded-3xl border border-white/10 bg-white/5 p-6 text-white">
-        <p className="text-white/50">Loading reviews...</p>
+        <p className="text-white/50">{t("loading")}</p>
       </section>
     );
   }
@@ -207,9 +209,9 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
     <section className="rounded-3xl border border-white/10 bg-white/5 p-6 text-white">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-2xl font-black">Owner Reviews</h2>
+          <h2 className="text-2xl font-black">{t("title")}</h2>
           <p className="mt-2 text-sm text-white/50">
-            Reviews from students and renters who interacted with this owner.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -221,7 +223,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
             </span>
           </div>
           <p className="mt-1 text-sm text-yellow-100/70">
-            {reviews.length} review{reviews.length === 1 ? "" : "s"}
+            {t("reviewCount", { count: reviews.length })}
           </p>
         </div>
       </div>
@@ -250,7 +252,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
 
       {reviews.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-white/10 bg-black p-6 text-center">
-          <p className="text-white/50">No reviews yet.</p>
+          <p className="text-white/50">{t("empty")}</p>
         </div>
       ) : (
         <div className="mt-8 space-y-5">
@@ -269,12 +271,12 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                       {review.reviewer?.avatar_url ? (
                         <img
                           src={review.reviewer.avatar_url}
-                          alt="Reviewer"
+                          alt={t("reviewerAlt")}
                           className="h-full w-full object-cover"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center font-bold">
-                          {(review.reviewer?.full_name || "U")
+                          {(review.reviewer?.full_name || t("unknownInitial"))
                             .charAt(0)
                             .toUpperCase()}
                         </div>
@@ -283,7 +285,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
 
                     <div>
                       <p className="font-bold">
-                        {review.reviewer?.full_name || "Anonymous user"}
+                        {review.reviewer?.full_name || t("anonymousUser")}
                       </p>
 
                       <p className="text-xs text-white/40">
@@ -292,12 +294,12 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
 
                       {review.listing?.title && (
                         <p className="mt-1 text-xs text-white/40">
-                          Listing: {review.listing.title}
+                          {t("listingLabel", { title: review.listing.title })}
                         </p>
                       )}
 
                       <span className="mt-2 inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                        Verified interaction
+                        {t("verifiedInteraction")}
                       </span>
                     </div>
                   </div>
@@ -326,7 +328,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                 {review.owner_reply && (
                   <div className="mt-5 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
                     <p className="text-sm font-bold text-blue-200">
-                      Owner response
+                      {t("ownerResponse")}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-white/70">
                       {review.owner_reply}
@@ -344,7 +346,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                           [review.id]: event.target.value,
                         }))
                       }
-                      placeholder="Write a professional owner response..."
+                      placeholder={t("replyPlaceholder")}
                       rows={3}
                       className="w-full rounded-xl border border-white/10 bg-black p-3 text-sm outline-none focus:border-blue-500"
                     />
@@ -354,7 +356,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                       disabled={replyingId === review.id}
                       className="mt-3 rounded-xl bg-white px-4 py-2 text-sm font-bold text-black disabled:opacity-50"
                     >
-                      {replyingId === review.id ? "Replying..." : "Post reply"}
+                      {replyingId === review.id ? t("replying") : t("postReply")}
                     </button>
                   </div>
                 )}
@@ -365,7 +367,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                     className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/60 hover:text-white"
                   >
                     <ThumbsUp size={15} />
-                    Helpful ({review.helpful_count || 0})
+                    {t("helpful", { count: review.helpful_count || 0 })}
                   </button>
 
                   <Link
@@ -373,7 +375,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                     className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/60 hover:text-white"
                   >
                     <Flag size={15} />
-                    Report
+                    {t("report")}
                   </Link>
 
                   {isReviewer && (
@@ -382,7 +384,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                       className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-2 text-red-300"
                     >
                       <Trash2 size={15} />
-                      Delete
+                      {t("delete")}
                     </button>
                   )}
 
@@ -391,7 +393,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
                     className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/60 hover:text-white"
                   >
                     <MessageCircle size={15} />
-                    View profile
+                    {t("viewProfile")}
                   </Link>
                 </div>
               </article>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type Listing = {
@@ -13,6 +14,7 @@ type Listing = {
 };
 
 export default function ContactOwnerPage() {
+  const t = useTranslations("listingManagement.contact");
   const params = useParams();
   const router = useRouter();
   const listingId = params.id as string;
@@ -53,7 +55,7 @@ export default function ContactOwnerPage() {
       .maybeSingle();
 
     if (profile?.role === "banned" || profile?.status === "banned") {
-      setErrorMessage("Your account is restricted.");
+      setErrorMessage(t("restricted"));
       setLoading(false);
       return;
     }
@@ -65,19 +67,19 @@ export default function ContactOwnerPage() {
       .single();
 
     if (error || !data) {
-      setErrorMessage("Listing not found.");
+      setErrorMessage(t("notFound"));
       setLoading(false);
       return;
     }
 
     if (data.user_id === user.id) {
-      setErrorMessage("You cannot send an inquiry to your own listing.");
+      setErrorMessage(t("ownListing"));
       setLoading(false);
       return;
     }
 
     if (data.status === "rented") {
-      setErrorMessage("This listing is no longer available.");
+      setErrorMessage(t("unavailable"));
       setLoading(false);
       return;
     }
@@ -115,7 +117,7 @@ export default function ContactOwnerPage() {
     if (!listing || !currentUserId) return;
 
     if (!message.trim()) {
-      setErrorMessage("Please enter a message.");
+      setErrorMessage(t("messageRequired"));
       return;
     }
 
@@ -165,7 +167,7 @@ export default function ContactOwnerPage() {
     return (
       <main className="min-h-screen bg-black px-4 py-10 text-white">
         <div className="mx-auto max-w-2xl">
-          <p className="text-zinc-400">Loading contact form...</p>
+          <p className="text-zinc-400">{t("loading")}</p>
         </div>
       </main>
     );
@@ -181,7 +183,7 @@ export default function ContactOwnerPage() {
             href={`/listings/${listingId}`}
             className="mt-4 inline-block rounded-xl bg-white px-5 py-3 font-semibold text-black"
           >
-            Back to listing
+            {t("backToListing")}
           </Link>
         </div>
       </main>
@@ -195,29 +197,29 @@ export default function ContactOwnerPage() {
           href={`/listings/${listingId}`}
           className="text-sm text-zinc-400 hover:text-white"
         >
-          ← Back to listing
+          {t("backToListingArrow")}
         </Link>
 
         <div className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
-          <h1 className="text-3xl font-bold">Contact Owner</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Send a request for:{" "}
+            {t("sendRequestFor")}{" "}
             <span className="font-semibold">
-              {listing?.title || "Listing"}
+              {listing?.title || t("listingFallback")}
             </span>
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-zinc-300">
-                Message
+                {t("message")}
               </label>
 
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Hi, I am interested in this listing. Is it still available?"
+                placeholder={t("messagePlaceholder")}
                 className="min-h-[140px] w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
                 required
               />
@@ -225,13 +227,13 @@ export default function ContactOwnerPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-zinc-300">
-                Phone (optional)
+                {t("phoneOptional")}
               </label>
 
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Your phone number"
+                placeholder={t("phonePlaceholder")}
                 className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
               />
             </div>
@@ -247,7 +249,7 @@ export default function ContactOwnerPage() {
               disabled={submitting}
               className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-zinc-200 disabled:opacity-50"
             >
-              {submitting ? "Sending..." : "Send Inquiry"}
+              {submitting ? t("sending") : t("sendInquiry")}
             </button>
           </form>
         </div>

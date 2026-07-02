@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Calendar, Clock, Send } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type Slot = {
@@ -28,6 +29,7 @@ type ViewingRow = {
 };
 
 export default function BookViewingPage() {
+  const t = useTranslations("listingManagement.bookViewing");
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const supabase = createClient();
@@ -118,7 +120,7 @@ export default function BookViewingPage() {
 
   async function requestViewing() {
     if (!selectedSlot) {
-      alert("Choose an available time slot.");
+      alert(t("chooseSlot"));
       return;
     }
 
@@ -146,7 +148,7 @@ export default function BookViewingPage() {
 
     setRequesting(false);
 
-    alert("Viewing request sent.");
+    alert(t("requestSent"));
     router.push("/viewings");
     router.refresh();
   }
@@ -154,7 +156,7 @@ export default function BookViewingPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        Loading booking calendar...
+        {t("loading")}
       </main>
     );
   }
@@ -162,7 +164,7 @@ export default function BookViewingPage() {
   if (!listing) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        Listing not found.
+        {t("notFound")}
       </main>
     );
   }
@@ -172,13 +174,13 @@ export default function BookViewingPage() {
       <div className="mx-auto max-w-4xl space-y-6">
         <section className="rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold">Book a Viewing</h1>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
             <p className="mt-1 text-zinc-400">{listing.title}</p>
           </div>
 
           {slots.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/10 p-6 text-zinc-400">
-              No available viewing times right now.
+              {t("noTimes")}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -220,7 +222,7 @@ export default function BookViewingPage() {
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Optional message to the owner..."
+                placeholder={t("messagePlaceholder")}
                 className="min-h-32 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-600"
               />
 
@@ -230,7 +232,7 @@ export default function BookViewingPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200 disabled:opacity-50"
               >
                 <Send className="h-5 w-5" />
-                {requesting ? "Sending..." : "Request Viewing"}
+                {requesting ? t("sending") : t("requestViewing")}
               </button>
             </div>
           )}

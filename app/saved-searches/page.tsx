@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Bell, BellOff, Bookmark, Loader2, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -23,6 +24,7 @@ type SavedSearch = {
 };
 
 export default function SavedSearchesPage() {
+  const t = useTranslations("accountPages.savedSearches");
   const supabase = createClient();
 
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -66,14 +68,14 @@ export default function SavedSearchesPage() {
       await loadSavedSearches();
     } catch (error) {
       console.error("TOGGLE ALERT ERROR:", error);
-      alert("Failed to update alert.");
+      alert(t("updateAlertFailed"));
     } finally {
       setWorkingId(null);
     }
   }
 
   async function deleteSavedSearch(id: string) {
-    if (!confirm("Delete this saved search?")) return;
+    if (!confirm(t("deleteConfirm"))) return;
 
     try {
       setWorkingId(id);
@@ -88,7 +90,7 @@ export default function SavedSearchesPage() {
       setSavedSearches((prev) => prev.filter((item) => item.id !== id));
     } catch (error) {
       console.error("DELETE SAVED SEARCH ERROR:", error);
-      alert("Failed to delete saved search.");
+      alert(t("deleteFailed"));
     } finally {
       setWorkingId(null);
     }
@@ -113,7 +115,7 @@ export default function SavedSearchesPage() {
   }
 
   function getName(item: SavedSearch) {
-    return item.title || item.name || "Saved Search";
+    return item.title || item.name || t("savedSearchFallback");
   }
 
   function describeSearch(item: SavedSearch) {
@@ -121,19 +123,19 @@ export default function SavedSearchesPage() {
       item.query,
       item.city,
       item.campus,
-      item.min_price ? `Min $${item.min_price}` : null,
-      item.max_price ? `Max $${item.max_price}` : null,
-      item.bedrooms ? `${item.bedrooms}+ bedrooms` : null,
-      item.bathrooms ? `${item.bathrooms}+ bathrooms` : null,
-      item.guests ? `${item.guests}+ guests` : null,
+      item.min_price ? t("minPrice", { price: item.min_price }) : null,
+      item.max_price ? t("maxPrice", { price: item.max_price }) : null,
+      item.bedrooms ? t("bedrooms", { count: item.bedrooms }) : null,
+      item.bathrooms ? t("bathrooms", { count: item.bathrooms }) : null,
+      item.guests ? t("guests", { count: item.guests }) : null,
       item.sort === "price-low"
-        ? "Price low to high"
+        ? t("priceLowToHigh")
         : item.sort === "price-high"
-        ? "Price high to low"
+        ? t("priceHighToLow")
         : null,
     ].filter(Boolean);
 
-    return parts.length > 0 ? parts.join(" • ") : "No filters saved";
+    return parts.length > 0 ? parts.join(" • ") : t("noFilters");
   }
 
   return (
@@ -143,16 +145,15 @@ export default function SavedSearchesPage() {
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
               <Bookmark size={16} />
-              Personal search hub
+              {t("eyebrow")}
             </div>
 
             <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
-              Saved Searches
+              {t("title")}
             </h1>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50 sm:text-base">
-              Reopen your favorite rental searches and receive alerts when new
-              matching listings are posted.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -161,7 +162,7 @@ export default function SavedSearchesPage() {
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90"
           >
             <Search size={16} />
-            New Search
+            {t("newSearch")}
           </Link>
         </div>
 
@@ -180,17 +181,17 @@ export default function SavedSearchesPage() {
               <Bookmark size={24} className="text-white/60" />
             </div>
 
-            <h2 className="text-2xl font-semibold">No saved searches yet</h2>
+            <h2 className="text-2xl font-semibold">{t("emptyTitle")}</h2>
 
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-white/50">
-              Go to the search page, choose your filters, then click Save Search.
+              {t("emptyText")}
             </p>
 
             <Link
               href="/search"
               className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90"
             >
-              Start Searching
+              {t("startSearching")}
             </Link>
           </div>
         ) : (
@@ -214,7 +215,7 @@ export default function SavedSearchesPage() {
                             : "bg-zinc-700/50 text-zinc-400"
                         }`}
                       >
-                        {item.alerts_enabled ? "Alerts On" : "Alerts Off"}
+                        {item.alerts_enabled ? t("alertsOn") : t("alertsOff")}
                       </span>
                     </div>
 
@@ -251,13 +252,13 @@ export default function SavedSearchesPage() {
 
                   {item.min_price && (
                     <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
-                      Min ${item.min_price}
+                      {t("minPrice", { price: item.min_price })}
                     </span>
                   )}
 
                   {item.max_price && (
                     <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
-                      Max ${item.max_price}
+                      {t("maxPrice", { price: item.max_price })}
                     </span>
                   )}
                 </div>
@@ -267,7 +268,7 @@ export default function SavedSearchesPage() {
                     href={buildSearchUrl(item)}
                     className="flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
                   >
-                    Open Search
+                    {t("openSearch")}
                   </Link>
 
                   <button
@@ -283,7 +284,7 @@ export default function SavedSearchesPage() {
                       <Bell size={16} />
                     )}
 
-                    {item.alerts_enabled ? "Turn Off Alerts" : "Turn On Alerts"}
+                    {item.alerts_enabled ? t("turnOffAlerts") : t("turnOnAlerts")}
                   </button>
                 </div>
               </div>

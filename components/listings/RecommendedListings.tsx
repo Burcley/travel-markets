@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { MapPin, Sparkles } from "lucide-react";
+import Money from "@/components/Money";
 
 type RecommendedListing = {
   id: string;
@@ -19,14 +21,16 @@ type Props = {
   listings: RecommendedListing[];
 };
 
-export default function RecommendedListings({ listings }: Props) {
+export default async function RecommendedListings({ listings }: Props) {
+  const t = await getTranslations("finalBatchD.recommendedListings");
+
   if (!listings || listings.length === 0) return null;
 
   return (
     <section className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
       <div className="mb-5 flex items-center gap-2">
         <Sparkles size={20} className="text-yellow-300" />
-        <h2 className="text-2xl font-bold">Recommended for You</h2>
+        <h2 className="text-2xl font-bold">{t("title")}</h2>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -47,12 +51,13 @@ export default function RecommendedListings({ listings }: Props) {
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-white/30">
-                  No image
+                  {t("noImage")}
                 </div>
               )}
 
               <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-black">
-                ${listing.price ?? "Ask"}/mo
+                {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
+                {t("perMonthCompact")}
               </div>
             </div>
 
@@ -64,20 +69,20 @@ export default function RecommendedListings({ listings }: Props) {
               <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
                 <MapPin size={14} />
                 <span className="line-clamp-1">
-                  {listing.city || "City hidden"}
+                  {listing.city || t("cityHidden")}
                   {listing.campus ? ` • ${listing.campus}` : ""}
                 </span>
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-gray-400">
                 <span className="rounded-xl bg-white/5 px-2 py-2">
-                  {listing.bedrooms ?? "-"} bed
+                  {t("bed", { count: listing.bedrooms ?? "-" })}
                 </span>
                 <span className="rounded-xl bg-white/5 px-2 py-2">
-                  {listing.bathrooms ?? "-"} bath
+                  {t("bath", { count: listing.bathrooms ?? "-" })}
                 </span>
                 <span className="rounded-xl bg-white/5 px-2 py-2">
-                  {listing.guests ?? "-"} guest
+                  {t("guest", { count: listing.guests ?? "-" })}
                 </span>
               </div>
             </div>

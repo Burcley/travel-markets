@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Calendar,
   ChevronLeft,
@@ -35,6 +36,7 @@ function formatLocalDate(date: Date) {
 }
 
 export default function AvailabilityPage() {
+  const t = useTranslations("finalBatchD.availabilityCalendar");
   const supabase = createClient();
 
   const [listings, setListings] = useState<Listing[]>([]);
@@ -93,17 +95,17 @@ export default function AvailabilityPage() {
 
   async function createSlot() {
     if (!selectedListing) {
-      alert("Select a listing first.");
+      alert(t("selectListingFirst"));
       return;
     }
 
     if (!selectedDate || !startTime || !endTime) {
-      alert("Fill all fields.");
+      alert(t("fillAllFields"));
       return;
     }
 
     if (endTime <= startTime) {
-      alert("End time must be after start time.");
+      alert(t("endTimeError"));
       return;
     }
 
@@ -140,11 +142,11 @@ export default function AvailabilityPage() {
 
   async function deleteSlot(slot: Slot) {
     if (slot.is_booked) {
-      alert("Booked slots cannot be deleted.");
+      alert(t("bookedDeleteError"));
       return;
     }
 
-    const confirmed = confirm("Delete this slot?");
+    const confirmed = confirm(t("deleteSlotConfirm"));
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -215,7 +217,7 @@ export default function AvailabilityPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading calendar...
+        {t("loading")}
       </main>
     );
   }
@@ -226,11 +228,11 @@ export default function AvailabilityPage() {
         <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-              Availability Calendar
+              {t("title")}
             </h1>
 
             <p className="mt-3 text-base text-zinc-400 sm:text-lg">
-              Manage your viewing schedule with a calendar-style booking system.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -238,7 +240,7 @@ export default function AvailabilityPage() {
             href="/viewings"
             className="w-fit rounded-2xl border border-zinc-700 px-6 py-4 font-semibold transition hover:bg-zinc-900"
           >
-            View Bookings
+            {t("viewBookings")}
           </Link>
         </div>
 
@@ -262,7 +264,7 @@ export default function AvailabilityPage() {
                 </h2>
 
                 <p className="mt-2 text-zinc-500">
-                  Click a date to manage slots
+                  {t("clickDate")}
                 </p>
               </div>
 
@@ -276,13 +278,13 @@ export default function AvailabilityPage() {
             </div>
 
             <div className="mb-6 grid grid-cols-7 gap-4 text-center text-sm font-semibold text-zinc-500">
-              <div>SUN</div>
-              <div>MON</div>
-              <div>TUE</div>
-              <div>WED</div>
-              <div>THU</div>
-              <div>FRI</div>
-              <div>SAT</div>
+              <div>{t("weekdays.sun")}</div>
+              <div>{t("weekdays.mon")}</div>
+              <div>{t("weekdays.tue")}</div>
+              <div>{t("weekdays.wed")}</div>
+              <div>{t("weekdays.thu")}</div>
+              <div>{t("weekdays.fri")}</div>
+              <div>{t("weekdays.sat")}</div>
             </div>
 
             <div className="grid grid-cols-7 gap-4">
@@ -317,7 +319,7 @@ export default function AvailabilityPage() {
                                 : "bg-emerald-500/20 text-emerald-400"
                             }`}
                           >
-                            {count.available} available
+                            {t("availableCount", { count: count.available })}
                           </div>
                         )}
 
@@ -329,7 +331,7 @@ export default function AvailabilityPage() {
                                 : "bg-blue-500/20 text-blue-300"
                             }`}
                           >
-                            {count.booked} booked
+                            {t("bookedCount", { count: count.booked })}
                           </div>
                         )}
                       </div>
@@ -348,7 +350,7 @@ export default function AvailabilityPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-3xl font-bold">Selected Date</h3>
+                  <h3 className="text-3xl font-bold">{t("selectedDate")}</h3>
                   <p className="text-zinc-400">{selectedDate}</p>
                 </div>
               </div>
@@ -360,7 +362,7 @@ export default function AvailabilityPage() {
                   className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-4 outline-none"
                 >
                   {listings.length === 0 ? (
-                    <option value="">No listings found</option>
+                    <option value="">{t("noListings")}</option>
                   ) : (
                     listings.map((listing) => (
                       <option key={listing.id} value={listing.id}>
@@ -393,17 +395,17 @@ export default function AvailabilityPage() {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-6 py-5 text-lg font-bold text-black transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Plus className="h-5 w-5" />
-                  {saving ? "Adding..." : "Add Slot"}
+                  {saving ? t("adding") : t("addSlot")}
                 </button>
               </div>
             </div>
 
             <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
-              <h3 className="mb-5 text-3xl font-bold">Slots on this date</h3>
+              <h3 className="mb-5 text-3xl font-bold">{t("slotsTitle")}</h3>
 
               {slotsForSelectedDate.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-zinc-800 p-10 text-center text-zinc-500">
-                  No slots for this date.
+                  {t("noSlots")}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -422,8 +424,8 @@ export default function AvailabilityPage() {
 
                           <p className="mt-2 text-sm text-zinc-400">
                             {slot.is_booked
-                              ? "Booked by student"
-                              : "Available"}
+                              ? t("bookedByStudent")
+                              : t("available")}
                           </p>
                         </div>
 

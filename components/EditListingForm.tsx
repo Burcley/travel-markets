@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
@@ -32,6 +33,7 @@ export default function EditListingForm({
 }: {
   listing: Listing;
 }) {
+  const t = useTranslations("finalBatchD.editListingForm");
   const router = useRouter();
   const supabase = createClient();
 
@@ -145,12 +147,12 @@ export default function EditListingForm({
         throw new Error(error.message);
       }
 
-      setMessage("Listing updated successfully!");
+      setMessage(t("updated"));
 
       router.push("/my-listings");
       router.refresh();
     } catch (error: any) {
-      setMessage(error.message || "Something went wrong.");
+      setMessage(error.message || t("genericError"));
     } finally {
       setLoading(false);
     }
@@ -164,15 +166,15 @@ export default function EditListingForm({
             href="/my-listings"
             className="text-sm text-zinc-400 hover:text-white"
           >
-            ← Back to My Listings
+            {t("backToMyListings")}
           </Link>
         </div>
 
         <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8">
-          <h1 className="text-3xl font-bold">Edit Listing</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
 
           <p className="mt-2 text-zinc-400">
-            Update your property details and secure viewing settings.
+            {t("subtitle")}
           </p>
 
           <form
@@ -181,7 +183,7 @@ export default function EditListingForm({
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <input
-                placeholder="Title"
+                placeholder={t("titlePlaceholder")}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
@@ -189,7 +191,7 @@ export default function EditListingForm({
               />
 
               <input
-                placeholder="Location"
+                placeholder={t("locationPlaceholder")}
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 required
@@ -199,7 +201,7 @@ export default function EditListingForm({
 
             <div className="grid gap-4 sm:grid-cols-3">
               <input
-                placeholder="Campus"
+                placeholder={t("campusPlaceholder")}
                 value={campus}
                 onChange={(e) => setCampus(e.target.value)}
                 required
@@ -208,7 +210,7 @@ export default function EditListingForm({
 
               <input
                 type="number"
-                placeholder="Price"
+                placeholder={t("pricePlaceholder")}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 required
@@ -217,7 +219,7 @@ export default function EditListingForm({
 
               <input
                 type="number"
-                placeholder="Rating"
+                placeholder={t("ratingPlaceholder")}
                 value={rating}
                 onChange={(e) => setRating(e.target.value)}
                 className="rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-white"
@@ -225,7 +227,7 @@ export default function EditListingForm({
             </div>
 
             <textarea
-              placeholder="Description"
+              placeholder={t("descriptionPlaceholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
@@ -236,7 +238,7 @@ export default function EditListingForm({
             <div className="grid gap-4 sm:grid-cols-3">
               <input
                 type="number"
-                placeholder="Beds"
+                placeholder={t("bedsPlaceholder")}
                 value={beds}
                 onChange={(e) => setBeds(e.target.value)}
                 className="rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-white"
@@ -244,7 +246,7 @@ export default function EditListingForm({
 
               <input
                 type="number"
-                placeholder="Baths"
+                placeholder={t("bathsPlaceholder")}
                 value={baths}
                 onChange={(e) => setBaths(e.target.value)}
                 className="rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-white"
@@ -252,7 +254,7 @@ export default function EditListingForm({
 
               <input
                 type="number"
-                placeholder="Guests"
+                placeholder={t("guestsPlaceholder")}
                 value={guests}
                 onChange={(e) => setGuests(e.target.value)}
                 className="rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-white"
@@ -260,14 +262,14 @@ export default function EditListingForm({
             </div>
 
             <input
-              placeholder="Host Name"
+              placeholder={t("hostNamePlaceholder")}
               value={host}
               onChange={(e) => setHost(e.target.value)}
               className="w-full rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-white"
             />
 
             <input
-              placeholder="Amenities (comma separated)"
+              placeholder={t("amenitiesPlaceholder")}
               value={amenities}
               onChange={(e) => setAmenities(e.target.value)}
               className="w-full rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-white"
@@ -275,17 +277,16 @@ export default function EditListingForm({
 
             <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
               <h2 className="text-xl font-semibold text-emerald-300">
-                Secure Viewing Address
+                {t("secureAddressTitle")}
               </h2>
 
               <p className="mt-2 text-sm text-zinc-400">
-                This address remains hidden publicly and only unlocks
-                after an approved viewing request.
+                {t("secureAddressText")}
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <input
-                  placeholder="Street Address"
+                  placeholder={t("streetAddressPlaceholder")}
                   value={addressLine}
                   onChange={(e) =>
                     setAddressLine(e.target.value)
@@ -294,21 +295,21 @@ export default function EditListingForm({
                 />
 
                 <input
-                  placeholder="Unit / Apartment"
+                  placeholder={t("unitPlaceholder")}
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   className="rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-emerald-400"
                 />
 
                 <input
-                  placeholder="City"
+                  placeholder={t("cityPlaceholder")}
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   className="rounded-2xl border border-zinc-700 bg-black px-4 py-3 outline-none focus:border-emerald-400"
                 />
 
                 <input
-                  placeholder="Province"
+                  placeholder={t("provincePlaceholder")}
                   value={province}
                   onChange={(e) =>
                     setProvince(e.target.value)
@@ -317,7 +318,7 @@ export default function EditListingForm({
                 />
 
                 <input
-                  placeholder="Postal Code"
+                  placeholder={t("postalCodePlaceholder")}
                   value={postalCode}
                   onChange={(e) =>
                     setPostalCode(e.target.value)
@@ -327,7 +328,7 @@ export default function EditListingForm({
               </div>
 
               <textarea
-                placeholder="Safety instructions for approved viewers..."
+                placeholder={t("safetyInstructionsPlaceholder")}
                 rows={4}
                 value={safetyInstructions}
                 onChange={(e) =>
@@ -342,7 +343,7 @@ export default function EditListingForm({
               disabled={loading}
               className="w-full rounded-2xl bg-white px-6 py-4 font-bold text-black transition hover:bg-zinc-200 disabled:bg-zinc-600"
             >
-              {loading ? "Updating Listing..." : "Save Changes"}
+              {loading ? t("updating") : t("saveChanges")}
             </button>
           </form>
 

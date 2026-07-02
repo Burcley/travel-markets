@@ -2,8 +2,10 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 export default function SearchFilters() {
+  const t = useTranslations("finalBatchD.searchFilters");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -68,28 +70,28 @@ export default function SearchFilters() {
   return (
     <aside className="h-fit rounded-[2rem] border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/30 md:sticky md:top-6">
       <div className="mb-5">
-        <h2 className="text-lg font-semibold">Filters</h2>
-        <p className="text-sm text-white/50">Search updates through the URL.</p>
+        <h2 className="text-lg font-semibold">{t("title")}</h2>
+        <p className="text-sm text-white/50">{t("subtitle")}</p>
       </div>
 
       <div className="space-y-3">
         <input
           className={inputClass}
-          placeholder="Search city, campus, title..."
+          placeholder={t("searchPlaceholder")}
           value={form.q}
           onChange={(e) => updateField("q", e.target.value)}
         />
 
         <input
           className={inputClass}
-          placeholder="City"
+          placeholder={t("city")}
           value={form.city}
           onChange={(e) => updateField("city", e.target.value)}
         />
 
         <input
           className={inputClass}
-          placeholder="Campus"
+          placeholder={t("campus")}
           value={form.campus}
           onChange={(e) => updateField("campus", e.target.value)}
         />
@@ -97,7 +99,7 @@ export default function SearchFilters() {
         <div className="grid grid-cols-2 gap-3">
           <input
             className={inputClass}
-            placeholder="Min price"
+            placeholder={t("minPrice")}
             type="number"
             value={form.minPrice}
             onChange={(e) => updateField("minPrice", e.target.value)}
@@ -105,7 +107,7 @@ export default function SearchFilters() {
 
           <input
             className={inputClass}
-            placeholder="Max price"
+            placeholder={t("maxPrice")}
             type="number"
             value={form.maxPrice}
             onChange={(e) => updateField("maxPrice", e.target.value)}
@@ -115,7 +117,7 @@ export default function SearchFilters() {
         <div className="grid grid-cols-3 gap-3">
           <input
             className={inputClass}
-            placeholder="Beds"
+            placeholder={t("beds")}
             type="number"
             value={form.bedrooms}
             onChange={(e) => updateField("bedrooms", e.target.value)}
@@ -123,7 +125,7 @@ export default function SearchFilters() {
 
           <input
             className={inputClass}
-            placeholder="Baths"
+            placeholder={t("baths")}
             type="number"
             value={form.bathrooms}
             onChange={(e) => updateField("bathrooms", e.target.value)}
@@ -131,7 +133,7 @@ export default function SearchFilters() {
 
           <input
             className={inputClass}
-            placeholder="Guests"
+            placeholder={t("guests")}
             type="number"
             value={form.guests}
             onChange={(e) => updateField("guests", e.target.value)}
@@ -143,10 +145,10 @@ export default function SearchFilters() {
           value={form.status}
           onChange={(e) => updateField("status", e.target.value)}
         >
-          <option value="all">Any status</option>
-          <option value="available">Available</option>
-          <option value="pending">Pending</option>
-          <option value="rented">Rented</option>
+          <option value="all">{t("anyStatus")}</option>
+          <option value="available">{t("available")}</option>
+          <option value="pending">{t("pending")}</option>
+          <option value="rented">{t("rented")}</option>
         </select>
 
         <select
@@ -154,9 +156,9 @@ export default function SearchFilters() {
           value={form.sort}
           onChange={(e) => updateField("sort", e.target.value)}
         >
-          <option value="newest">Newest first</option>
-          <option value="price-low">Price low to high</option>
-          <option value="price-high">Price high to low</option>
+          <option value="newest">{t("newestFirst")}</option>
+          <option value="price-low">{t("priceLowToHigh")}</option>
+          <option value="price-high">{t("priceHighToLow")}</option>
         </select>
 
         <button
@@ -164,14 +166,14 @@ export default function SearchFilters() {
           disabled={isPending}
           className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/85 disabled:opacity-50"
         >
-          {isPending ? "Searching..." : "Apply filters"}
+          {isPending ? t("searching") : t("applyFilters")}
         </button>
 
         <button
           onClick={resetFilters}
           className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
         >
-          Reset
+          {t("reset")}
         </button>
       </div>
     </aside>

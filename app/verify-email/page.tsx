@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 export default function VerifyEmailPage() {
+  const t = useTranslations("accountPages.verifyEmail");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -27,11 +29,11 @@ export default function VerifyEmailPage() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(data.error || "Failed to resend verification email.");
+      setError(data.error || t("resendFailed"));
       return;
     }
 
-    setMessage("Verification email sent. Check your inbox and spam folder.");
+    setMessage(t("sent"));
   }
 
   return (
@@ -42,23 +44,22 @@ export default function VerifyEmailPage() {
             ✉️
           </div>
 
-          <h1 className="mt-6 text-3xl font-bold">Verify your email</h1>
+          <h1 className="mt-6 text-3xl font-bold">{t("title")}</h1>
 
           <p className="mt-3 text-zinc-400">
-            We sent you a verification link. Open your inbox and click the link
-            before using Travel Markets.
+            {t("subtitle")}
           </p>
         </div>
 
         <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5">
           <label className="text-sm font-semibold text-zinc-300">
-            Resend verification email
+            {t("resendLabel")}
           </label>
 
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
+            placeholder={t("emailPlaceholder")}
             type="email"
             className="mt-3 w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-blue-500"
           />
@@ -71,7 +72,7 @@ export default function VerifyEmailPage() {
             disabled={loading || !email}
             className="mt-5 w-full rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "Sending..." : "Resend verification email"}
+            {loading ? t("sending") : t("resendButton")}
           </button>
         </div>
 
@@ -80,14 +81,14 @@ export default function VerifyEmailPage() {
             href="/auth"
             className="flex-1 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-center font-semibold hover:bg-white/10"
           >
-            Back to login
+            {t("backToLogin")}
           </Link>
 
           <Link
             href="/"
             className="flex-1 rounded-xl bg-white px-5 py-3 text-center font-semibold text-black hover:bg-zinc-200"
           >
-            Back home
+            {t("backHome")}
           </Link>
         </div>
       </div>

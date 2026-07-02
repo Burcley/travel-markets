@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ListingStatusControls({
@@ -11,6 +12,7 @@ export default function ListingStatusControls({
   listingId: string;
   currentStatus: string | null;
 }) {
+  const t = useTranslations("finalBatchD.listingStatus");
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ export default function ListingStatusControls({
 
   return (
     <div className="mt-4">
-      <p className="text-xs text-gray-400 mb-2">Status</p>
+      <p className="text-xs text-gray-400 mb-2">{t("status")}</p>
 
       <div className="flex gap-2">
         <button
@@ -41,7 +43,7 @@ export default function ListingStatusControls({
           disabled={loading}
           className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm"
         >
-          Available
+          {t("available")}
         </button>
 
         <button
@@ -49,7 +51,7 @@ export default function ListingStatusControls({
           disabled={loading}
           className="px-3 py-2 rounded-lg bg-yellow-600 text-white text-sm"
         >
-          Pending
+          {t("pending")}
         </button>
 
         <button
@@ -57,7 +59,7 @@ export default function ListingStatusControls({
           disabled={loading}
           className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm"
         >
-          Rented
+          {t("rented")}
         </button>
       </div>
     </div>

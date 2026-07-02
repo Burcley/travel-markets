@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type GalleryImage = {
   id: string;
@@ -25,6 +26,7 @@ export default function ListingGalleryModal({
   isOpen,
   onClose,
 }: ListingGalleryModalProps) {
+  const t = useTranslations("listingGallery");
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function ListingGalleryModal({
             onClick={onClose}
             className="rounded-full border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
           >
-            Close
+            {t("close")}
           </button>
 
           <div className="text-sm">
@@ -85,21 +87,21 @@ export default function ListingGalleryModal({
           <button
             onClick={goPrev}
             className="absolute left-3 z-10 rounded-full bg-white/10 p-3 text-white backdrop-blur hover:bg-white/20 md:left-6"
-            aria-label="Previous image"
+            aria-label={t("previousImage")}
           >
             ‹
           </button>
 
           <img
             src={currentImage.image_url}
-            alt={`Listing photo ${currentIndex + 1}`}
+            alt={t("listingPhotoNumberAlt", { number: currentIndex + 1 })}
             className="max-h-[72vh] w-auto max-w-full rounded-2xl object-contain"
           />
 
           <button
             onClick={goNext}
             className="absolute right-3 z-10 rounded-full bg-white/10 p-3 text-white backdrop-blur hover:bg-white/20 md:right-6"
-            aria-label="Next image"
+            aria-label={t("nextImage")}
           >
             ›
           </button>
@@ -122,7 +124,7 @@ export default function ListingGalleryModal({
                 >
                   <img
                     src={image.image_url}
-                    alt={`Thumbnail ${index + 1}`}
+                    alt={t("thumbnailNumberAlt", { number: index + 1 })}
                     className="h-full w-full object-cover"
                   />
                 </button>

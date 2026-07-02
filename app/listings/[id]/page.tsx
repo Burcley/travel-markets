@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import ReportButton from "@/components/ReportButton";
 import SaveListingButton from "@/components/SaveListingButton";
 import SimilarListings from "@/components/SimilarListings";
 import OwnerTrustCard from "@/components/OwnerTrustCard";
 import ListingImageGallery from "@/components/listings/listing-image-gallery";
+import Money from "@/components/Money";
 
 type Profile = {
   id: string;
@@ -59,6 +61,7 @@ type Review = {
 };
 
 export default function ListingDetailsPage() {
+  const t = useTranslations("listingDetail");
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
@@ -149,7 +152,7 @@ export default function ListingDetailsPage() {
       }
 
       if (!listingData) {
-        setPageError("Listing not found.");
+        setPageError(t("errors.notFound"));
         setListing(null);
         return;
       }
@@ -277,7 +280,7 @@ export default function ListingDetailsPage() {
       }
     } catch (error: any) {
       console.error("LISTING PAGE CRASH:", error);
-      setPageError(error?.message || "Listing page crashed. Check console.");
+      setPageError(error?.message || t("errors.crashed"));
       setListing(null);
     } finally {
       setLoading(false);
@@ -297,12 +300,12 @@ export default function ListingDetailsPage() {
     if (!listing) return;
 
     if (listing.status === "rented") {
-      alert("This listing is already rented.");
+      alert(t("alerts.alreadyRented"));
       return;
     }
 
     if (user.id === listing.user_id) {
-      alert("You cannot contact yourself for your own listing.");
+      alert(t("alerts.cannotContactSelf"));
       return;
     }
 
@@ -311,7 +314,7 @@ export default function ListingDetailsPage() {
 
   async function handleDeleteListing() {
     if (!listing) return;
-    if (!confirm("Are you sure you want to delete this listing?")) return;
+    if (!confirm(t("confirmDelete"))) return;
 
     try {
       setDeleting(true);
@@ -341,26 +344,26 @@ export default function ListingDetailsPage() {
       router.refresh();
     } catch (error: any) {
       console.error("DELETE LISTING ERROR:", error);
-      alert(error?.message || "Something went wrong while deleting this listing.");
+      alert(error?.message || t("alerts.deleteFailed"));
     } finally {
       setDeleting(false);
     }
   }
 
   function getPublicLocationText() {
-    if (!listing) return "Location not added";
+    if (!listing) return t("locationNotAdded");
 
     const parts = [listing.city, listing.campus].filter(
       (item) => item && item.trim() !== ""
     );
 
-    return parts.length > 0 ? parts.join(" • ") : "Location not added";
+    return parts.length > 0 ? parts.join(" • ") : t("locationNotAdded");
   }
 
   function getPrivateAddressText() {
     return listing?.address && listing.address.trim() !== ""
       ? listing.address
-      : "Exact address not added";
+      : t("exactAddressNotAdded");
   }
 
   function getReviewer(reviewerId: string) {
@@ -379,7 +382,7 @@ export default function ListingDetailsPage() {
     if (status === "rented") {
       return (
         <span className="rounded-full bg-red-500/20 px-3 py-1 text-xs font-semibold text-red-300">
-          Rented
+          {t("status.rented")}
         </span>
       );
     }
@@ -387,14 +390,14 @@ export default function ListingDetailsPage() {
     if (status === "pending") {
       return (
         <span className="rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-semibold text-yellow-300">
-          Pending
+          {t("status.pending")}
         </span>
       );
     }
 
     return (
       <span className="rounded-full bg-green-500/20 px-3 py-1 text-xs font-semibold text-green-300">
-        Available
+        {t("status.available")}
       </span>
     );
   }
@@ -421,7 +424,7 @@ export default function ListingDetailsPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading listing...
+        {t("loading")}
       </main>
     );
   }
@@ -429,13 +432,13 @@ export default function ListingDetailsPage() {
   if (!listing) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        <p>{pageError || "Error loading listing."}</p>
+        <p>{pageError || t("errors.loading")}</p>
 
         <button
           onClick={() => router.push("/my-listings")}
           className="mt-4 rounded-xl bg-white px-5 py-3 font-semibold text-black"
         >
-          Back to My Listings
+          {t("backToMyListings")}
         </button>
       </main>
     );
@@ -448,7 +451,7 @@ export default function ListingDetailsPage() {
           onClick={() => router.push("/search")}
           className="text-sm text-gray-300 hover:text-white"
         >
-          ← Back to Listings
+          {t("backToListings")}
         </button>
 
         <section>
@@ -464,17 +467,16 @@ export default function ListingDetailsPage() {
 
             {addressUnlocked ? (
               <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-300">
-                🔓 Address unlocked for accepted viewing
+                🔓 {t("addressUnlockedBadge")}
               </span>
             ) : (
               <span className="rounded-full border border-gray-800 bg-white/5 px-3 py-1 text-sm text-gray-400">
-                🔒 Exact address hidden until owner accepts viewing
+                🔒 {t("addressHiddenBadge")}
               </span>
             )}
 
             <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-3 py-1 text-sm text-yellow-400">
-              ⭐ {averageRating} ({reviews.length} review
-              {reviews.length === 1 ? "" : "s"})
+              ⭐ {averageRating} ({t("reviewCount", { count: reviews.length })})
             </span>
           </div>
         </section>
@@ -484,53 +486,54 @@ export default function ListingDetailsPage() {
         <section className="grid gap-8 lg:grid-cols-[1fr_420px]">
           <div className="space-y-8">
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
-              <h2 className="text-2xl font-bold">About this place</h2>
+              <h2 className="text-2xl font-bold">{t("aboutTitle")}</h2>
 
               <p className="mt-4 leading-7 text-gray-300">
-                {listing.description || "No description provided."}
+                {listing.description || t("noDescription")}
               </p>
             </div>
 
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
-              <h2 className="text-2xl font-bold">Property details</h2>
+              <h2 className="text-2xl font-bold">{t("propertyDetailsTitle")}</h2>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Detail label="Bedrooms" value={listing.bedrooms} />
-                <Detail label="Bathrooms" value={listing.bathrooms} />
-                <Detail label="Guests" value={listing.guests} />
-                <Detail label="Roommates" value={listing.roommates} />
+                <Detail label={t("details.bedrooms")} value={listing.bedrooms} />
+                <Detail label={t("details.bathrooms")} value={listing.bathrooms} />
+                <Detail label={t("details.guests")} value={listing.guests} />
+                <Detail label={t("details.roommates")} value={listing.roommates} />
               </div>
             </div>
 
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
-              <h2 className="text-2xl font-bold">Location</h2>
+              <h2 className="text-2xl font-bold">{t("locationTitle")}</h2>
 
               <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <LocationBox label="City" value={listing.city} />
-                <LocationBox label="Campus / Area" value={listing.campus} />
+                <LocationBox label={t("location.city")} value={listing.city} notAddedLabel={t("notAdded")} lockedLabel={t("locked")} />
+                <LocationBox label={t("location.campusArea")} value={listing.campus} notAddedLabel={t("notAdded")} lockedLabel={t("locked")} />
                 <LocationBox
-                  label="Exact Address"
-                  value={addressUnlocked ? getPrivateAddressText() : "Locked"}
+                  label={t("location.exactAddress")}
+                  value={addressUnlocked ? getPrivateAddressText() : t("locked")}
                   locked={!addressUnlocked}
+                  notAddedLabel={t("notAdded")}
+                  lockedLabel={t("locked")}
                 />
               </div>
 
               {!addressUnlocked && !isOwner && (
                 <div className="mt-5 rounded-2xl border border-gray-800 bg-black p-5">
                   <p className="font-semibold text-white">
-                    🔒 Exact address is protected
+                    🔒 {t("addressProtectedTitle")}
                   </p>
 
                   <p className="mt-2 text-sm leading-6 text-gray-400">
-                    To protect owners and students, the full address is only
-                    shown after the owner accepts your viewing request.
+                    {t("addressProtectedText")}
                   </p>
 
                   <Link
                     href={`/listings/${listing.id}/book-viewing`}
                     className="mt-4 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black hover:bg-gray-200"
                   >
-                    Book Viewing to Unlock Address
+                    {t("bookViewingUnlock")}
                   </Link>
                 </div>
               )}
@@ -538,19 +541,18 @@ export default function ListingDetailsPage() {
               {addressUnlocked && !isOwner && hasAcceptedViewing && (
                 <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
                   <p className="font-semibold text-emerald-300">
-                    🔓 Address unlocked
+                    🔓 {t("addressUnlockedTitle")}
                   </p>
 
                   <p className="mt-2 text-sm leading-6 text-emerald-100/80">
-                    Your viewing request has been accepted. You can now see the
-                    exact address for the viewing.
+                    {t("addressUnlockedText")}
                   </p>
                 </div>
               )}
             </div>
 
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
-              <h2 className="text-2xl font-bold">Features / Amenities</h2>
+              <h2 className="text-2xl font-bold">{t("amenitiesTitle")}</h2>
 
               {listing.amenities && listing.amenities.length > 0 ? (
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -564,18 +566,20 @@ export default function ListingDetailsPage() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 text-gray-400">No amenities listed.</p>
+                <p className="mt-4 text-gray-400">{t("noAmenities")}</p>
               )}
             </div>
 
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold">Reviews</h2>
+                  <h2 className="text-2xl font-bold">{t("reviewsTitle")}</h2>
 
                   <p className="mt-1 text-sm text-gray-400">
-                    ⭐ {averageRating} average from {reviews.length} review
-                    {reviews.length === 1 ? "" : "s"}
+                    ⭐ {t("reviewsAverage", {
+                      rating: averageRating,
+                      count: reviews.length,
+                    })}
                   </p>
                 </div>
 
@@ -584,21 +588,21 @@ export default function ListingDetailsPage() {
                     href={`/listings/${listing.id}/review`}
                     className="rounded-xl border border-gray-700 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                   >
-                    Leave Review
+                    {t("leaveReview")}
                   </Link>
                 )}
               </div>
 
               {reviews.length === 0 ? (
                 <div className="mt-6 rounded-2xl border border-dashed border-gray-700 p-6 text-center text-gray-400">
-                  No reviews yet.
+                  {t("noReviews")}
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">
                   {reviews.map((review) => {
                     const reviewer = getReviewer(review.reviewer_id);
                     const reviewerName =
-                      reviewer?.full_name || "Anonymous user";
+                      reviewer?.full_name || t("anonymousUser");
 
                     return (
                       <div
@@ -626,7 +630,7 @@ export default function ListingDetailsPage() {
 
                               {reviewer?.is_verified && (
                                 <span className="rounded-full bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-300">
-                                  ✓ Verified
+                                  ✓ {t("verified")}
                                 </span>
                               )}
 
@@ -638,7 +642,7 @@ export default function ListingDetailsPage() {
                             <Stars rating={review.rating} />
 
                             <p className="mt-3 leading-7 text-gray-300">
-                              {review.comment || "No comment provided."}
+                              {review.comment || t("noComment")}
                             </p>
                           </div>
                         </div>
@@ -654,8 +658,10 @@ export default function ListingDetailsPage() {
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-3xl font-bold">${listing.price || 0}</h2>
-                  <p className="mt-1 text-gray-400">per month</p>
+                  <h2 className="text-3xl font-bold">
+                    {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
+                  </h2>
+                  <p className="mt-1 text-gray-400">{t("perMonth")}</p>
                 </div>
 
                 <StatusBadge />
@@ -670,7 +676,7 @@ export default function ListingDetailsPage() {
                       disabled
                       className="w-full rounded-xl bg-gray-700 px-5 py-4 font-semibold text-gray-400"
                     >
-                      Listing Unavailable
+                      {t("listingUnavailable")}
                     </button>
                   ) : (
                     <>
@@ -678,14 +684,14 @@ export default function ListingDetailsPage() {
                         onClick={handleContactOwner}
                         className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-gray-200"
                       >
-                        Contact Owner
+                        {t("contactOwner")}
                       </button>
 
                       <Link
                         href={`/listings/${listing.id}/book-viewing`}
                         className="flex w-full items-center justify-center rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 font-semibold text-blue-300 transition hover:bg-blue-500/20"
                       >
-                        Book Viewing
+                        {t("bookViewing")}
                       </Link>
                     </>
                   )}
@@ -694,7 +700,7 @@ export default function ListingDetailsPage() {
                     href={`/listings/${listing.id}/review`}
                     className="flex w-full items-center justify-center rounded-xl border border-gray-700 bg-white/5 px-5 py-4 font-semibold text-white transition hover:bg-white/10"
                   >
-                    Leave Review
+                    {t("leaveReview")}
                   </Link>
 
                   <SaveListingButton listingId={listing.id} />
@@ -709,27 +715,27 @@ export default function ListingDetailsPage() {
                     onClick={() => router.push("/inquiries/received")}
                     className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-gray-200"
                   >
-                    View Received Inquiries
+                    {t("viewReceivedInquiries")}
                   </button>
 
                   <button
                     onClick={() => router.push("/availability/calendar")}
                     className="mt-3 w-full rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 font-semibold text-blue-300 hover:bg-blue-500/20"
                   >
-                    Manage Calendar
+                    {t("manageCalendar")}
                   </button>
 
                   <button
                     onClick={() => router.push("/viewings")}
                     className="mt-3 w-full rounded-xl border border-gray-700 bg-white/5 px-5 py-4 font-semibold text-white hover:bg-white/10"
                   >
-                    Manage Viewings
+                    {t("manageViewings")}
                   </button>
 
                   <div className="my-6 border-t border-gray-800" />
 
                   <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
-                    Owner Actions
+                    {t("ownerActions")}
                   </p>
 
                   <div className="space-y-3">
@@ -737,13 +743,13 @@ export default function ListingDetailsPage() {
                       onClick={() => router.push(`/listings/${listing.id}/edit`)}
                       className="w-full rounded-xl bg-blue-600 px-5 py-4 font-semibold text-white"
                     >
-                      Edit Listing
+                      {t("editListing")}
                     </button>
                     <button
                       onClick={() => router.push(`/listings/${listing.id}/boost`)}
                       className="w-full rounded-xl bg-yellow-400 px-5 py-4 font-black text-black hover:bg-yellow-300"
                     >
-                      Boost Listing
+                      {t("boostListing")}
                     </button>
 
                     <button
@@ -751,7 +757,7 @@ export default function ListingDetailsPage() {
                       disabled={deleting}
                       className="w-full rounded-xl bg-red-600 px-5 py-4 font-semibold text-white disabled:bg-gray-600"
                     >
-                      {deleting ? "Deleting..." : "Delete"}
+                      {deleting ? t("deleting") : t("delete")}
                     </button>
                   </div>
                 </>
@@ -792,10 +798,14 @@ function LocationBox({
   label,
   value,
   locked = false,
+  notAddedLabel,
+  lockedLabel,
 }: {
   label: string;
   value: string | null | undefined;
   locked?: boolean;
+  notAddedLabel: string;
+  lockedLabel: string;
 }) {
   return (
     <div className="rounded-2xl border border-gray-800 bg-black p-5">
@@ -806,10 +816,10 @@ function LocationBox({
         }`}
       >
         {locked
-          ? "🔒 Locked"
+          ? `🔒 ${lockedLabel}`
           : value && value.trim() !== ""
           ? value
-          : "Not added"}
+          : notAddedLabel}
       </p>
     </div>
   );

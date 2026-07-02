@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import AdvancedListingFilters from "@/components/AdvancedListingFilters";
 
@@ -27,6 +28,7 @@ type Listing = {
 };
 
 export default function ListingsPage() {
+  const t = useTranslations("finalBatchD.listingsPage");
   const supabase = useMemo(() => createClient(), []);
 
   const [listings, setListings] = useState<Listing[]>([]);
@@ -115,7 +117,7 @@ export default function ListingsPage() {
 
   function getLocationText(listing: Listing) {
     const parts = [listing.city, listing.campus, listing.address].filter(Boolean);
-    return parts.length > 0 ? parts.join(" • ") : "Location not added";
+    return parts.length > 0 ? parts.join(" • ") : t("locationMissing");
   }
 
   function getStatusStyle(status: Listing["status"]) {
@@ -140,10 +142,10 @@ export default function ListingsPage() {
         <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <h1 className="text-3xl font-bold md:text-5xl">
-              Explore Travel Markets
+              {t("title")}
             </h1>
             <p className="mt-3 max-w-2xl text-gray-400">
-              Search listings by price, bedrooms, bathrooms, and availability.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -151,7 +153,7 @@ export default function ListingsPage() {
             href="/listings/create"
             className="rounded-full bg-white px-6 py-3 font-medium text-black hover:bg-gray-200"
           >
-            Create Listing
+            {t("createListing")}
           </Link>
         </div>
 
@@ -160,8 +162,8 @@ export default function ListingsPage() {
         <div className="mt-6 flex items-center justify-between">
           <p className="text-sm text-gray-400">
             {loading
-              ? "Searching listings..."
-              : `${totalResults} result${totalResults === 1 ? "" : "s"} found`}
+              ? t("searching")
+              : t("resultsFound", { count: totalResults })}
           </p>
         </div>
 
@@ -176,9 +178,9 @@ export default function ListingsPage() {
           </div>
         ) : listings.length === 0 ? (
           <div className="mt-10 rounded-3xl border border-white/10 bg-[#111111] p-10 text-center">
-            <h2 className="text-2xl font-semibold">No listings found</h2>
+            <h2 className="text-2xl font-semibold">{t("emptyTitle")}</h2>
             <p className="mt-2 text-gray-400">
-              Try changing your filters or resetting the search.
+              {t("emptyText")}
             </p>
           </div>
         ) : (
@@ -203,7 +205,7 @@ export default function ListingsPage() {
                       listing.status
                     )}`}
                   >
-                    {listing.status || "unknown"}
+                    {listing.status || t("unknown")}
                   </div>
                 </div>
 
@@ -226,11 +228,11 @@ export default function ListingsPage() {
 
                   <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-gray-300">
                     <span className="rounded-full bg-white/10 px-3 py-1">
-                      {listing.bedrooms ?? 0} bed
+                      {t("bed", { count: listing.bedrooms ?? 0 })}
                     </span>
 
                     <span className="rounded-full bg-white/10 px-3 py-1">
-                      {listing.bathrooms ?? 0} bath
+                      {t("bath", { count: listing.bathrooms ?? 0 })}
                     </span>
 
                     {listing.campus && (

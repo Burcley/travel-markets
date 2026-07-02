@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -13,6 +14,7 @@ export default function ListingMap({
   listings,
   hoveredListingId,
 }: ListingMapProps) {
+  const t = useTranslations("finalBatchD.listingMap");
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
 
@@ -86,13 +88,13 @@ export default function ListingMap({
                 : ""
             }
             <strong style="font-size:16px">${listing.title}</strong>
-            <p style="margin:6px 0;color:#666">${listing.city || "Area hidden"} ${
+            <p style="margin:6px 0;color:#666">${listing.city || t("areaHidden")} ${
               listing.campus ? `• ${listing.campus}` : ""
             }</p>
-            <p style="font-weight:800;font-size:17px">$${listing.price || 0}/month</p>
-            <p style="font-size:12px;color:#777">Exact address hidden until owner approval.</p>
+            <p style="font-weight:800;font-size:17px">$${listing.price || 0}${t("perMonth")}</p>
+            <p style="font-size:12px;color:#777">${t("addressHidden")}</p>
             <a href="/listings/${listing.id}" style="display:block;margin-top:10px;background:#000;color:#fff;text-align:center;padding:10px;border-radius:12px;text-decoration:none;font-weight:700">
-              View listing
+              ${t("viewListing")}
             </a>
           </div>
         `);
@@ -106,14 +108,14 @@ export default function ListingMap({
       map.remove();
       leafletMapRef.current = null;
     };
-  }, [listings, hoveredListingId]);
+  }, [listings, hoveredListingId, t]);
 
   return (
     <section className="relative h-full w-full overflow-hidden rounded-[2rem] bg-zinc-950">
       <div className="pointer-events-none absolute left-4 top-4 z-[1000] max-w-xs rounded-2xl border border-white/10 bg-black/85 px-4 py-3 text-white shadow-2xl backdrop-blur-xl">
-        <p className="text-sm font-bold">Approximate location map</p>
+        <p className="text-sm font-bold">{t("title")}</p>
         <p className="mt-1 text-xs text-zinc-300">
-          Price markers stay locked to approximate coordinates.
+          {t("subtitle")}
         </p>
       </div>
 

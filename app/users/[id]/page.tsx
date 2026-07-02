@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   BadgeCheck,
   Crown,
@@ -57,6 +58,7 @@ type Review = {
 };
 
 export default function PublicUserProfilePage() {
+  const t = useTranslations("finalBatchD.publicProfile");
   const params = useParams();
   const supabase = createClient();
   const userId = params.id as string;
@@ -181,7 +183,7 @@ export default function PublicUserProfilePage() {
   const isOwnProfile = currentUserId === userId;
 
   function getDisplayName() {
-    return profile?.full_name || "Property Owner";
+    return profile?.full_name || t("propertyOwner");
   }
 
   function getListingImage(listingId: string) {
@@ -213,7 +215,7 @@ export default function PublicUserProfilePage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading profile...
+        {t("loading")}
       </main>
     );
   }
@@ -221,7 +223,7 @@ export default function PublicUserProfilePage() {
   if (!profile) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Profile not found.
+        {t("notFound")}
       </main>
     );
   }
@@ -271,55 +273,57 @@ export default function PublicUserProfilePage() {
                   {isPremium && (
                     <span className="inline-flex items-center gap-2 rounded-full bg-yellow-400 px-4 py-2 text-sm font-black text-black">
                       <Crown size={16} />
-                      Premium Owner
+                      {t("premiumOwner")}
                     </span>
                   )}
 
                   {isPro && (
                     <span className="inline-flex items-center gap-2 rounded-full bg-purple-500 px-4 py-2 text-sm font-black text-white">
                       <Sparkles size={16} />
-                      Pro Owner
+                      {t("proOwner")}
                     </span>
                   )}
 
                   {profile.is_verified && (
                     <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-bold text-blue-300">
                       <BadgeCheck size={16} />
-                      Verified
+                      {t("verified")}
                     </span>
                   )}
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   <span className="rounded-full border border-gray-700 bg-black/40 px-4 py-2 text-sm capitalize text-gray-300">
-                    {profile.role || "owner"}
+                    {profile.role || t("ownerRole")}
                   </span>
 
                   <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-300">
-                    ⭐ {averageRating} ({reviews.length} review
-                    {reviews.length === 1 ? "" : "s"})
+                    {t("ratingSummary", {
+                      rating: averageRating,
+                      count: reviews.length,
+                    })}
                   </span>
 
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
-                    🔒 Address Protection Enabled
+                    {t("addressProtection")}
                   </span>
                 </div>
 
                 <p className="mt-5 max-w-2xl leading-7 text-gray-300">
                   {profile.bio ||
-                    "This owner is part of the Travel Markets safer housing network."}
+                    t("defaultBio")}
                 </p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
-                <ProfileStat label="Listings" value={listings.length} />
-                <ProfileStat label="Rating" value={averageRating} />
-                <ProfileStat label="Reviews" value={reviews.length} />
+                <ProfileStat label={t("listings")} value={listings.length} />
+                <ProfileStat label={t("rating")} value={averageRating} />
+                <ProfileStat label={t("reviews")} value={reviews.length} />
                 <ProfileStat
-                  label="Verified"
-                  value={profile.is_verified ? "Yes" : "No"}
+                  label={t("verifiedStat")}
+                  value={profile.is_verified ? t("yes") : t("no")}
                 />
               </div>
 
@@ -334,25 +338,25 @@ export default function PublicUserProfilePage() {
 
         <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
           <div className="rounded-[2rem] border border-gray-800 bg-[#070707] p-8">
-            <h2 className="text-2xl font-bold">About Host</h2>
+            <h2 className="text-2xl font-bold">{t("aboutHost")}</h2>
             <p className="mt-4 leading-7 text-gray-300">
               {profile.bio ||
-                "No bio has been added yet, but this profile is connected to the Travel Markets trusted housing flow."}
+                t("aboutHostFallback")}
             </p>
           </div>
 
           <div className="rounded-[2rem] border border-gray-800 bg-[#070707] p-8">
             <div className="mb-6 flex items-center gap-2">
               <ShieldCheck className="text-emerald-300" size={22} />
-              <h2 className="text-2xl font-bold">Host Highlights</h2>
+              <h2 className="text-2xl font-bold">{t("hostHighlights")}</h2>
             </div>
 
             <div className="space-y-4">
               {isPremium && (
                 <Highlight
                   icon={<Crown size={16} />}
-                  label="Premium Owner"
-                  text="Higher visibility and stronger marketplace trust."
+                  label={t("premiumOwner")}
+                  text={t("premiumOwnerText")}
                   color="text-yellow-300"
                 />
               )}
@@ -360,8 +364,8 @@ export default function PublicUserProfilePage() {
               {isPro && (
                 <Highlight
                   icon={<Sparkles size={16} />}
-                  label="Pro Owner"
-                  text="Enhanced owner profile and stronger search visibility."
+                  label={t("proOwner")}
+                  text={t("proOwnerText")}
                   color="text-purple-300"
                 />
               )}
@@ -369,46 +373,44 @@ export default function PublicUserProfilePage() {
               {profile.is_verified && (
                 <Highlight
                   icon={<BadgeCheck size={16} />}
-                  label="Verified Profile"
-                  text="Profile has verification signals."
+                  label={t("verifiedProfile")}
+                  text={t("verifiedProfileText")}
                   color="text-blue-300"
                 />
               )}
 
               <Highlight
                 icon={<Home size={16} />}
-                label={`${listings.length} Active Listing${
-                  listings.length === 1 ? "" : "s"
-                }`}
-                text="Owner has active marketplace inventory."
+                label={t("activeListings", { count: listings.length })}
+                text={t("activeListingsText")}
                 color="text-white"
               />
 
               <Highlight
                 icon={<Star size={16} />}
-                label={`${averageRating} Average Rating`}
-                text="Based on public renter reviews."
+                label={t("averageRating", { rating: averageRating })}
+                text={t("averageRatingText")}
                 color="text-yellow-300"
               />
 
               <Highlight
                 icon={<MessageCircle size={16} />}
-                label="Fast Response Host"
-                text="Designed for quick student-owner communication."
+                label={t("fastResponseHost")}
+                text={t("fastResponseHostText")}
                 color="text-emerald-300"
               />
 
               <Highlight
                 icon={<LockKeyhole size={16} />}
-                label="Address Protection"
-                text="Exact addresses stay hidden until approved viewing."
+                label={t("addressProtectionShort")}
+                text={t("addressProtectionText")}
                 color="text-emerald-300"
               />
 
               <Highlight
                 icon={<Zap size={16} />}
-                label="Travel Markets Trusted Host"
-                text="Connected to the safer housing flow."
+                label={t("trustedHost")}
+                text={t("trustedHostText")}
                 color="text-sky-300"
               />
             </div>
@@ -419,9 +421,9 @@ export default function PublicUserProfilePage() {
           <section>
             <div className="mb-5 flex items-end justify-between">
               <div>
-                <h2 className="text-3xl font-bold">Featured Listings</h2>
+                <h2 className="text-3xl font-bold">{t("featuredListings")}</h2>
                 <p className="mt-2 text-sm text-gray-400">
-                  Priority listings from this owner.
+                  {t("featuredListingsText")}
                 </p>
               </div>
             </div>
@@ -442,15 +444,15 @@ export default function PublicUserProfilePage() {
 
         <section>
           <div className="mb-5">
-            <h2 className="text-3xl font-bold">Current Listings</h2>
+            <h2 className="text-3xl font-bold">{t("currentListings")}</h2>
             <p className="mt-2 text-sm text-gray-400">
-              Active rentals posted by {getDisplayName()}.
+              {t("currentListingsText", { name: getDisplayName() })}
             </p>
           </div>
 
           {listings.length === 0 ? (
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-8 text-gray-400">
-              No listings.
+              {t("noListings")}
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-3">
@@ -475,26 +477,26 @@ export default function PublicUserProfilePage() {
         <section>
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-3xl font-bold">Recent Reviews</h2>
+              <h2 className="text-3xl font-bold">{t("recentReviews")}</h2>
               <p className="mt-2 text-sm text-gray-400">
-                Public feedback from renters and students.
+                {t("recentReviewsText")}
               </p>
             </div>
 
             <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-300">
-              ⭐ {averageRating} average
+              {t("averageBadge", { rating: averageRating })}
             </span>
           </div>
 
           {reviews.length === 0 ? (
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-8 text-gray-400">
-              No reviews yet.
+              {t("noReviews")}
             </div>
           ) : (
             <div className="grid gap-5 md:grid-cols-2">
               {reviews.map((review) => {
                 const reviewer = getReviewer(review.reviewer_id);
-                const reviewerName = reviewer?.full_name || "Anonymous user";
+                const reviewerName = reviewer?.full_name || t("anonymousUser");
 
                 return (
                   <div
@@ -522,7 +524,7 @@ export default function PublicUserProfilePage() {
 
                           {reviewer?.is_verified && (
                             <span className="rounded-full bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-300">
-                              ✓ Verified
+                              {t("verifiedCheck")}
                             </span>
                           )}
 
@@ -541,7 +543,7 @@ export default function PublicUserProfilePage() {
                         </p>
 
                         <p className="mt-3 leading-7 text-gray-300">
-                          {review.comment || "No comment provided."}
+                          {review.comment || t("noComment")}
                         </p>
                       </div>
                     </div>
@@ -613,6 +615,7 @@ function OwnerListingCard({
   ownerPlan: string;
   featured?: boolean;
 }) {
+  const t = useTranslations("finalBatchD.publicProfile");
   const isPremium = ownerPlan === "premium";
   const isPro = ownerPlan === "pro";
 
@@ -638,32 +641,32 @@ function OwnerListingCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center text-gray-500">
-            No image
+            {t("noImage")}
           </div>
         )}
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           {featured && (
             <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-              ⭐ Featured
+              {t("featuredBadge")}
             </span>
           )}
 
           {isPremium && (
             <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-              👑 Premium
+              {t("premiumBadge")}
             </span>
           )}
 
           {isPro && (
             <span className="rounded-full bg-purple-500 px-3 py-1 text-xs font-black text-white">
-              ✨ Pro
+              {t("proBadge")}
             </span>
           )}
         </div>
 
         <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-black text-black">
-          ${listing.price || 0}/mo
+          ${listing.price || 0}{t("perMonthCompact")}
         </div>
       </div>
 
@@ -672,11 +675,11 @@ function OwnerListingCard({
 
         <p className="mt-2 line-clamp-1 text-sm text-gray-400">
           {[listing.city, listing.campus].filter(Boolean).join(" • ") ||
-            "Location not provided"}
+            t("locationNotProvided")}
         </p>
 
         <p className="mt-4 text-xs text-gray-500">
-          Exact address unlocks after approved viewing.
+          {t("addressUnlockNote")}
         </p>
       </div>
     </Link>

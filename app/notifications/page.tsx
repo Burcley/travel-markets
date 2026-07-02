@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Bell,
   CheckCheck,
@@ -26,6 +27,7 @@ type Notification = {
 };
 
 export default function NotificationsPage() {
+  const t = useTranslations("accountPages.notifications");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -146,7 +148,7 @@ export default function NotificationsPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading notifications...
+        {t("loading")}
       </main>
     );
   }
@@ -157,12 +159,11 @@ export default function NotificationsPage() {
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-4xl font-bold tracking-tight">
-              Notifications
+              {t("title")}
             </h1>
 
             <p className="mt-2 text-zinc-400">
-              Booking updates, viewing approvals, cancellations, and address
-              unlocks.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -172,25 +173,25 @@ export default function NotificationsPage() {
             className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <CheckCheck className="h-5 w-5" />
-            Mark all read
+            {t("markAllRead")}
           </button>
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-white/10 bg-zinc-950 p-5">
-            <p className="text-sm text-zinc-400">Total</p>
+            <p className="text-sm text-zinc-400">{t("total")}</p>
             <p className="mt-2 text-3xl font-bold">{notifications.length}</p>
           </div>
 
           <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5">
-            <p className="text-sm text-red-200">Unread</p>
+            <p className="text-sm text-red-200">{t("unread")}</p>
             <p className="mt-2 text-3xl font-bold text-red-300">
               {unreadCount}
             </p>
           </div>
 
           <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
-            <p className="text-sm text-emerald-200">Read</p>
+            <p className="text-sm text-emerald-200">{t("read")}</p>
             <p className="mt-2 text-3xl font-bold text-emerald-300">
               {notifications.length - unreadCount}
             </p>
@@ -206,7 +207,7 @@ export default function NotificationsPage() {
                 : "border border-zinc-700 text-white hover:bg-white/10"
             }`}
           >
-            All
+            {t("all")}
           </button>
 
           <button
@@ -217,7 +218,7 @@ export default function NotificationsPage() {
                 : "border border-zinc-700 text-white hover:bg-white/10"
             }`}
           >
-            Unread
+            {t("unread")}
           </button>
         </div>
 
@@ -226,11 +227,11 @@ export default function NotificationsPage() {
             <Bell className="mx-auto h-10 w-10 text-zinc-600" />
 
             <p className="mt-4 text-lg font-semibold text-zinc-300">
-              No notifications here
+              {t("emptyTitle")}
             </p>
 
             <p className="mt-2 text-sm text-zinc-500">
-              Booking and viewing updates will appear here.
+              {t("emptyText")}
             </p>
           </div>
         ) : (
@@ -254,7 +255,7 @@ export default function NotificationsPage() {
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <h2 className="text-lg font-semibold">
-                        {notification.title || "Notification"}
+                        {notification.title || t("notificationFallback")}
                       </h2>
 
                       <div className="flex items-center gap-2 text-xs text-zinc-500">
@@ -264,12 +265,12 @@ export default function NotificationsPage() {
                     </div>
 
                     <p className="mt-2 text-sm leading-6 text-zinc-400">
-                      {notification.body || "You have a new update."}
+                      {notification.body || t("bodyFallback")}
                     </p>
 
                     {!notification.is_read && (
                       <span className="mt-4 inline-flex rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white">
-                        New
+                        {t("new")}
                       </span>
                     )}
                   </div>

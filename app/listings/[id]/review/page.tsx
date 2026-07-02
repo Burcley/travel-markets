@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type Listing = {
@@ -11,6 +12,7 @@ type Listing = {
 };
 
 export default function LeaveReviewPage() {
+  const t = useTranslations("listingManagement.review");
   const params = useParams();
   const router = useRouter();
   const supabase = createClient();
@@ -65,7 +67,7 @@ export default function LeaveReviewPage() {
     if (!listing || !currentUserId) return;
 
     if (currentUserId === listing.user_id) {
-      alert("You cannot review your own listing.");
+      alert(t("ownListing"));
       return;
     }
 
@@ -115,7 +117,7 @@ export default function LeaveReviewPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading review page...
+        {t("loading")}
       </main>
     );
   }
@@ -123,7 +125,7 @@ export default function LeaveReviewPage() {
   if (!listing) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Listing not found.
+        {t("notFound")}
       </main>
     );
   }
@@ -135,16 +137,16 @@ export default function LeaveReviewPage() {
           onClick={() => router.back()}
           className="mb-6 text-sm text-gray-400 hover:text-white"
         >
-          ← Back
+          {t("back")}
         </button>
 
         <div className="rounded-3xl border border-gray-800 bg-[#070707] p-8">
-          <h1 className="text-3xl font-bold">Leave a Review</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
           <p className="mt-2 text-gray-400">{listing.title}</p>
 
           <div className="mt-8">
             <label className="text-sm font-semibold text-gray-300">
-              Rating
+              {t("rating")}
             </label>
 
             <div className="mt-3 flex gap-2">
@@ -165,14 +167,14 @@ export default function LeaveReviewPage() {
 
           <div className="mt-8">
             <label className="text-sm font-semibold text-gray-300">
-              Comment
+              {t("comment")}
             </label>
 
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={6}
-              placeholder="Share your experience..."
+              placeholder={t("commentPlaceholder")}
               className="mt-3 w-full rounded-2xl border border-gray-800 bg-black p-4 text-white outline-none focus:border-gray-500"
             />
           </div>
@@ -182,7 +184,7 @@ export default function LeaveReviewPage() {
             disabled={submitting}
             className="mt-8 w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-gray-200 disabled:bg-gray-600"
           >
-            {submitting ? "Submitting..." : "Submit Review"}
+            {submitting ? t("submitting") : t("submitReview")}
           </button>
         </div>
       </div>

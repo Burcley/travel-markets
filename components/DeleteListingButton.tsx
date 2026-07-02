@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { deleteListingAction } from "@/lib/actions/delete-listing";
 
 type DeleteListingButtonProps = {
@@ -17,13 +18,14 @@ export default function DeleteListingButton({
   redirectTo = "/my-listings",
   className = "",
 }: DeleteListingButtonProps) {
+  const t = useTranslations("finalBatchD.deleteListingButton");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
   const handleDelete = () => {
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${listingTitle}"?\n\nThis will permanently remove the listing and all its images.`
+      t("confirm", { listingTitle })
     );
 
     if (!confirmed) return;
@@ -50,7 +52,7 @@ export default function DeleteListingButton({
         disabled={isPending}
         className={`rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 ${className}`}
       >
-        {isPending ? "Deleting..." : "Delete"}
+        {isPending ? t("deleting") : t("delete")}
       </button>
 
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}

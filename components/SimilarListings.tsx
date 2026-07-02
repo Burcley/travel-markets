@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type SimilarListingsProps = {
@@ -17,6 +18,7 @@ export default function SimilarListings({
   campus,
   price,
 }: SimilarListingsProps) {
+  const t = useTranslations("similarListings");
   const supabase = createClient();
   const [listings, setListings] = useState<any[]>([]);
 
@@ -90,9 +92,9 @@ export default function SimilarListings({
   return (
     <section className="mt-14 border-t border-zinc-800 pt-10">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white">Similar listings</h2>
+        <h2 className="text-2xl font-bold text-white">{t("title")}</h2>
         <p className="mt-1 text-sm text-zinc-400">
-          More places near this area and price range.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -112,7 +114,7 @@ export default function SimilarListings({
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-zinc-500">
-                  No Image
+                  {t("noImage")}
                 </div>
               )}
             </div>
@@ -123,7 +125,7 @@ export default function SimilarListings({
               </h3>
 
               <p className="mt-1 line-clamp-1 text-sm text-zinc-400">
-                {listing.city || listing.location || "Area hidden"}
+                {listing.city || listing.location || t("areaHidden")}
                 {listing.campus ? ` • ${listing.campus}` : ""}
               </p>
 
@@ -131,7 +133,7 @@ export default function SimilarListings({
                 ${listing.price || 0}
                 <span className="text-sm font-normal text-zinc-500">
                   {" "}
-                  / month
+                  {t("perMonthSlash")}
                 </span>
               </p>
             </div>

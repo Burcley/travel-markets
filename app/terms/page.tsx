@@ -1,44 +1,44 @@
-export default function TermsPage() {
+import { getTranslations } from "next-intl/server";
+
+export default async function TermsPage() {
+  const t = await getTranslations("staticPages.terms");
+
   return (
     <main className="min-h-screen bg-black px-6 py-12 text-white">
       <div className="mx-auto max-w-4xl">
-        <h1 className="text-4xl font-bold">Terms of Service</h1>
+        <h1 className="text-4xl font-bold">{t("title")}</h1>
 
         <div className="mt-8 space-y-6 text-zinc-300">
           <p>
-            Travel Markets is a marketplace that connects property owners and
-            students seeking housing.
+            {t("intro")}
           </p>
 
           <h2 className="text-2xl font-semibold text-white">
-            User Responsibilities
+            {t("responsibilitiesTitle")}
           </h2>
 
           <p>
-            Users must provide accurate information and use the platform
-            lawfully.
+            {t("responsibilitiesText")}
           </p>
 
           <h2 className="text-2xl font-semibold text-white">
-            Listings & Content
+            {t("contentTitle")}
           </h2>
 
           <p>
-            Property owners are responsible for all information posted in their
-            listings.
+            {t("contentText")}
           </p>
 
           <h2 className="text-2xl font-semibold text-white">
-            Limitation of Liability
+            {t("liabilityTitle")}
           </h2>
 
           <p>
-            Travel Markets does not own or manage properties and is not
-            responsible for agreements made between users.
+            {t("liabilityText")}
           </p>
 
           <p className="text-sm text-zinc-500">
-            Last updated: {new Date().getFullYear()}
+            {t("lastUpdated", { year: new Date().getFullYear() })}
           </p>
         </div>
       </div>

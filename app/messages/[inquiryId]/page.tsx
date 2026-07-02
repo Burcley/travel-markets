@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   Building2,
@@ -46,6 +47,7 @@ type Profile = {
 };
 
 export default function ChatPage() {
+  const t = useTranslations("chatPage");
   const supabase = createClient();
   const router = useRouter();
   const params = useParams();
@@ -95,7 +97,7 @@ export default function ChatPage() {
       return (
         <img
           src={profile.avatar_url}
-          alt={profile.full_name || "User"}
+          alt={profile.full_name || t("userAlt")}
           className={`${size} rounded-full object-cover`}
         />
       );
@@ -119,7 +121,7 @@ export default function ChatPage() {
           {cover ? (
             <img
               src={cover}
-              alt={item.listings?.title || "Listing"}
+              alt={item.listings?.title || t("listingAlt")}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -264,7 +266,7 @@ export default function ChatPage() {
 
     if (profile?.role === "banned") {
       setIsBanned(true);
-      setError("Your account has been restricted. You cannot access messages.");
+      setError(t("restrictedError"));
       setLoading(false);
       return;
     }
@@ -294,7 +296,7 @@ export default function ChatPage() {
       .single();
 
     if (inquiryError || !inquiryData) {
-      setError("Inquiry not found.");
+      setError(t("inquiryNotFound"));
       setLoading(false);
       return;
     }
@@ -302,7 +304,7 @@ export default function ChatPage() {
     const normalizedInquiry = inquiryData as unknown as Inquiry;
 
     if (normalizedInquiry.status !== "accepted") {
-      setError("Chat only becomes available after the inquiry is accepted.");
+      setError(t("chatUnavailableAccepted"));
       setLoading(false);
       return;
     }
@@ -312,7 +314,7 @@ export default function ChatPage() {
       normalizedInquiry.requester_id === user.id;
 
     if (!isParticipant) {
-      setError("You do not have permission to open this chat.");
+      setError(t("permissionError"));
       setLoading(false);
       return;
     }
@@ -426,7 +428,7 @@ export default function ChatPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading messages...
+        {t("loading")}
       </main>
     );
   }
@@ -435,14 +437,14 @@ export default function ChatPage() {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-red-800 bg-red-950/40 p-6">
-          <h1 className="text-2xl font-bold text-red-300">Chat unavailable</h1>
+          <h1 className="text-2xl font-bold text-red-300">{t("chatUnavailable")}</h1>
           <p className="mt-3 text-red-200">{error}</p>
 
           <Link
             href="/messages"
             className="mt-5 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black"
           >
-            Back to Messages
+            {t("backToMessages")}
           </Link>
         </div>
       </main>
@@ -455,7 +457,7 @@ export default function ChatPage() {
         <aside className="hidden border-r border-white/10 bg-[#060606] lg:block">
           <div className="border-b border-white/10 p-5">
             <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-black">Messages</h1>
+              <h1 className="text-2xl font-black">{t("messages")}</h1>
 
               <Link
                 href="/messages"
@@ -466,7 +468,7 @@ export default function ChatPage() {
             </div>
 
             <p className="mt-2 text-sm text-zinc-500">
-              Accepted housing conversations.
+              {t("acceptedConversations")}
             </p>
           </div>
 
@@ -493,7 +495,7 @@ export default function ChatPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <p className="line-clamp-1 font-black">
-                          {profile?.full_name || "Travel Markets User"}
+                          {profile?.full_name || t("travelMarketsUser")}
                         </p>
 
                         <span
@@ -501,7 +503,7 @@ export default function ChatPage() {
                             active ? "text-zinc-600" : "text-zinc-500"
                           }`}
                         >
-                          Chat
+                          {t("chat")}
                         </span>
                       </div>
 
@@ -510,7 +512,7 @@ export default function ChatPage() {
                           active ? "text-zinc-700" : "text-zinc-400"
                         }`}
                       >
-                        {item.listings?.title || "Housing chat"}
+                        {item.listings?.title || t("housingChat")}
                       </p>
 
                       <p
@@ -518,7 +520,7 @@ export default function ChatPage() {
                           active ? "text-zinc-600" : "text-emerald-400"
                         }`}
                       >
-                        {item.listings?.city || "City hidden"}
+                        {item.listings?.city || t("cityHidden")}
                         {item.listings?.campus
                           ? ` • ${item.listings.campus}`
                           : ""}
@@ -545,11 +547,11 @@ export default function ChatPage() {
 
               <div className="min-w-0">
                 <h2 className="line-clamp-1 font-black">
-                  {otherProfile?.full_name || "Travel Markets User"}
+                  {otherProfile?.full_name || t("travelMarketsUser")}
                 </h2>
 
                 <p className="text-xs text-zinc-500">
-                  {inquiry?.listings?.title || "Housing conversation"}
+                  {inquiry?.listings?.title || t("housingConversation")}
                 </p>
               </div>
             </div>
@@ -558,7 +560,7 @@ export default function ChatPage() {
               href={`/listings/${inquiry?.listing_id}`}
               className="rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10"
             >
-              Listing
+              {t("listing")}
             </Link>
           </div>
 
@@ -568,11 +570,11 @@ export default function ChatPage() {
                 <MessageCircle size={42} className="mb-4 opacity-50" />
 
                 <p className="text-lg font-bold text-zinc-300">
-                  No messages yet
+                  {t("noMessages")}
                 </p>
 
                 <p className="mt-2 max-w-sm text-sm">
-                  Keep your housing conversation safe inside Travel Markets.
+                  {t("safeConversation")}
                 </p>
               </div>
             ) : (
@@ -615,7 +617,7 @@ export default function ChatPage() {
                             </span>
 
                             {isMine && (
-                              <span>{msg.read_at ? "Read" : "Sent"}</span>
+                              <span>{msg.read_at ? t("read") : t("sent")}</span>
                             )}
                           </div>
                         </div>
@@ -637,7 +639,7 @@ export default function ChatPage() {
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Write a message..."
+                placeholder={t("writeMessage")}
                 rows={1}
                 className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-3 text-white outline-none placeholder:text-zinc-600"
               />
@@ -660,14 +662,14 @@ export default function ChatPage() {
         <aside className="hidden border-l border-white/10 bg-[#060606] p-5 xl:block">
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Listing
+              {t("listing")}
             </p>
 
             <div className="mt-5 h-44 overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-800 to-black">
               {listingCover ? (
                 <img
                   src={listingCover}
-                  alt={inquiry?.listings?.title || "Listing"}
+                  alt={inquiry?.listings?.title || t("listingAlt")}
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -678,11 +680,11 @@ export default function ChatPage() {
             </div>
 
             <h2 className="mt-5 text-2xl font-black">
-              {inquiry?.listings?.title || "Housing Listing"}
+              {inquiry?.listings?.title || t("housingListing")}
             </h2>
 
             <p className="mt-2 text-zinc-400">
-              {inquiry?.listings?.city || "City hidden"}
+              {inquiry?.listings?.city || t("cityHidden")}
               {inquiry?.listings?.campus
                 ? ` • ${inquiry.listings.campus}`
                 : ""}
@@ -692,26 +694,26 @@ export default function ChatPage() {
               ${inquiry?.listings?.price || 0}
               <span className="text-sm font-normal text-zinc-500">
                 {" "}
-                / month
+                {t("perMonth")}
               </span>
             </p>
 
             <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300">
-              This chat is connected to an accepted inquiry.
+              {t("acceptedInquiryNotice")}
             </div>
 
             <div className="mt-5 border-t border-white/10 pt-5">
-              <p className="text-sm font-bold text-zinc-400">Owner</p>
+              <p className="text-sm font-bold text-zinc-400">{t("owner")}</p>
 
               <div className="mt-3 flex items-center gap-3">
                 {renderAvatar(ownerProfile, "h-12 w-12")}
 
                 <div>
                   <p className="font-bold">
-                    {ownerProfile?.full_name || "Property Owner"}
+                    {ownerProfile?.full_name || t("propertyOwner")}
                   </p>
 
-                  <p className="text-sm text-zinc-500">Verified contact</p>
+                  <p className="text-sm text-zinc-500">{t("verifiedContact")}</p>
                 </div>
               </div>
             </div>
@@ -721,7 +723,7 @@ export default function ChatPage() {
                 href={`/listings/${inquiry?.listing_id}`}
                 className="rounded-2xl bg-white px-5 py-3 text-center font-bold text-black hover:bg-zinc-200"
               >
-                View Listing
+                {t("viewListing")}
               </Link>
 
               {isRequester && inquiry && (
@@ -729,7 +731,7 @@ export default function ChatPage() {
                   href={`/viewings/request/${inquiry.id}`}
                   className="rounded-2xl border border-white/10 px-5 py-3 text-center font-bold text-white hover:bg-white/10"
                 >
-                  Request Viewing
+                  {t("requestViewing")}
                 </Link>
               )}
 
@@ -738,7 +740,7 @@ export default function ChatPage() {
                   href="/viewings"
                   className="rounded-2xl border border-white/10 px-5 py-3 text-center font-bold text-white hover:bg-white/10"
                 >
-                  Manage Viewings
+                  {t("manageViewings")}
                 </Link>
               )}
             </div>

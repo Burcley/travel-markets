@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type Role = "student" | "owner";
@@ -20,6 +21,7 @@ type Profile = {
 };
 
 export default function ProfilePage() {
+  const t = useTranslations("profile");
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
@@ -153,7 +155,7 @@ export default function ProfilePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to recalculate trust score.");
+        throw new Error(data.error || t("errors.recalculateTrust"));
       }
 
       setTrustScore(data.trust_score);
@@ -161,7 +163,7 @@ export default function ProfilePage() {
 
       await loadProfile();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Something went wrong.");
+      alert(error instanceof Error ? error.message : t("errors.generic"));
     } finally {
       setRecalculating(false);
     }
@@ -191,7 +193,7 @@ export default function ProfilePage() {
     }
 
     await recalculateTrustScore();
-    alert("Saved!");
+    alert(t("savedAlert"));
     await loadProfile();
   }
 
@@ -199,12 +201,12 @@ export default function ProfilePage() {
     setDeleteError("");
 
     if (deleteConfirmation !== "DELETE") {
-      setDeleteError("Type DELETE to confirm.");
+      setDeleteError(t("delete.typeDeleteError"));
       return;
     }
 
     const confirmed = window.confirm(
-      "This will permanently delete your Travel Markets account. This cannot be undone."
+      t("delete.confirmMessage")
     );
 
     if (!confirmed) return;
@@ -222,7 +224,7 @@ export default function ProfilePage() {
     const result = await response.json();
 
     if (!response.ok) {
-      setDeleteError(result.error || "Failed to delete account.");
+      setDeleteError(result.error || t("delete.failed"));
       setDeleteLoading(false);
       return;
     }
@@ -232,32 +234,32 @@ export default function ProfilePage() {
   }
 
   function getTrustLabel(level: string) {
-    if (level === "elite") return "Elite Trust";
-    if (level === "trusted") return "Trusted";
-    if (level === "basic") return "Basic Trust";
-    return "New User";
+    if (level === "elite") return t("trust.labels.elite");
+    if (level === "trusted") return t("trust.labels.trusted");
+    if (level === "basic") return t("trust.labels.basic");
+    return t("trust.labels.new");
   }
 
   function getTrustMessage(level: string) {
     if (level === "elite") {
-      return "Your account has strong trust signals across Travel Markets.";
+      return t("trust.messages.elite");
     }
 
     if (level === "trusted") {
-      return "Your account has good trust signals. Add more profile details to improve.";
+      return t("trust.messages.trusted");
     }
 
     if (level === "basic") {
-      return "Your account has basic trust. Complete verification and profile details to improve.";
+      return t("trust.messages.basic");
     }
 
-    return "Complete your profile and verify your identity to build trust.";
+    return t("trust.messages.new");
   }
 
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        Loading profile...
+        {t("loading")}
       </main>
     );
   }
@@ -268,16 +270,16 @@ export default function ProfilePage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-emerald-400">
-              Travel Markets Account
+              {t("eyebrow")}
             </p>
-            <h1 className="mt-1 text-3xl font-bold">My Profile</h1>
+            <h1 className="mt-1 text-3xl font-bold">{t("title")}</h1>
           </div>
 
           <Link
             href="/dashboard"
             className="rounded-xl bg-white px-4 py-2 font-semibold text-black"
           >
-            Dashboard
+            {t("dashboard")}
           </Link>
         </div>
 
@@ -288,7 +290,7 @@ export default function ProfilePage() {
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
-                    alt={fullName || "User"}
+                    alt={fullName || t("userAlt")}
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -299,7 +301,7 @@ export default function ProfilePage() {
               </div>
 
               <label className="mt-4 cursor-pointer rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500">
-                Upload
+                {t("upload")}
                 <input
                   type="file"
                   accept="image/*"
@@ -312,7 +314,7 @@ export default function ProfilePage() {
               </label>
 
               <h2 className="mt-4 text-xl font-bold">
-                {fullName || "Unnamed user"}
+                {fullName || t("unnamedUser")}
               </h2>
 
               <p className="mt-1 text-sm text-gray-400">{email}</p>
@@ -324,13 +326,13 @@ export default function ProfilePage() {
 
                 {isVerified && (
                   <span className="rounded-full bg-blue-500/10 px-3 py-1 text-sm text-blue-300">
-                    ✓ Identity Verified
+                    ✓ {t("identityVerified")}
                   </span>
                 )}
 
                 {isAdmin && (
                   <span className="rounded-full bg-purple-500/10 px-3 py-1 text-sm text-purple-300">
-                    Admin
+                    {t("admin")}
                   </span>
                 )}
               </div>
@@ -338,7 +340,7 @@ export default function ProfilePage() {
               <div className="mt-6 w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-emerald-300">
-                    Trust Score
+                    {t("trust.score")}
                   </p>
 
                   <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 capitalize">
@@ -366,7 +368,7 @@ export default function ProfilePage() {
                   disabled={recalculating}
                   className="mt-4 w-full rounded-xl border border-emerald-500/20 bg-black/30 px-4 py-3 text-sm font-semibold text-emerald-300 hover:bg-black/50 disabled:opacity-50"
                 >
-                  {recalculating ? "Updating..." : "Refresh Trust Score"}
+                  {recalculating ? t("updating") : t("trust.refresh")}
                 </button>
               </div>
 
@@ -375,7 +377,7 @@ export default function ProfilePage() {
                   href="/verify-identity"
                   className="mt-4 w-full rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-center font-semibold text-blue-300 hover:bg-blue-500/20"
                 >
-                  Verify Identity
+                  {t("verifyIdentity")}
                 </Link>
               )}
 
@@ -384,7 +386,7 @@ export default function ProfilePage() {
                   href="/admin"
                   className="mt-4 w-full rounded-xl border border-zinc-700 bg-white/5 px-4 py-3 text-center font-semibold hover:bg-white/10"
                 >
-                  Open Admin Dashboard
+                  {t("openAdminDashboard")}
                 </Link>
               )}
             </div>
@@ -393,31 +395,31 @@ export default function ProfilePage() {
           <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900 p-6 lg:col-span-2">
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-300">
-                Full name
+                {t("fields.fullName")}
               </label>
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Full name"
+                placeholder={t("fields.fullName")}
                 className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500"
               />
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-300">
-                Phone
+                {t("fields.phone")}
               </label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone"
+                placeholder={t("fields.phone")}
                 className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500"
               />
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-300">
-                Role
+                {t("fields.role")}
               </label>
               <select
                 value={role}
@@ -425,19 +427,19 @@ export default function ProfilePage() {
                 disabled={isAdmin}
                 className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500 disabled:opacity-50"
               >
-                <option value="student">Student</option>
-                <option value="owner">Owner</option>
+                <option value="student">{t("roles.student")}</option>
+                <option value="owner">{t("roles.owner")}</option>
               </select>
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-300">
-                Bio
+                {t("fields.bio")}
               </label>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="Bio"
+                placeholder={t("fields.bio")}
                 rows={4}
                 className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500"
               />
@@ -448,25 +450,24 @@ export default function ProfilePage() {
               disabled={saving || recalculating}
               className="rounded-xl bg-blue-600 px-6 py-3 font-semibold disabled:bg-zinc-700"
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? t("saving") : t("save")}
             </button>
           </div>
         </div>
 
         {!isAdmin && (
           <section className="mt-8 rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
-            <h2 className="text-2xl font-bold text-red-300">Danger Zone</h2>
+            <h2 className="text-2xl font-bold text-red-300">{t("delete.title")}</h2>
 
             <p className="mt-2 text-sm text-white/70">
-              Permanently delete your Travel Markets account. This removes your
-              profile, listings, inquiries, messages, viewings, saved listings,
-              notifications, and account access.
+              {t("delete.description")}
             </p>
 
             <div className="mt-5">
               <label className="text-sm text-white/70">
-                Type <span className="font-bold text-red-300">DELETE</span> to
-                confirm
+                {t("delete.typePrefix")}{" "}
+                <span className="font-bold text-red-300">DELETE</span>{" "}
+                {t("delete.typeSuffix")}
               </label>
 
               <input
@@ -486,7 +487,7 @@ export default function ProfilePage() {
               disabled={deleteLoading || deleteConfirmation !== "DELETE"}
               className="mt-5 rounded-xl bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {deleteLoading ? "Deleting..." : "Delete my account permanently"}
+              {deleteLoading ? t("deleting") : t("delete.button")}
             </button>
           </section>
         )}

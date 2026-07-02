@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import EditListingForm from "@/components/EditListingForm";
 
@@ -7,6 +8,7 @@ export default async function EditListingPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = await getTranslations("listingManagement.editWrapper");
   const { id } = await params;
   const supabase = await createClient();
 
@@ -29,9 +31,9 @@ export default async function EditListingPage({
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-red-500/30 bg-red-950/20 p-8">
-          <h1 className="text-2xl font-bold">Edit Listing</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           <p className="mt-3 text-red-200">
-            Listing not found or you do not have permission to edit it.
+            {t("notFoundOrDenied")}
           </p>
         </div>
       </main>

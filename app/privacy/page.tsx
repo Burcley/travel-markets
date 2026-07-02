@@ -1,44 +1,44 @@
-export default function PrivacyPage() {
+import { getTranslations } from "next-intl/server";
+
+export default async function PrivacyPage() {
+  const t = await getTranslations("staticPages.privacy");
+
   return (
     <main className="min-h-screen bg-black px-6 py-12 text-white">
       <div className="mx-auto max-w-4xl">
-        <h1 className="text-4xl font-bold">Privacy Policy</h1>
+        <h1 className="text-4xl font-bold">{t("title")}</h1>
 
         <div className="mt-8 space-y-6 text-zinc-300">
           <p>
-            Travel Markets respects your privacy and only collects information
-            necessary to operate the platform.
+            {t("intro")}
           </p>
 
           <h2 className="text-2xl font-semibold text-white">
-            Information We Collect
+            {t("collectTitle")}
           </h2>
 
           <p>
-            Account information, listing information, messages, inquiries,
-            appointments, and payment records.
+            {t("collectText")}
           </p>
 
           <h2 className="text-2xl font-semibold text-white">
-            How We Use Information
+            {t("useTitle")}
           </h2>
 
           <p>
-            To provide housing marketplace services, improve user experience,
-            and maintain platform security.
+            {t("useText")}
           </p>
 
           <h2 className="text-2xl font-semibold text-white">
-            Third-Party Services
+            {t("thirdPartyTitle")}
           </h2>
 
           <p>
-            We use Supabase, Stripe, Mapbox, and Resend to operate portions of
-            the platform.
+            {t("thirdPartyText")}
           </p>
 
           <p className="text-sm text-zinc-500">
-            Last updated: {new Date().getFullYear()}
+            {t("lastUpdated", { year: new Date().getFullYear() })}
           </p>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import ListingGalleryModal from "./listing-gallery-modal";
 
 type GalleryImage = {
@@ -20,6 +21,7 @@ type ListingImageGalleryProps = {
 export default function ListingImageGallery({
   images,
 }: ListingImageGalleryProps) {
+  const t = useTranslations("listingGallery");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialIndex, setInitialIndex] = useState(0);
 
@@ -34,7 +36,7 @@ export default function ListingImageGallery({
     return (
       <div className="overflow-hidden rounded-3xl border border-gray-800 bg-[#0b0b0b]">
         <div className="flex h-[420px] items-center justify-center text-sm text-gray-500">
-          No images available for this listing yet.
+          {t("noImages")}
         </div>
       </div>
     );
@@ -50,7 +52,7 @@ export default function ListingImageGallery({
           >
             <img
               src={images[0].image_url}
-              alt="Listing image"
+              alt={t("listingImageAlt")}
               className="h-full w-full object-cover transition duration-300 hover:scale-[1.02]"
             />
           </button>
@@ -76,7 +78,7 @@ export default function ListingImageGallery({
           >
             <img
               src={previewImages[0]?.image_url}
-              alt="Cover image"
+              alt={t("coverImageAlt")}
               className="h-full w-full object-cover transition duration-300 hover:brightness-95"
             />
           </button>
@@ -89,7 +91,7 @@ export default function ListingImageGallery({
             >
               <img
                 src={image.image_url}
-                alt={`Listing image ${index + 2}`}
+                alt={t("listingImageNumberAlt", { number: index + 2 })}
                 className="h-full w-full object-cover transition duration-300 hover:brightness-95"
               />
             </button>
@@ -100,7 +102,7 @@ export default function ListingImageGallery({
           onClick={() => openModal(0)}
           className="absolute bottom-4 right-4 rounded-xl bg-white px-4 py-2 text-sm font-medium text-black shadow hover:bg-gray-100"
         >
-          View all photos
+          {t("viewAllPhotos")}
         </button>
       </div>
 

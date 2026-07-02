@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 type Inquiry = {
@@ -21,6 +22,7 @@ type Inquiry = {
 };
 
 export default function SentInquiriesPage() {
+  const t = useTranslations("inquiries.sent");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -91,7 +93,7 @@ export default function SentInquiriesPage() {
     return (
       <main className="min-h-screen bg-black px-4 py-10 text-white">
         <div className="mx-auto max-w-5xl">
-          <p className="text-zinc-400">Loading sent inquiries...</p>
+          <p className="text-zinc-400">{t("loading")}</p>
         </div>
       </main>
     );
@@ -102,9 +104,9 @@ export default function SentInquiriesPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Sent Inquiries</h1>
+            <h1 className="text-3xl font-bold">{t("title")}</h1>
             <p className="mt-1 text-zinc-400">
-              Booking requests you sent to listing owners.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -112,13 +114,13 @@ export default function SentInquiriesPage() {
             href="/listings"
             className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10"
           >
-            Browse Listings
+            {t("browseListings")}
           </Link>
         </div>
 
         {inquiries.length === 0 ? (
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-center">
-            <p className="text-zinc-400">You have not sent any inquiries yet.</p>
+            <p className="text-zinc-400">{t("empty")}</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -135,7 +137,7 @@ export default function SentInquiriesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-xl font-semibold">
-                          {inquiry.listings?.title ?? "Listing"}
+                          {inquiry.listings?.title ?? t("listingFallback")}
                         </h2>
 
                         <span
@@ -148,7 +150,7 @@ export default function SentInquiriesPage() {
                       </div>
 
                       <p className="mt-2 text-sm text-zinc-500">
-                        Sent on{" "}
+                        {t("sentOn")}{" "}
                         {new Date(inquiry.created_at).toLocaleDateString(
                           "en-CA",
                           {
@@ -165,7 +167,7 @@ export default function SentInquiriesPage() {
 
                       {inquiry.phone && (
                         <p className="mt-3 text-zinc-300">
-                          Phone:{" "}
+                          {t("phone")}{" "}
                           <span className="font-medium">{inquiry.phone}</span>
                         </p>
                       )}
@@ -173,19 +175,17 @@ export default function SentInquiriesPage() {
                       {isAccepted && !isRented && (
                         <div className="mt-5 rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
                           <p className="font-semibold text-green-300">
-                            Inquiry accepted
+                            {t("acceptedTitle")}
                           </p>
                           <p className="mt-1 text-sm text-green-200/80">
-                            You can now request a viewing. The exact address
-                            stays protected until access is unlocked through the
-                            accepted flow.
+                            {t("acceptedText")}
                           </p>
                         </div>
                       )}
 
                       {isRented && (
                         <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-                          This listing is now rented.
+                          {t("rentedNotice")}
                         </div>
                       )}
                     </div>
@@ -195,7 +195,7 @@ export default function SentInquiriesPage() {
                         href={`/listings/${inquiry.listing_id}`}
                         className="flex w-full items-center justify-center rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10"
                       >
-                        View Listing
+                        {t("viewListing")}
                       </Link>
 
                       {isAccepted && !isRented && (
@@ -203,7 +203,7 @@ export default function SentInquiriesPage() {
                           href={`/viewings/request/${inquiry.id}`}
                           className="flex w-full items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-zinc-200"
                         >
-                          Request Viewing
+                          {t("requestViewing")}
                         </Link>
                       )}
 
@@ -211,7 +211,7 @@ export default function SentInquiriesPage() {
                         href={`/messages/${inquiry.id}`}
                         className="flex w-full items-center justify-center rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-3 text-sm font-semibold text-blue-300 hover:bg-blue-500/20"
                       >
-                        Open Chat
+                        {t("openChat")}
                       </Link>
                     </div>
                   </div>

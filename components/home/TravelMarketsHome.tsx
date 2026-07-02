@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   Bath,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { HomeListing } from "@/types/home-listing";
+import Money from "@/components/Money";
 import ListingMap from "./ListingMap";
 import TrendingListings from "./TrendingListings";
 import TrendingLocations from "./TrendingLocations";
@@ -50,6 +52,7 @@ export default function TravelMarketsHome({
   trendingListings = [],
   trendingCities = [],
 }: Props) {
+  const t = useTranslations("home.search");
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -237,8 +240,8 @@ export default function TravelMarketsHome({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: query || city || campus || "Saved Search",
-          name: query || city || campus || "Saved Search",
+          title: query || city || campus || t("savedSearchFallback"),
+          name: query || city || campus || t("savedSearchFallback"),
           query: query.trim() || null,
           city: city.trim() || null,
           campus: campus.trim() || null,
@@ -256,15 +259,15 @@ export default function TravelMarketsHome({
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || "Failed to save search.");
+        alert(data.error || t("saveSearchError"));
         return;
       }
 
-      alert("Search saved successfully with alerts on.");
+      alert(t("saveSearchSuccess"));
       router.push("/saved-searches");
     } catch (error) {
       console.error("SAVE SEARCH ERROR:", error);
-      alert("Failed to save search.");
+      alert(t("saveSearchError"));
     } finally {
       setSavingSearch(false);
     }
@@ -337,8 +340,8 @@ export default function TravelMarketsHome({
 
   function getOwnerBadge(listing: any) {
     if (listing.owner_badge) return listing.owner_badge;
-    if (listing.owner_plan === "premium") return "Premium Owner";
-    if (listing.owner_plan === "pro") return "Pro Owner";
+    if (listing.owner_plan === "premium") return t("badges.premiumOwner");
+    if (listing.owner_plan === "pro") return t("badges.proOwner");
     return null;
   }
 
@@ -364,12 +367,12 @@ export default function TravelMarketsHome({
 
     const label =
       level === "elite"
-        ? "Elite"
+        ? t("trust.elite")
         : level === "trusted"
-        ? "Trusted"
+        ? t("trust.trusted")
         : level === "basic"
-        ? "Basic"
-        : "New";
+        ? t("trust.basic")
+        : t("trust.new");
 
     const className =
       level === "elite"
@@ -399,9 +402,9 @@ export default function TravelMarketsHome({
     { label: "Oshawa", action: () => setCity("Oshawa") },
     { label: "Toronto", action: () => setCity("Toronto") },
     { label: "Trent", action: () => setCampus("Trent University") },
-    { label: "Verified", action: () => setVerifiedOnly("true") },
-    { label: "Under $1000", action: () => setMaxPrice("1000") },
-    { label: "Trusted", action: () => setTrustLevel("trusted") },
+    { label: t("chips.verified"), action: () => setVerifiedOnly("true") },
+    { label: t("chips.under1000"), action: () => setMaxPrice("1000") },
+    { label: t("chips.trusted"), action: () => setTrustLevel("trusted") },
   ];
 
   return (
@@ -425,7 +428,7 @@ export default function TravelMarketsHome({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSearch();
                 }}
-                placeholder="Where to?"
+                placeholder={t("mobileSearchPlaceholder")}
                 className="min-w-0 flex-1 bg-transparent text-[15px] font-semibold outline-none placeholder:text-black/50"
               />
 
@@ -482,15 +485,15 @@ export default function TravelMarketsHome({
           <div className="mb-4 flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
-                Travel Markets
+                {t("brand")}
               </p>
 
               <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-tight">
-                Find campus stays
+                {t("mobileTitle")}
               </h1>
 
               <p className="mt-1 truncate text-xs text-white/45">
-                {listings.length} listing{listings.length === 1 ? "" : "s"}
+                {t("listingCount", { count: listings.length })}
                 {city ? ` • ${city}` : ""}
                 {campus ? ` • ${campus}` : ""}
               </p>
@@ -503,9 +506,9 @@ export default function TravelMarketsHome({
 
           {listings.length === 0 ? (
             <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-8 text-center">
-              <h3 className="text-lg font-bold">No stays found</h3>
+              <h3 className="text-lg font-bold">{t("emptyTitle")}</h3>
               <p className="mt-2 text-sm text-white/50">
-                Try another city, campus, or price.
+                {t("emptyText")}
               </p>
             </div>
           ) : (
@@ -536,7 +539,7 @@ export default function TravelMarketsHome({
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-white/35">
-                            No image
+                            {t("noImage")}
                           </div>
                         )}
                       </Link>
@@ -563,12 +566,12 @@ export default function TravelMarketsHome({
                       <div className="absolute left-3 top-3 flex max-w-[75%] flex-wrap gap-1.5">
                         {isFeatured && (
                           <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-black">
-                            Featured
+                            {t("featured")}
                           </span>
                         )}
 
                         <span className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur">
-                          {listing.status || "available"}
+                          {listing.status || t("available")}
                         </span>
                       </div>
 
@@ -607,7 +610,8 @@ export default function TravelMarketsHome({
                         </div>
 
                         <div className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-black text-black shadow-lg">
-                          ${listing.price ?? "Ask"}/mo
+                          {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
+                          /mo
                         </div>
                       </div>
                     </div>
@@ -616,13 +620,13 @@ export default function TravelMarketsHome({
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <h2 className="line-clamp-1 text-[15px] font-bold leading-tight">
-                            {listing.title || "Untitled listing"}
+                            {listing.title || t("fallbackTitle")}
                           </h2>
 
                           <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-white/55">
                             <MapPin size={13} className="shrink-0" />
                             <span className="truncate">
-                              {listing.city || "City hidden"}
+                              {listing.city || t("cityHidden")}
                               {listing.campus ? ` • ${listing.campus}` : ""}
                             </span>
                           </p>
@@ -638,24 +642,24 @@ export default function TravelMarketsHome({
                       <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-white/65">
                         <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
                           <BedDouble size={13} />
-                          <span className="truncate">{listing.bedrooms ?? "-"} bed</span>
+                          <span className="truncate">{t("bed", { count: listing.bedrooms ?? 0 })}</span>
                         </span>
 
                         <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
                           <Bath size={13} />
-                          <span className="truncate">{listing.bathrooms ?? "-"} bath</span>
+                          <span className="truncate">{t("bath", { count: listing.bathrooms ?? 0 })}</span>
                         </span>
 
                         <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
                           <Users size={13} />
-                          <span className="truncate">{listing.guests ?? "-"} guest</span>
+                          <span className="truncate">{t("guest", { count: listing.guests ?? 0 })}</span>
                         </span>
                       </div>
 
                       <p className="mt-3 flex items-center gap-1.5 text-[11px] text-white/40">
                         <Building2 size={13} className="shrink-0" />
                         <span className="truncate">
-                          Address unlocks after approved viewing
+                          {t("addressUnlocks")}
                         </span>
                       </p>
                     </Link>
@@ -672,7 +676,7 @@ export default function TravelMarketsHome({
                 disabled={loadingMore}
                 className="rounded-full border border-white/10 bg-white/[0.06] px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
               >
-                {loadingMore ? "Loading..." : "Show more"}
+                {loadingMore ? t("loading") : t("showMore")}
               </button>
             </div>
           )}
@@ -684,7 +688,7 @@ export default function TravelMarketsHome({
           className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-black shadow-2xl"
         >
           <Map size={17} />
-          Map
+          {t("map")}
         </button>
       </section>
 
@@ -696,17 +700,16 @@ export default function TravelMarketsHome({
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 backdrop-blur">
               <Sparkles size={16} />
-              Premium rentals near campus
+              {t("heroBadge")}
             </div>
 
             <h1 className="text-6xl font-semibold tracking-tight">
-              Find your next stay with{" "}
+              {t("heroTitlePrefix")}{" "}
               <span className="text-white/70">Travel Markets</span>
             </h1>
 
             <p className="mt-5 max-w-2xl text-lg leading-7 text-white/60">
-              Search verified rentals, preview locations safely, book viewings,
-              and unlock exact addresses only after approval.
+              {t("heroText")}
             </p>
           </div>
 
@@ -727,21 +730,21 @@ export default function TravelMarketsHome({
               <input
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                placeholder="City"
+                placeholder={t("cityPlaceholder")}
                 className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
               />
 
               <input
                 value={campus}
                 onChange={(e) => setCampus(e.target.value)}
-                placeholder="Campus"
+                placeholder={t("campusPlaceholder")}
                 className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
               />
 
               <input
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
-                placeholder="Max price"
+                placeholder={t("maxPricePlaceholder")}
                 type="number"
                 className="rounded-2xl bg-black/40 px-4 py-3 text-sm outline-none ring-1 ring-white/10 placeholder:text-white/35"
               />
@@ -750,7 +753,7 @@ export default function TravelMarketsHome({
                 onClick={handleSearch}
                 className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
-                {isPending ? "Searching..." : "Search"}
+                {isPending ? t("searching") : t("search")}
               </button>
             </div>
 
@@ -782,13 +785,12 @@ export default function TravelMarketsHome({
 
           <div className="mb-5 flex items-end justify-between">
             <div>
-              <h2 className="text-2xl font-semibold">Featured stays</h2>
+              <h2 className="text-2xl font-semibold">{t("featuredStays")}</h2>
 
               <p className="mt-1 text-sm text-white/50">
-                {listings.length} visible listing
-                {listings.length === 1 ? "" : "s"}
+                {t("visibleListingCount", { count: listings.length })}
                 {typeof totalCount === "number" && totalCount > listings.length
-                  ? ` of ${totalCount}`
+                  ? ` ${t("ofTotal", { count: totalCount })}`
                   : ""}
               </p>
             </div>
@@ -796,7 +798,7 @@ export default function TravelMarketsHome({
             {isPending && (
               <div className="flex items-center gap-2 text-sm text-white/40">
                 <Loader2 size={15} className="animate-spin" />
-                Updating...
+                {t("updating")}
               </div>
             )}
           </div>
@@ -832,7 +834,7 @@ export default function TravelMarketsHome({
                 disabled={loadingMore}
                 className="rounded-2xl border border-white/10 bg-white/[0.06] px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
               >
-                {loadingMore ? "Loading more..." : "Load more listings"}
+                {loadingMore ? t("loadingMore") : t("loadMoreListings")}
               </button>
             </div>
           )}
@@ -882,9 +884,9 @@ export default function TravelMarketsHome({
         <div className="fixed inset-0 z-[99999] bg-[#050505] lg:hidden">
           <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
             <div className="min-w-0">
-              <h3 className="truncate text-base font-bold">Map view</h3>
+              <h3 className="truncate text-base font-bold">{t("mapView")}</h3>
               <p className="truncate text-xs text-white/45">
-                Approximate locations only
+                {t("approximateLocations")}
               </p>
             </div>
 
@@ -924,6 +926,8 @@ function SearchInput({
   selectSuggestion,
   handleSearch,
 }: any) {
+  const t = useTranslations("home.search");
+
   return (
     <div className="relative">
       <div className="flex items-center gap-3 rounded-2xl bg-black/40 px-4 py-3 ring-1 ring-white/10">
@@ -942,7 +946,7 @@ function SearchInput({
             if (e.key === "Enter") handleSearch();
             if (e.key === "Escape") setSuggestionsOpen(false);
           }}
-          placeholder="Search city, campus, or listing"
+          placeholder={t("searchInputPlaceholder")}
           className="w-full bg-transparent text-sm outline-none placeholder:text-white/35"
         />
 
@@ -971,49 +975,51 @@ function SearchInput({
 }
 
 function DesktopFilters(props: any) {
+  const t = useTranslations("home.search.filters");
+
   return (
     <>
       <div className="mt-4 grid gap-3 lg:grid-cols-4">
         <FilterSelect value={props.bedrooms} onChange={props.setBedrooms}>
-          <option value="">Bedrooms</option>
-          <option value="1">1+ Bedroom</option>
-          <option value="2">2+ Bedrooms</option>
-          <option value="3">3+ Bedrooms</option>
+          <option value="">{t("bedrooms")}</option>
+          <option value="1">{t("bedroomOne")}</option>
+          <option value="2">{t("bedroomTwo")}</option>
+          <option value="3">{t("bedroomThree")}</option>
         </FilterSelect>
 
         <FilterSelect value={props.bathrooms} onChange={props.setBathrooms}>
-          <option value="">Bathrooms</option>
-          <option value="1">1+ Bathroom</option>
-          <option value="2">2+ Bathrooms</option>
+          <option value="">{t("bathrooms")}</option>
+          <option value="1">{t("bathroomOne")}</option>
+          <option value="2">{t("bathroomTwo")}</option>
         </FilterSelect>
 
         <FilterSelect value={props.guests} onChange={props.setGuests}>
-          <option value="">Guests</option>
-          <option value="1">1+ Guest</option>
-          <option value="2">2+ Guests</option>
-          <option value="3">3+ Guests</option>
+          <option value="">{t("guests")}</option>
+          <option value="1">{t("guestOne")}</option>
+          <option value="2">{t("guestTwo")}</option>
+          <option value="3">{t("guestThree")}</option>
         </FilterSelect>
 
         <FilterSelect value={props.sort} onChange={props.setSort}>
-          <option value="newest">Newest</option>
-          <option value="trust-high">Highest Trust</option>
-          <option value="price-low">Price: Low to High</option>
-          <option value="price-high">Price: High to Low</option>
+          <option value="newest">{t("newest")}</option>
+          <option value="trust-high">{t("highestTrust")}</option>
+          <option value="price-low">{t("priceLowHigh")}</option>
+          <option value="price-high">{t("priceHighLow")}</option>
         </FilterSelect>
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto]">
         <FilterSelect value={props.verifiedOnly} onChange={props.setVerifiedOnly}>
-          <option value="">All Owners</option>
-          <option value="true">Verified Owners Only</option>
+          <option value="">{t("allOwners")}</option>
+          <option value="true">{t("verifiedOwnersOnly")}</option>
         </FilterSelect>
 
         <FilterSelect value={props.trustLevel} onChange={props.setTrustLevel}>
-          <option value="">All Trust Levels</option>
-          <option value="elite">Elite Owners</option>
-          <option value="trusted">Trusted Owners</option>
-          <option value="basic">Basic Trust</option>
-          <option value="new">New Owners</option>
+          <option value="">{t("allTrustLevels")}</option>
+          <option value="elite">{t("eliteOwners")}</option>
+          <option value="trusted">{t("trustedOwners")}</option>
+          <option value="basic">{t("basicTrust")}</option>
+          <option value="new">{t("newOwners")}</option>
         </FilterSelect>
 
         <button
@@ -1021,7 +1027,7 @@ function DesktopFilters(props: any) {
           className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 hover:bg-white/10"
         >
           <SlidersHorizontal size={16} />
-          Reset filters
+          {t("resetFilters")}
         </button>
 
         <button
@@ -1034,7 +1040,7 @@ function DesktopFilters(props: any) {
           ) : (
             <Bookmark size={16} />
           )}
-          {props.savingSearch ? "Saving..." : "Save Search"}
+          {props.savingSearch ? t("saving") : t("saveSearch")}
         </button>
       </div>
     </>
@@ -1064,6 +1070,8 @@ function DesktopListingCard({
   setActiveListingId,
   toggleSave,
 }: any) {
+  const t = useTranslations("home.search");
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -1094,7 +1102,7 @@ function DesktopListingCard({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-white/30">
-            No image
+            {t("noImage")}
           </div>
         )}
 
@@ -1116,12 +1124,12 @@ function DesktopListingCard({
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           {isFeatured && (
             <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black shadow-lg">
-              ⭐ Featured
+              ⭐ {t("featured")}
             </span>
           )}
 
           <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white backdrop-blur">
-            {listing.status || "available"}
+            {listing.status || t("available")}
           </span>
         </div>
 
@@ -1149,7 +1157,8 @@ function DesktopListingCard({
         </div>
 
         <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-lg">
-          ${listing.price ?? "Ask"}/mo
+          {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
+          /mo
         </div>
       </div>
 
@@ -1161,7 +1170,7 @@ function DesktopListingCard({
 
           {trust.verified && (
             <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
-              ✓ Verified
+              ✓ {t("verified")}
             </span>
           )}
         </div>
@@ -1169,7 +1178,7 @@ function DesktopListingCard({
         <div className="mt-2 flex items-center gap-2 text-sm text-white/50">
           <MapPin size={15} />
           <span className="line-clamp-1">
-            {listing.city || "City hidden"}
+            {listing.city || t("cityHidden")}
             {listing.campus ? ` • ${listing.campus}` : ""}
           </span>
         </div>
@@ -1177,12 +1186,12 @@ function DesktopListingCard({
         <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-white/60">
           <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
             <BedDouble size={14} />
-            {listing.bedrooms ?? "-"} bed
+            {t("bed", { count: listing.bedrooms ?? 0 })}
           </span>
 
           <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
             <Bath size={14} />
-            {listing.bathrooms ?? "-"} bath
+            {t("bath", { count: listing.bathrooms ?? 0 })}
           </span>
 
           <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
@@ -1193,7 +1202,7 @@ function DesktopListingCard({
 
         <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
           <Building2 size={14} />
-          Exact address unlocks after approved viewing
+          {t("exactAddressUnlocks")}
         </div>
       </Link>
     </motion.div>
@@ -1201,14 +1210,16 @@ function DesktopListingCard({
 }
 
 function MobileFilters(props: any) {
+  const t = useTranslations("home.search.filters");
+
   return (
     <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-sm lg:hidden">
       <div className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#080808] p-4 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="min-w-0">
-            <h3 className="truncate text-lg font-bold">Filters</h3>
+            <h3 className="truncate text-lg font-bold">{t("title")}</h3>
             <p className="truncate text-xs text-white/45">
-              Choose what fits your stay
+              {t("subtitle")}
             </p>
           </div>
 
@@ -1222,48 +1233,48 @@ function MobileFilters(props: any) {
         </div>
 
         <div className="grid gap-3">
-          <MobileInput value={props.city} onChange={props.setCity} placeholder="City" />
-          <MobileInput value={props.campus} onChange={props.setCampus} placeholder="Campus" />
-          <MobileInput value={props.maxPrice} onChange={props.setMaxPrice} placeholder="Max price" type="number" />
+          <MobileInput value={props.city} onChange={props.setCity} placeholder={t("city")} />
+          <MobileInput value={props.campus} onChange={props.setCampus} placeholder={t("campus")} />
+          <MobileInput value={props.maxPrice} onChange={props.setMaxPrice} placeholder={t("maxPrice")} type="number" />
 
           <FilterSelect value={props.bedrooms} onChange={props.setBedrooms}>
-            <option value="">Bedrooms</option>
-            <option value="1">1+ Bedroom</option>
-            <option value="2">2+ Bedrooms</option>
-            <option value="3">3+ Bedrooms</option>
+            <option value="">{t("bedrooms")}</option>
+            <option value="1">{t("bedroomOne")}</option>
+            <option value="2">{t("bedroomTwo")}</option>
+            <option value="3">{t("bedroomThree")}</option>
           </FilterSelect>
 
           <FilterSelect value={props.bathrooms} onChange={props.setBathrooms}>
-            <option value="">Bathrooms</option>
-            <option value="1">1+ Bathroom</option>
-            <option value="2">2+ Bathrooms</option>
+            <option value="">{t("bathrooms")}</option>
+            <option value="1">{t("bathroomOne")}</option>
+            <option value="2">{t("bathroomTwo")}</option>
           </FilterSelect>
 
           <FilterSelect value={props.guests} onChange={props.setGuests}>
-            <option value="">Guests</option>
-            <option value="1">1+ Guest</option>
-            <option value="2">2+ Guests</option>
-            <option value="3">3+ Guests</option>
+            <option value="">{t("guests")}</option>
+            <option value="1">{t("guestOne")}</option>
+            <option value="2">{t("guestTwo")}</option>
+            <option value="3">{t("guestThree")}</option>
           </FilterSelect>
 
           <FilterSelect value={props.sort} onChange={props.setSort}>
-            <option value="newest">Newest</option>
-            <option value="trust-high">Highest Trust</option>
-            <option value="price-low">Price: Low to High</option>
-            <option value="price-high">Price: High to Low</option>
+            <option value="newest">{t("newest")}</option>
+            <option value="trust-high">{t("highestTrust")}</option>
+            <option value="price-low">{t("priceLowHigh")}</option>
+            <option value="price-high">{t("priceHighLow")}</option>
           </FilterSelect>
 
           <FilterSelect value={props.verifiedOnly} onChange={props.setVerifiedOnly}>
-            <option value="">All Owners</option>
-            <option value="true">Verified Owners Only</option>
+            <option value="">{t("allOwners")}</option>
+            <option value="true">{t("verifiedOwnersOnly")}</option>
           </FilterSelect>
 
           <FilterSelect value={props.trustLevel} onChange={props.setTrustLevel}>
-            <option value="">All Trust Levels</option>
-            <option value="elite">Elite Owners</option>
-            <option value="trusted">Trusted Owners</option>
-            <option value="basic">Basic Trust</option>
-            <option value="new">New Owners</option>
+            <option value="">{t("allTrustLevels")}</option>
+            <option value="elite">{t("eliteOwners")}</option>
+            <option value="trusted">{t("trustedOwners")}</option>
+            <option value="basic">{t("basicTrust")}</option>
+            <option value="new">{t("newOwners")}</option>
           </FilterSelect>
 
           <div className="sticky bottom-0 mt-2 grid grid-cols-2 gap-3 bg-[#080808] pt-3">
@@ -1271,14 +1282,14 @@ function MobileFilters(props: any) {
               onClick={props.handleReset}
               className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white"
             >
-              Reset
+              {t("reset")}
             </button>
 
             <button
               onClick={props.handleSearch}
               className="rounded-full bg-white px-4 py-3 text-sm font-black text-black"
             >
-              Apply
+              {t("apply")}
             </button>
           </div>
 
@@ -1292,7 +1303,7 @@ function MobileFilters(props: any) {
             ) : (
               <Bookmark size={16} />
             )}
-            {props.savingSearch ? "Saving..." : "Save Search"}
+            {props.savingSearch ? t("saving") : t("saveSearch")}
           </button>
         </div>
       </div>

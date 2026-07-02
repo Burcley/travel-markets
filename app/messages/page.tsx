@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Building2,
   Clock3,
@@ -86,6 +87,7 @@ function getListingCover(listing?: Inquiry["listings"]) {
 }
 
 export default function MessagesPage() {
+  const t = useTranslations("messagesPage");
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
@@ -145,7 +147,7 @@ export default function MessagesPage() {
       }
 
       if (profile?.role === "banned") {
-        setError("Your account has been restricted. You cannot access messages.");
+        setError(t("restrictedError"));
         setLoading(false);
         return;
       }
@@ -236,7 +238,7 @@ export default function MessagesPage() {
       <main className="min-h-screen bg-black px-6 py-10 text-white">
         <div className="mx-auto flex max-w-6xl items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
           <Loader2 className="animate-spin" size={20} />
-          Loading conversations...
+          {t("loading")}
         </div>
       </main>
     );
@@ -249,16 +251,15 @@ export default function MessagesPage() {
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-400">
               <MessageCircle size={16} />
-              Travel Markets inbox
+              {t("inbox")}
             </div>
 
             <h1 className="text-4xl font-black tracking-tight md:text-5xl">
-              Messages
+              {t("title")}
             </h1>
 
             <p className="mt-3 max-w-2xl text-zinc-400">
-              Student-owner conversations with verified listing context,
-              profile identity, and housing details.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -266,7 +267,7 @@ export default function MessagesPage() {
             href="/search"
             className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
           >
-            Browse Listings
+            {t("browseListings")}
           </Link>
         </div>
 
@@ -277,7 +278,7 @@ export default function MessagesPage() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by person, listing, city, or campus..."
+              placeholder={t("searchPlaceholder")}
               className="w-full bg-transparent text-sm text-white outline-none placeholder:text-zinc-600"
             />
           </div>
@@ -295,17 +296,17 @@ export default function MessagesPage() {
               <MessageCircle size={28} className="text-zinc-400" />
             </div>
 
-            <h2 className="text-2xl font-black">No conversations yet</h2>
+            <h2 className="text-2xl font-black">{t("emptyTitle")}</h2>
 
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-500">
-              Chats appear after an owner accepts a student housing inquiry.
+              {t("emptyText")}
             </p>
 
             <Link
               href="/search"
               className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-black text-black hover:bg-zinc-200"
             >
-              Search Housing
+              {t("searchHousing")}
             </Link>
           </div>
         ) : null}
@@ -319,7 +320,7 @@ export default function MessagesPage() {
               const cover = getListingCover(listing);
               const displayName =
                 otherUser?.full_name ||
-                (isOwner ? "Student renter" : "Property owner");
+                (isOwner ? t("studentRenter") : t("propertyOwner"));
               const initials = getInitials(displayName);
 
               return (
@@ -333,7 +334,7 @@ export default function MessagesPage() {
                       {cover ? (
                         <Image
                           src={cover}
-                          alt={listing?.title || "Listing cover"}
+                          alt={listing?.title || t("listingCoverAlt")}
                           fill
                           sizes="180px"
                           className="object-cover opacity-80 transition duration-300 group-hover:scale-105"
@@ -364,7 +365,7 @@ export default function MessagesPage() {
                         </div>
 
                         <div className="mb-1 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-black">
-                          Live chat
+                          {t("liveChat")}
                         </div>
                       </div>
                     </div>
@@ -377,21 +378,21 @@ export default function MessagesPage() {
 
                         {otherUser?.is_verified ? (
                           <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-300">
-                            Verified
+                            {t("verified")}
                           </span>
                         ) : null}
 
                         <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                          Accepted
+                          {t("accepted")}
                         </span>
                       </div>
 
                       <p className="line-clamp-1 text-sm font-semibold text-white/80">
-                        {listing?.title || "Housing chat"}
+                        {listing?.title || t("housingChat")}
                       </p>
 
                       <p className="mt-2 line-clamp-1 text-sm text-zinc-400">
-                        {listing?.city || "City hidden"}
+                        {listing?.city || t("cityHidden")}
                         {listing?.campus ? ` • ${listing.campus}` : ""}
                         {listing?.price ? ` • $${listing.price}/mo` : ""}
                       </p>
@@ -399,7 +400,7 @@ export default function MessagesPage() {
                       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
                         <span className="inline-flex items-center gap-1.5">
                           <ShieldCheck size={14} />
-                          {isOwner ? "Owner view" : "Student view"}
+                          {isOwner ? t("ownerView") : t("studentView")}
                         </span>
 
                         <span className="inline-flex items-center gap-1.5">
@@ -412,12 +413,12 @@ export default function MessagesPage() {
                     <div className="flex items-center justify-between gap-3 border-t border-white/10 p-5 md:border-l md:border-t-0 md:p-6">
                       <div className="md:hidden">
                         <p className="text-xs font-semibold text-zinc-500">
-                          Open this conversation
+                          {t("openThisConversation")}
                         </p>
                       </div>
 
                       <span className="whitespace-nowrap rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition group-hover:bg-white group-hover:text-black">
-                        Open chat →
+                        {t("openChat")}
                       </span>
                     </div>
                   </div>
