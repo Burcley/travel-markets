@@ -1,0 +1,18 @@
+alter table public.inquiries
+  add column if not exists student_location_type text,
+  add column if not exists current_country text,
+  add column if not exists school text,
+  add column if not exists campus text,
+  add column if not exists program text,
+  add column if not exists expected_move_in_date date,
+  add column if not exists expected_arrival_date date,
+  add column if not exists semester_start_date date,
+  add column if not exists lease_duration text,
+  add column if not exists monthly_budget numeric,
+  add column if not exists viewing_preference text,
+  add column if not exists visa_status text,
+  add column if not exists ready_to_provide_documents boolean,
+  add column if not exists proof_of_admission_available boolean,
+  add column if not exists ready_to_reserve boolean,
+  add column if not exists serious_confirmation boolean default false,
+  add column if not exists applicant_status text default 'new';

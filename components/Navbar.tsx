@@ -37,6 +37,7 @@ const studentNavLinks: NavLink[] = [
   { href: "/search", label: "search" },
   { href: "/landlords", label: "forLandlords" },
   { href: "/about", label: "about" },
+  { href: "/help", label: "help" },
   { href: "/saved-listings", label: "saved" },
   { href: "/messages", label: "messages" },
 ];
@@ -46,6 +47,7 @@ const hostNavLinks: NavLink[] = [
   { href: "/search", label: "search" },
   { href: "/landlords", label: "forLandlords" },
   { href: "/dashboard", label: "dashboard" },
+  { href: "/help", label: "help" },
   { href: "/my-listings", label: "myListings" },
   { href: "/messages", label: "messages" },
   { href: "/billing", label: "billing" },
@@ -55,6 +57,7 @@ const adminNavLinks: NavLink[] = [
   { href: "/", label: "home" },
   { href: "/search", label: "search" },
   { href: "/dashboard", label: "dashboard" },
+  { href: "/help", label: "help" },
   { href: "/admin", label: "admin" },
   { href: "/messages", label: "messages" },
 ];
@@ -64,6 +67,7 @@ const publicNavLinks: NavLink[] = [
   { href: "/search", label: "search" },
   { href: "/landlords", label: "forLandlords" },
   { href: "/about", label: "about" },
+  { href: "/help", label: "help" },
   { href: "/faq", label: "faq" },
 ];
 

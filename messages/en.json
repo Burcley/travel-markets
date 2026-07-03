@@ -12,6 +12,7 @@
       "billing": "Billing",
       "admin": "Admin",
       "faq": "FAQ",
+      "help": "Help",
       "profile": "Profile",
       "savedListings": "Saved Listings",
       "savedSearches": "Saved Searches",
@@ -125,6 +126,45 @@
       "viewingText": "Schedule property viewings directly online.",
       "chooseTitle": "Choose your home",
       "chooseText": "Move forward with confidence."
+    },
+    "howTravelMarketsWorks": {
+      "eyebrow": "How Travel Markets Works",
+      "title": "A clearer rental flow for students and landlords.",
+      "text": "Travel Markets keeps the important steps in one place: search, inquiry, messaging, viewings, and next steps after both sides are ready.",
+      "studentsTitle": "Students",
+      "landlordsTitle": "Landlords",
+      "search": {
+        "title": "Search trusted listings",
+        "text": "Browse student rentals near your city, campus, and budget."
+      },
+      "contact": {
+        "title": "Send a serious inquiry",
+        "text": "Share your school, timing, budget, viewing preference, and readiness."
+      },
+      "viewing": {
+        "title": "Chat and arrange viewings",
+        "text": "When a landlord accepts, keep the conversation and viewing requests inside Travel Markets."
+      },
+      "move": {
+        "title": "Finalize directly together",
+        "text": "Lease signing and payments are handled directly between student and landlord."
+      },
+      "list": {
+        "title": "Post a listing",
+        "text": "Create a clear rental profile with photos, pricing, availability, and protected address details."
+      },
+      "review": {
+        "title": "Review serious applicants",
+        "text": "See student status, school, budget, visa readiness, viewing preference, and message."
+      },
+      "schedule": {
+        "title": "Schedule viewings",
+        "text": "Accept inquiries, message students, and manage viewing appointments."
+      },
+      "lease": {
+        "title": "Move forward confidently",
+        "text": "Use the platform to coordinate, then complete lease signing and payments directly."
+      }
     },
     "mission": {
       "eyebrow": "Our Mission",
@@ -354,6 +394,13 @@
     "perMonth": "per month",
     "listingUnavailable": "Listing Unavailable",
     "contactOwner": "Contact Owner",
+    "nextSteps": {
+      "title": "What happens after you contact the landlord?",
+      "sendInquiry": "1. You send a structured student inquiry.",
+      "landlordReviews": "2. The landlord reviews your details and readiness.",
+      "acceptedChat": "3. If accepted, messaging opens for both sides.",
+      "bookViewing": "4. You can request a viewing and coordinate next steps."
+    },
     "bookViewing": "Book Viewing",
     "viewReceivedInquiries": "View Received Inquiries",
     "manageCalendar": "Manage Calendar",
@@ -799,7 +846,7 @@
     "browseListings": "Browse Listings",
     "searchPlaceholder": "Search by person, listing, city, or campus...",
     "emptyTitle": "No conversations yet",
-    "emptyText": "Chats appear after an owner accepts a student housing inquiry.",
+    "emptyText": "Accepted inquiries become conversations here. Start by contacting a landlord from a listing.",
     "searchHousing": "Search Housing",
     "studentRenter": "Student renter",
     "propertyOwner": "Property owner",
@@ -862,7 +909,7 @@
       "title": "Sent Inquiries",
       "subtitle": "Booking requests you sent to listing owners.",
       "browseListings": "Browse Listings",
-      "empty": "You have not sent any inquiries yet.",
+      "empty": "You have not sent any inquiries yet. Open a listing and send a serious inquiry when you are ready.",
       "listingFallback": "Listing",
       "sentOn": "Sent on",
       "phone": "Phone:",
@@ -878,10 +925,56 @@
       "title": "Received Inquiries",
       "subtitle": "Students who contacted you about your listings.",
       "myListings": "My Listings",
-      "empty": "No inquiries received yet.",
+      "empty": "No inquiries received yet. Serious student applicants will appear here with school, budget, viewing preference, and readiness details.",
       "listingFallback": "Listing",
       "sentOn": "Sent on",
       "phone": "Phone:",
+      "studentFallback": "Student",
+      "studentName": "Student name",
+      "seriousApplicant": "Serious Applicant",
+      "internationalStudent": "International student",
+      "canadaStudent": "Already in Canada",
+      "country": "Country",
+      "schoolCampus": "School / campus",
+      "program": "Program",
+      "moveInDate": "Move-in date",
+      "arrivalDate": "Arrival date",
+      "semesterStartDate": "Semester start",
+      "leaseDuration": "Lease duration",
+      "budget": "Budget",
+      "budgetValue": "${amount}/month",
+      "visaStatus": "Visa status",
+      "viewingPreference": "Viewing preference",
+      "readyDocuments": "Ready to provide documents",
+      "proofAdmission": "Proof of admission",
+      "readyReserve": "Ready to reserve",
+      "message": "Message",
+      "yes": "Yes",
+      "no": "No",
+      "notProvided": "Not provided",
+      "applicantStatus": "Applicant status",
+      "applicantStatuses": {
+        "new": "New",
+        "under_review": "Under Review",
+        "viewing_scheduled": "Viewing Scheduled",
+        "application_requested": "Application Requested",
+        "accepted": "Accepted",
+        "declined": "Declined",
+        "no_show": "No-show"
+      },
+      "viewingPreferences": {
+        "in_person": "In-person viewing",
+        "video_call": "Video call viewing",
+        "recorded_video": "Recorded video tour",
+        "live_video": "Live video tour",
+        "representative": "Family/friend will view on my behalf"
+      },
+      "visaStatuses": {
+        "approved": "Approved",
+        "waiting": "Waiting",
+        "applying": "Applying",
+        "not_started": "Not started"
+      },
       "viewListing": "View Listing",
       "openChat": "Open Chat",
       "status": "Status:",
@@ -907,7 +1000,7 @@
       "title": "Viewing Appointments",
       "subtitle": "Manage approvals, address unlocks, and completed property tours.",
       "browseListings": "Browse Listings",
-      "empty": "No viewing appointments yet.",
+      "empty": "No viewing appointments yet. Accepted inquiries can become viewing requests when both sides are ready.",
       "approvedTitle": "Viewing Approved",
       "approvedText": "Secure address access is now unlocked for the approved student.",
       "declinedTitle": "Viewing Cancelled / Declined",
@@ -1078,18 +1171,77 @@
       "ownListing": "You cannot send an inquiry to your own listing.",
       "unavailable": "This listing is no longer available.",
       "messageRequired": "Please enter a message.",
+      "requiredSchoolProgram": "Please enter your school, campus, and program.",
+      "budgetRequired": "Please enter a valid monthly budget.",
+      "viewingPreferenceRequired": "Please choose a viewing preference.",
+      "seriousConfirmationRequired": "Please confirm this is a serious rental inquiry.",
+      "canadaRequired": "Please enter your move-in date, lease duration, and document readiness.",
+      "documentsRequired": "Please say whether you are ready to provide documents if requested.",
+      "internationalRequired": "Please complete all international student details.",
       "loading": "Loading contact form...",
       "backToListing": "Back to listing",
       "backToListingArrow": "← Back to listing",
       "title": "Contact Owner",
+      "seriousInquiryEyebrow": "Serious Student Inquiry",
+      "seriousInquiryTitle": "Send a serious rental inquiry",
       "sendRequestFor": "Send a request for:",
       "listingFallback": "Listing",
+      "disclaimer": "Travel Markets helps students and landlords connect, communicate, and arrange viewings. Lease signing and payments are handled directly between both parties.",
+      "locationQuestion": "Where are you currently located?",
+      "alreadyInCanada": "I’m already in Canada",
+      "outsideCanada": "I’m outside Canada",
+      "studentDetails": "Student details",
+      "currentCountry": "Current country",
+      "school": "School",
+      "campus": "Campus",
+      "program": "Program",
+      "expectedMoveInDate": "Expected move-in date",
+      "expectedArrivalDate": "Expected arrival date",
+      "semesterStartDate": "Semester start date",
+      "leaseDuration": "Lease duration",
+      "leaseDurationPlaceholder": "Example: 8 months, 12 months",
+      "monthlyBudget": "Monthly budget",
+      "monthlyBudgetPlaceholder": "Example: 1200",
+      "visaStatus": "Visa status",
+      "viewingReadiness": "Viewing and readiness",
+      "viewingPreference": "Viewing preference",
+      "readyDocuments": "Are you ready to provide documents if requested?",
+      "proofAdmission": "Can you provide proof of admission if requested?",
+      "readyReserve": "Are you ready to reserve the room if approved?",
+      "yes": "Yes",
+      "no": "No",
+      "select": "Select",
       "message": "Message",
       "messagePlaceholder": "Hi, I am interested in this listing. Is it still available?",
       "phoneOptional": "Phone (optional)",
       "phonePlaceholder": "Your phone number",
+      "seriousConfirmation": "I understand this inquiry is for serious rental interest only. Repeated no-shows or fake inquiries may limit my account.",
+      "viewingPreferences": {
+        "in_person": "In-person viewing",
+        "video_call": "Video call viewing",
+        "recorded_video": "Recorded video tour",
+        "live_video": "Live video tour",
+        "representative": "Family/friend will view on my behalf"
+      },
+      "visaStatuses": {
+        "approved": "Approved",
+        "waiting": "Waiting",
+        "applying": "Applying",
+        "not_started": "Not started"
+      },
       "sending": "Sending...",
-      "sendInquiry": "Send Inquiry"
+      "sendInquiry": "Send Inquiry",
+      "successEyebrow": "Inquiry Sent",
+      "successTitle": "Your inquiry was sent",
+      "successText": "The landlord can now review your student details and decide whether to accept the inquiry.",
+      "successNextTitle": "What happens next",
+      "successNext": {
+        "reviewed": "The landlord reviews your school, timeline, budget, and readiness details.",
+        "accepted": "If accepted, messaging opens so you can ask follow-up questions safely.",
+        "viewing": "You can then request a viewing or continue comparing other listings."
+      },
+      "viewSentInquiries": "View Sent Inquiries",
+      "continueBrowsing": "Continue Browsing"
     },
     "bookViewing": {
       "chooseSlot": "Choose an available time slot.",
@@ -1144,6 +1296,45 @@
       "openingCheckout": "Opening Checkout...",
       "boostWithStripe": "Boost with Stripe"
     }
+  },
+  "help": {
+    "eyebrow": "Help Center",
+    "title": "Get started with Travel Markets",
+    "subtitle": "Learn how to search, send serious inquiries, review applicants, arrange viewings, and stay safer while using the platform.",
+    "students": {
+      "title": "For students",
+      "text": "Search near campus, compare listings, send structured inquiries, message accepted landlords, and request viewings."
+    },
+    "landlords": {
+      "title": "For landlords",
+      "text": "Post listings, review serious applicants, track applicant status, message accepted students, and manage viewings."
+    },
+    "safety": {
+      "title": "Safety basics",
+      "text": "Keep conversations in Travel Markets, verify details before committing, and report suspicious behavior."
+    },
+    "faqTitle": "Common questions",
+    "faqs": {
+      "payments": {
+        "question": "Does Travel Markets handle rent or deposits?",
+        "answer": "No. Travel Markets helps students and landlords connect, communicate, and arrange viewings. Lease signing and payments are handled directly between both parties."
+      },
+      "addresses": {
+        "question": "Why are exact addresses protected?",
+        "answer": "Exact address details stay protected until the right stage of the viewing process to help protect both students and landlords."
+      },
+      "messages": {
+        "question": "When does chat open?",
+        "answer": "Chat opens after a landlord accepts a student inquiry, so conversations stay connected to a real listing."
+      },
+      "support": {
+        "question": "What should I do if something seems suspicious?",
+        "answer": "Use the report tools or contact support with the listing, account, or message details."
+      }
+    },
+    "contactTitle": "Need more help?",
+    "contactText": "Contact Travel Markets support for account, listing, inquiry, viewing, or safety questions.",
+    "contactSupport": "Contact Support"
   },
   "accountPages": {
     "savedListings": {
@@ -1262,37 +1453,179 @@
     },
     "onboarding": {
       "loading": "Loading your account...",
-      "loadError": "We could not load your profile. Please refresh and try again.",
-      "saveError": "We could not save your profile. Please try again.",
+      "preparingProfile": "We are preparing your onboarding. You can keep exploring while your profile finishes syncing.",
+      "chooseRoleProgress": "Choose what you want to do today",
       "progress": "Step {step} of {total}",
-      "welcomeTitle": "Welcome to Travel Markets",
-      "welcomeText": "Your account is verified. Let’s personalize your experience.",
-      "startSetup": "Start setup",
-      "skipForNow": "Skip for now",
-      "basicInfoTitle": "Tell us the basics",
-      "basicInfoText": "Add the details people will see when they interact with you.",
-      "fullName": "Full name",
-      "fullNamePlaceholder": "Enter your full name",
-      "phone": "Phone number (optional)",
-      "phonePlaceholder": "Enter your phone number",
-      "roleTitle": "How will you use Travel Markets?",
-      "roleText": "Choose the experience that fits you best right now.",
+      "eyebrow": "First-time guide",
+      "welcomeTitle": "What would you like to do today?",
+      "welcomeText": "Choose a path for this quick walkthrough. This does not change your account type or limit what you can use later.",
       "student": "Student",
-      "studentText": "I’m looking for housing",
+      "studentText": "I am searching for student housing, contacting landlords, and arranging viewings.",
       "landlord": "Landlord",
-      "landlordText": "I want to list rentals",
-      "bioTitle": "Add a short bio",
-      "bioText": "A quick intro helps build trust before messages and viewings.",
-      "bio": "Bio",
-      "bioPlaceholder": "Write a short intro...",
-      "bioCount": "{count}/200",
-      "photoLaterTitle": "Profile photo can wait",
-      "photoLaterText": "Profile photo can be added later from your profile settings.",
+      "landlordText": "I want to list rentals, review applicants, and manage viewings.",
+      "findHousing": "Find Housing",
+      "findHousingText": "Browse student rentals, contact landlords, and book viewings.",
+      "listProperty": "List a Property",
+      "listPropertyText": "Post your rental, review applicants, and manage inquiries.",
       "back": "Back",
       "continue": "Continue",
-      "finishSetup": "Finish setup",
+      "getStarted": "Get Started",
       "skip": "Skip",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "studentGuide": {
+        "eyebrow": "Student guide",
+        "steps": {
+          "1": {
+            "title": "Search near your campus",
+            "text": "Use filters to compare listings by city, campus, price, rooms, and availability.",
+            "points": {
+              "1": {
+                "title": "Compare listing details",
+                "text": "Review photos, amenities, owner trust signals, and location information."
+              },
+              "2": {
+                "title": "Save listings",
+                "text": "Keep interesting rentals together while you compare options."
+              },
+              "3": {
+                "title": "Check availability",
+                "text": "Focus on listings that match your move-in timing and budget."
+              }
+            }
+          },
+          "2": {
+            "title": "Contact landlords seriously",
+            "text": "Send a structured inquiry with your school, program, budget, viewing preference, and readiness.",
+            "points": {
+              "1": {
+                "title": "Share useful context",
+                "text": "Landlords can respond faster when your inquiry includes clear rental details."
+              },
+              "2": {
+                "title": "International student support",
+                "text": "If you are outside Canada, include arrival, visa, and proof-of-admission readiness."
+              },
+              "3": {
+                "title": "Respect the serious inquiry policy",
+                "text": "Repeated no-shows or fake inquiries may limit account access."
+              }
+            }
+          },
+          "3": {
+            "title": "Message and book viewings",
+            "text": "When an inquiry is accepted, messaging opens and you can request a viewing.",
+            "points": {
+              "1": {
+                "title": "Keep conversations in one place",
+                "text": "Use Travel Markets messages to discuss details safely."
+              },
+              "2": {
+                "title": "Choose viewing options",
+                "text": "Request in-person, video, recorded tour, or representative viewing options."
+              },
+              "3": {
+                "title": "Unlock address at the right time",
+                "text": "Exact addresses stay protected until approved viewing access."
+              }
+            }
+          },
+          "4": {
+            "title": "Finalize directly with the landlord",
+            "text": "Travel Markets helps you connect and arrange viewings. Lease signing and payments happen directly between both parties.",
+            "points": {
+              "1": {
+                "title": "Verify before committing",
+                "text": "Review the listing, profile, and viewing details before moving forward."
+              },
+              "2": {
+                "title": "Prepare documents",
+                "text": "Be ready to provide documents if a landlord requests them."
+              },
+              "3": {
+                "title": "Stay safe",
+                "text": "Report suspicious behavior or pressure to leave the platform."
+              }
+            }
+          }
+        }
+      },
+      "landlordGuide": {
+        "eyebrow": "Landlord guide",
+        "steps": {
+          "1": {
+            "title": "Post a clear listing",
+            "text": "Create a listing with photos, pricing, availability, amenities, and secure address details.",
+            "points": {
+              "1": {
+                "title": "Add useful details",
+                "text": "Students make better decisions when listings include clear rent, rooms, location, and rules."
+              },
+              "2": {
+                "title": "Protect exact addresses",
+                "text": "Use secure address fields so full details appear only at the approved stage."
+              },
+              "3": {
+                "title": "Keep listings current",
+                "text": "Update status when a place is pending or rented."
+              }
+            }
+          },
+          "2": {
+            "title": "Review serious applicants",
+            "text": "Structured inquiries help you evaluate student readiness before spending time on messages.",
+            "points": {
+              "1": {
+                "title": "See applicant context",
+                "text": "Review school, campus, program, budget, move-in timing, and message."
+              },
+              "2": {
+                "title": "Support international renters",
+                "text": "See country, arrival date, semester date, visa status, and admission readiness."
+              },
+              "3": {
+                "title": "Track applicant status",
+                "text": "Use applicant status to organize review, viewings, requests, and decisions."
+              }
+            }
+          },
+          "3": {
+            "title": "Accept, message, and schedule",
+            "text": "Accept promising inquiries to open messaging and coordinate viewings.",
+            "points": {
+              "1": {
+                "title": "Message safely",
+                "text": "Keep early conversations connected to the listing and inquiry."
+              },
+              "2": {
+                "title": "Manage viewing requests",
+                "text": "Approve, decline, or complete viewing appointments from your dashboard."
+              },
+              "3": {
+                "title": "Share details at the right time",
+                "text": "Exact address access is tied to approved viewing flow."
+              }
+            }
+          },
+          "4": {
+            "title": "Finalize directly with the student",
+            "text": "Travel Markets supports discovery, inquiry, messaging, and viewing coordination. Lease signing and payments stay between both parties.",
+            "points": {
+              "1": {
+                "title": "Request documents if needed",
+                "text": "Ask accepted applicants for documents using your preferred process."
+              },
+              "2": {
+                "title": "Keep records organized",
+                "text": "Use inquiries, messages, and viewings to track communication."
+              },
+              "3": {
+                "title": "Report abuse",
+                "text": "Flag fake inquiries, no-shows, or suspicious platform activity."
+              }
+            }
+          }
+        }
+      }
     },
     "verifyIdentity": {
       "loginFirst": "Please log in first.",

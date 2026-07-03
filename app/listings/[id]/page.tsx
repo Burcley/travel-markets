@@ -687,6 +687,18 @@ export default function ListingDetailsPage() {
                         {t("contactOwner")}
                       </button>
 
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                        <p className="text-sm font-bold text-emerald-200">
+                          {t("nextSteps.title")}
+                        </p>
+                        <ol className="mt-3 space-y-2 text-sm leading-6 text-emerald-50/80">
+                          <li>{t("nextSteps.sendInquiry")}</li>
+                          <li>{t("nextSteps.landlordReviews")}</li>
+                          <li>{t("nextSteps.acceptedChat")}</li>
+                          <li>{t("nextSteps.bookViewing")}</li>
+                        </ol>
+                      </div>
+
                       <Link
                         href={`/listings/${listing.id}/book-viewing`}
                         className="flex w-full items-center justify-center rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 font-semibold text-blue-300 transition hover:bg-blue-500/20"

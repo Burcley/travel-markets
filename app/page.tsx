@@ -1,6 +1,7 @@
 import Hero from "../components/home/HeroSection";
 import TrustBar from "../components/home/TrustStrip";
 import FeaturedListings from "../components/home/FeaturedListings";
+import HowTravelMarketsWorks from "../components/home/HowTravelMarketsWorks";
 import StudentBenefits from "../components/home/StudentBenefits";
 import LandlordBenefits from "../components/home/LandlordBenefits";
 import HowItWorks from "../components/home/HowItWorks";
@@ -41,6 +42,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-[#050505] text-white">
       <Hero />
       <TrustBar />
+      <HowTravelMarketsWorks />
       <FeaturedListings listings={listings || []} />
       <StudentBenefits />
       <LandlordBenefits />

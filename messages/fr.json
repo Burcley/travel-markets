@@ -12,6 +12,7 @@
       "billing": "Facturation",
       "admin": "Admin",
       "faq": "FAQ",
+      "help": "Aide",
       "profile": "Profil",
       "savedListings": "Annonces favorites",
       "savedSearches": "Recherches enregistrées",
@@ -125,6 +126,45 @@
       "viewingText": "Planifiez des visites de propriété directement en ligne.",
       "chooseTitle": "Choisir votre logement",
       "chooseText": "Avancez avec confiance."
+    },
+    "howTravelMarketsWorks": {
+      "eyebrow": "Comment Travel Markets fonctionne",
+      "title": "Un parcours de location plus clair pour les étudiants et les propriétaires.",
+      "text": "Travel Markets garde les étapes importantes au même endroit : recherche, demande, messagerie, visites et prochaines étapes lorsque les deux côtés sont prêts.",
+      "studentsTitle": "Étudiants",
+      "landlordsTitle": "Propriétaires",
+      "search": {
+        "title": "Rechercher des annonces fiables",
+        "text": "Parcourez des locations étudiantes selon votre ville, campus et budget."
+      },
+      "contact": {
+        "title": "Envoyer une demande sérieuse",
+        "text": "Partagez votre école, vos dates, votre budget, votre préférence de visite et votre niveau de préparation."
+      },
+      "viewing": {
+        "title": "Discuter et organiser des visites",
+        "text": "Quand un propriétaire accepte, gardez la conversation et les demandes de visite dans Travel Markets."
+      },
+      "move": {
+        "title": "Finaliser directement ensemble",
+        "text": "La signature du bail et les paiements sont gérés directement entre l’étudiant et le propriétaire."
+      },
+      "list": {
+        "title": "Publier une annonce",
+        "text": "Créez une fiche claire avec photos, prix, disponibilité et adresse protégée."
+      },
+      "review": {
+        "title": "Examiner les candidats sérieux",
+        "text": "Voyez le statut étudiant, l’école, le budget, la préparation de visa, la préférence de visite et le message."
+      },
+      "schedule": {
+        "title": "Planifier les visites",
+        "text": "Acceptez les demandes, écrivez aux étudiants et gérez les rendez-vous de visite."
+      },
+      "lease": {
+        "title": "Avancer avec confiance",
+        "text": "Utilisez la plateforme pour coordonner, puis finalisez le bail et les paiements directement."
+      }
     },
     "mission": {
       "eyebrow": "Notre mission",
@@ -354,6 +394,13 @@
     "perMonth": "par mois",
     "listingUnavailable": "Annonce non disponible",
     "contactOwner": "Contacter le propriétaire",
+    "nextSteps": {
+      "title": "Que se passe-t-il après avoir contacté le propriétaire?",
+      "sendInquiry": "1. Vous envoyez une demande étudiante structurée.",
+      "landlordReviews": "2. Le propriétaire examine vos détails et votre préparation.",
+      "acceptedChat": "3. Si la demande est acceptée, la messagerie s’ouvre pour les deux côtés.",
+      "bookViewing": "4. Vous pouvez demander une visite et coordonner les prochaines étapes."
+    },
     "bookViewing": "Réserver une visite",
     "viewReceivedInquiries": "Voir les demandes reçues",
     "manageCalendar": "Gérer le calendrier",
@@ -799,7 +846,7 @@
     "browseListings": "Parcourir les annonces",
     "searchPlaceholder": "Rechercher par personne, annonce, ville ou campus...",
     "emptyTitle": "Aucune conversation pour le moment",
-    "emptyText": "Les discussions apparaissent après qu’un propriétaire accepte une demande de logement étudiant.",
+    "emptyText": "Les demandes acceptées deviennent des conversations ici. Commencez par contacter un propriétaire depuis une annonce.",
     "searchHousing": "Rechercher un logement",
     "studentRenter": "Locataire étudiant",
     "propertyOwner": "Propriétaire",
@@ -862,7 +909,7 @@
       "title": "Demandes envoyées",
       "subtitle": "Demandes de réservation envoyées aux propriétaires d’annonces.",
       "browseListings": "Parcourir les annonces",
-      "empty": "Vous n’avez encore envoyé aucune demande.",
+      "empty": "Vous n’avez encore envoyé aucune demande. Ouvrez une annonce et envoyez une demande sérieuse lorsque vous êtes prêt.",
       "listingFallback": "Annonce",
       "sentOn": "Envoyée le",
       "phone": "Téléphone :",
@@ -878,10 +925,56 @@
       "title": "Demandes reçues",
       "subtitle": "Étudiants qui vous ont contacté au sujet de vos annonces.",
       "myListings": "Mes annonces",
-      "empty": "Aucune demande reçue pour le moment.",
+      "empty": "Aucune demande reçue pour le moment. Les candidats étudiants sérieux apparaîtront ici avec école, budget, préférence de visite et détails de préparation.",
       "listingFallback": "Annonce",
       "sentOn": "Envoyée le",
       "phone": "Téléphone :",
+      "studentFallback": "Étudiant",
+      "studentName": "Nom de l’étudiant",
+      "seriousApplicant": "Candidat sérieux",
+      "internationalStudent": "Étudiant international",
+      "canadaStudent": "Déjà au Canada",
+      "country": "Pays",
+      "schoolCampus": "École / campus",
+      "program": "Programme",
+      "moveInDate": "Date d’emménagement",
+      "arrivalDate": "Date d’arrivée",
+      "semesterStartDate": "Début du semestre",
+      "leaseDuration": "Durée du bail",
+      "budget": "Budget",
+      "budgetValue": "{amount} $/mois",
+      "visaStatus": "Statut du visa",
+      "viewingPreference": "Préférence de visite",
+      "readyDocuments": "Prêt à fournir des documents",
+      "proofAdmission": "Preuve d’admission",
+      "readyReserve": "Prêt à réserver",
+      "message": "Message",
+      "yes": "Oui",
+      "no": "Non",
+      "notProvided": "Non fourni",
+      "applicantStatus": "Statut du candidat",
+      "applicantStatuses": {
+        "new": "Nouveau",
+        "under_review": "En examen",
+        "viewing_scheduled": "Visite planifiée",
+        "application_requested": "Dossier demandé",
+        "accepted": "Accepté",
+        "declined": "Refusé",
+        "no_show": "Absent"
+      },
+      "viewingPreferences": {
+        "in_person": "Visite en personne",
+        "video_call": "Visite par appel vidéo",
+        "recorded_video": "Visite vidéo enregistrée",
+        "live_video": "Visite vidéo en direct",
+        "representative": "Un membre de la famille ou ami visitera pour moi"
+      },
+      "visaStatuses": {
+        "approved": "Approuvé",
+        "waiting": "En attente",
+        "applying": "Demande en cours",
+        "not_started": "Pas commencé"
+      },
       "viewListing": "Voir l’annonce",
       "openChat": "Ouvrir la discussion",
       "status": "Statut :",
@@ -907,7 +1000,7 @@
       "title": "Rendez-vous de visite",
       "subtitle": "Gérez les approbations, les déverrouillages d’adresse et les visites de propriété terminées.",
       "browseListings": "Parcourir les annonces",
-      "empty": "Aucun rendez-vous de visite pour le moment.",
+      "empty": "Aucun rendez-vous de visite pour le moment. Les demandes acceptées peuvent devenir des demandes de visite lorsque les deux côtés sont prêts.",
       "approvedTitle": "Visite approuvée",
       "approvedText": "L’accès sécurisé à l’adresse est maintenant déverrouillé pour l’étudiant approuvé.",
       "declinedTitle": "Visite annulée / refusée",
@@ -1078,18 +1171,77 @@
       "ownListing": "Vous ne pouvez pas envoyer une demande pour votre propre annonce.",
       "unavailable": "Cette annonce n’est plus disponible.",
       "messageRequired": "Veuillez entrer un message.",
+      "requiredSchoolProgram": "Veuillez entrer votre école, campus et programme.",
+      "budgetRequired": "Veuillez entrer un budget mensuel valide.",
+      "viewingPreferenceRequired": "Veuillez choisir une préférence de visite.",
+      "seriousConfirmationRequired": "Veuillez confirmer qu’il s’agit d’une demande de location sérieuse.",
+      "canadaRequired": "Veuillez entrer votre date d’emménagement, la durée du bail et votre disponibilité à fournir des documents.",
+      "documentsRequired": "Veuillez indiquer si vous êtes prêt à fournir des documents sur demande.",
+      "internationalRequired": "Veuillez compléter tous les détails pour étudiant international.",
       "loading": "Chargement du formulaire de contact...",
       "backToListing": "Retour à l’annonce",
       "backToListingArrow": "← Retour à l’annonce",
       "title": "Contacter le propriétaire",
+      "seriousInquiryEyebrow": "Demande étudiante sérieuse",
+      "seriousInquiryTitle": "Envoyer une demande de location sérieuse",
       "sendRequestFor": "Envoyer une demande pour :",
       "listingFallback": "Annonce",
+      "disclaimer": "Travel Markets aide les étudiants et les propriétaires à se connecter, communiquer et organiser des visites. La signature du bail et les paiements sont gérés directement entre les deux parties.",
+      "locationQuestion": "Où êtes-vous actuellement situé?",
+      "alreadyInCanada": "Je suis déjà au Canada",
+      "outsideCanada": "Je suis à l’extérieur du Canada",
+      "studentDetails": "Détails de l’étudiant",
+      "currentCountry": "Pays actuel",
+      "school": "École",
+      "campus": "Campus",
+      "program": "Programme",
+      "expectedMoveInDate": "Date d’emménagement prévue",
+      "expectedArrivalDate": "Date d’arrivée prévue",
+      "semesterStartDate": "Date de début du semestre",
+      "leaseDuration": "Durée du bail",
+      "leaseDurationPlaceholder": "Exemple : 8 mois, 12 mois",
+      "monthlyBudget": "Budget mensuel",
+      "monthlyBudgetPlaceholder": "Exemple : 1200",
+      "visaStatus": "Statut du visa",
+      "viewingReadiness": "Visite et disponibilité",
+      "viewingPreference": "Préférence de visite",
+      "readyDocuments": "Êtes-vous prêt à fournir des documents sur demande?",
+      "proofAdmission": "Pouvez-vous fournir une preuve d’admission sur demande?",
+      "readyReserve": "Êtes-vous prêt à réserver la chambre si approuvé?",
+      "yes": "Oui",
+      "no": "Non",
+      "select": "Sélectionner",
       "message": "Message",
       "messagePlaceholder": "Bonjour, cette annonce m’intéresse. Est-elle toujours disponible?",
       "phoneOptional": "Téléphone (facultatif)",
       "phonePlaceholder": "Votre numéro de téléphone",
+      "seriousConfirmation": "Je comprends que cette demande est réservée à un intérêt locatif sérieux. Les absences répétées ou les fausses demandes peuvent limiter mon compte.",
+      "viewingPreferences": {
+        "in_person": "Visite en personne",
+        "video_call": "Visite par appel vidéo",
+        "recorded_video": "Visite vidéo enregistrée",
+        "live_video": "Visite vidéo en direct",
+        "representative": "Un membre de la famille ou ami visitera pour moi"
+      },
+      "visaStatuses": {
+        "approved": "Approuvé",
+        "waiting": "En attente",
+        "applying": "Demande en cours",
+        "not_started": "Pas commencé"
+      },
       "sending": "Envoi...",
-      "sendInquiry": "Envoyer la demande"
+      "sendInquiry": "Envoyer la demande",
+      "successEyebrow": "Demande envoyée",
+      "successTitle": "Votre demande a été envoyée",
+      "successText": "Le propriétaire peut maintenant examiner vos détails étudiants et décider s’il accepte la demande.",
+      "successNextTitle": "Prochaines étapes",
+      "successNext": {
+        "reviewed": "Le propriétaire examine votre école, votre calendrier, votre budget et votre niveau de préparation.",
+        "accepted": "Si la demande est acceptée, la messagerie s’ouvre pour poser vos questions en sécurité.",
+        "viewing": "Vous pourrez ensuite demander une visite ou continuer à comparer d’autres annonces."
+      },
+      "viewSentInquiries": "Voir les demandes envoyées",
+      "continueBrowsing": "Continuer la recherche"
     },
     "bookViewing": {
       "chooseSlot": "Choisissez un créneau disponible.",
@@ -1144,6 +1296,45 @@
       "openingCheckout": "Ouverture du paiement...",
       "boostWithStripe": "Booster avec Stripe"
     }
+  },
+  "help": {
+    "eyebrow": "Centre d’aide",
+    "title": "Bien commencer avec Travel Markets",
+    "subtitle": "Apprenez à rechercher, envoyer des demandes sérieuses, examiner des candidats, organiser des visites et utiliser la plateforme plus prudemment.",
+    "students": {
+      "title": "Pour les étudiants",
+      "text": "Recherchez près du campus, comparez les annonces, envoyez des demandes structurées, écrivez aux propriétaires acceptés et demandez des visites."
+    },
+    "landlords": {
+      "title": "Pour les propriétaires",
+      "text": "Publiez des annonces, examinez les candidats sérieux, suivez le statut des candidats, écrivez aux étudiants acceptés et gérez les visites."
+    },
+    "safety": {
+      "title": "Bases de sécurité",
+      "text": "Gardez les conversations dans Travel Markets, vérifiez les détails avant de vous engager et signalez les comportements suspects."
+    },
+    "faqTitle": "Questions courantes",
+    "faqs": {
+      "payments": {
+        "question": "Travel Markets gère-t-il le loyer ou les dépôts?",
+        "answer": "Non. Travel Markets aide les étudiants et propriétaires à se connecter, communiquer et organiser des visites. La signature du bail et les paiements sont gérés directement entre les deux parties."
+      },
+      "addresses": {
+        "question": "Pourquoi les adresses exactes sont-elles protégées?",
+        "answer": "Les adresses exactes restent protégées jusqu’à la bonne étape du processus de visite pour aider à protéger les étudiants et les propriétaires."
+      },
+      "messages": {
+        "question": "Quand la discussion s’ouvre-t-elle?",
+        "answer": "La discussion s’ouvre après qu’un propriétaire accepte une demande étudiante, afin que les conversations restent liées à une vraie annonce."
+      },
+      "support": {
+        "question": "Que faire si quelque chose semble suspect?",
+        "answer": "Utilisez les outils de signalement ou contactez le soutien avec les détails de l’annonce, du compte ou du message."
+      }
+    },
+    "contactTitle": "Besoin d’aide?",
+    "contactText": "Contactez le soutien Travel Markets pour des questions sur le compte, les annonces, les demandes, les visites ou la sécurité.",
+    "contactSupport": "Contacter le soutien"
   },
   "accountPages": {
     "savedListings": {
@@ -1262,37 +1453,179 @@
     },
     "onboarding": {
       "loading": "Chargement de votre compte...",
-      "loadError": "Nous n’avons pas pu charger votre profil. Veuillez actualiser et réessayer.",
-      "saveError": "Nous n’avons pas pu enregistrer votre profil. Veuillez réessayer.",
+      "preparingProfile": "Nous préparons votre onboarding. Vous pouvez continuer pendant que votre profil termine sa synchronisation.",
+      "chooseRoleProgress": "Choisissez ce que vous voulez faire aujourd’hui",
       "progress": "Étape {step} sur {total}",
-      "welcomeTitle": "Bienvenue sur Travel Markets",
-      "welcomeText": "Votre compte est vérifié. Personnalisons votre expérience.",
-      "startSetup": "Commencer la configuration",
-      "skipForNow": "Ignorer pour l’instant",
-      "basicInfoTitle": "Parlez-nous de vous",
-      "basicInfoText": "Ajoutez les détails que les autres verront lorsqu’ils interagiront avec vous.",
-      "fullName": "Nom complet",
-      "fullNamePlaceholder": "Entrez votre nom complet",
-      "phone": "Numéro de téléphone (facultatif)",
-      "phonePlaceholder": "Entrez votre numéro de téléphone",
-      "roleTitle": "Comment utiliserez-vous Travel Markets?",
-      "roleText": "Choisissez l’expérience qui vous convient le mieux pour l’instant.",
+      "eyebrow": "Guide de première utilisation",
+      "welcomeTitle": "Que voulez-vous faire aujourd’hui?",
+      "welcomeText": "Choisissez un parcours pour ce guide rapide. Cela ne change pas votre type de compte et ne limite pas ce que vous pourrez utiliser plus tard.",
       "student": "Étudiant",
-      "studentText": "Je cherche un logement",
+      "studentText": "Je cherche un logement étudiant, je contacte des propriétaires et j’organise des visites.",
       "landlord": "Propriétaire",
-      "landlordText": "Je veux publier des locations",
-      "bioTitle": "Ajoutez une courte bio",
-      "bioText": "Une courte présentation aide à établir la confiance avant les messages et visites.",
-      "bio": "Bio",
-      "bioPlaceholder": "Écrivez une courte présentation...",
-      "bioCount": "{count}/200",
-      "photoLaterTitle": "La photo de profil peut attendre",
-      "photoLaterText": "La photo de profil pourra être ajoutée plus tard dans les paramètres de votre profil.",
+      "landlordText": "Je veux publier des locations, examiner des candidats et gérer des visites.",
+      "findHousing": "Trouver un logement",
+      "findHousingText": "Parcourez des locations étudiantes, contactez des propriétaires et réservez des visites.",
+      "listProperty": "Publier une propriété",
+      "listPropertyText": "Publiez votre location, examinez les candidats et gérez les demandes.",
       "back": "Retour",
       "continue": "Continuer",
-      "finishSetup": "Terminer la configuration",
+      "getStarted": "Commencer",
       "skip": "Ignorer",
-      "saving": "Enregistrement..."
+      "saving": "Enregistrement...",
+      "studentGuide": {
+        "eyebrow": "Guide étudiant",
+        "steps": {
+          "1": {
+            "title": "Rechercher près de votre campus",
+            "text": "Utilisez les filtres pour comparer les annonces par ville, campus, prix, chambres et disponibilité.",
+            "points": {
+              "1": {
+                "title": "Comparer les détails",
+                "text": "Consultez les photos, commodités, signaux de confiance du propriétaire et informations d’emplacement."
+              },
+              "2": {
+                "title": "Enregistrer des annonces",
+                "text": "Gardez les locations intéressantes au même endroit pendant vos comparaisons."
+              },
+              "3": {
+                "title": "Vérifier la disponibilité",
+                "text": "Concentrez-vous sur les annonces qui correspondent à vos dates et à votre budget."
+              }
+            }
+          },
+          "2": {
+            "title": "Contacter les propriétaires sérieusement",
+            "text": "Envoyez une demande structurée avec école, programme, budget, préférence de visite et préparation.",
+            "points": {
+              "1": {
+                "title": "Partager le bon contexte",
+                "text": "Les propriétaires peuvent répondre plus vite lorsque votre demande contient des détails clairs."
+              },
+              "2": {
+                "title": "Soutien aux étudiants internationaux",
+                "text": "Si vous êtes hors du Canada, ajoutez votre arrivée, visa et preuve d’admission disponible."
+              },
+              "3": {
+                "title": "Respecter la politique de demande sérieuse",
+                "text": "Les absences répétées ou fausses demandes peuvent limiter l’accès au compte."
+              }
+            }
+          },
+          "3": {
+            "title": "Écrire et réserver des visites",
+            "text": "Quand une demande est acceptée, la messagerie s’ouvre et vous pouvez demander une visite.",
+            "points": {
+              "1": {
+                "title": "Garder les conversations au même endroit",
+                "text": "Utilisez les messages Travel Markets pour discuter des détails en sécurité."
+              },
+              "2": {
+                "title": "Choisir des options de visite",
+                "text": "Demandez une visite en personne, vidéo, enregistrée ou par représentant."
+              },
+              "3": {
+                "title": "Déverrouiller l’adresse au bon moment",
+                "text": "Les adresses exactes restent protégées jusqu’à l’accès approuvé pour la visite."
+              }
+            }
+          },
+          "4": {
+            "title": "Finaliser directement avec le propriétaire",
+            "text": "Travel Markets vous aide à vous connecter et organiser des visites. La signature du bail et les paiements se font directement entre les deux parties.",
+            "points": {
+              "1": {
+                "title": "Vérifier avant de s’engager",
+                "text": "Consultez l’annonce, le profil et les détails de visite avant d’avancer."
+              },
+              "2": {
+                "title": "Préparer vos documents",
+                "text": "Soyez prêt à fournir des documents si un propriétaire les demande."
+              },
+              "3": {
+                "title": "Rester en sécurité",
+                "text": "Signalez les comportements suspects ou les pressions pour quitter la plateforme."
+              }
+            }
+          }
+        }
+      },
+      "landlordGuide": {
+        "eyebrow": "Guide propriétaire",
+        "steps": {
+          "1": {
+            "title": "Publier une annonce claire",
+            "text": "Créez une annonce avec photos, prix, disponibilité, commodités et adresse sécurisée.",
+            "points": {
+              "1": {
+                "title": "Ajouter des détails utiles",
+                "text": "Les étudiants décident mieux avec un loyer, des pièces, un emplacement et des règles clairs."
+              },
+              "2": {
+                "title": "Protéger les adresses exactes",
+                "text": "Utilisez les champs d’adresse sécurisée pour afficher les détails seulement à l’étape approuvée."
+              },
+              "3": {
+                "title": "Garder les annonces à jour",
+                "text": "Mettez à jour le statut lorsqu’un logement est en attente ou loué."
+              }
+            }
+          },
+          "2": {
+            "title": "Examiner les candidats sérieux",
+            "text": "Les demandes structurées vous aident à évaluer la préparation des étudiants avant de passer du temps en messages.",
+            "points": {
+              "1": {
+                "title": "Voir le contexte du candidat",
+                "text": "Consultez école, campus, programme, budget, date d’emménagement et message."
+              },
+              "2": {
+                "title": "Soutenir les locataires internationaux",
+                "text": "Voyez pays, date d’arrivée, début de semestre, statut de visa et preuve d’admission."
+              },
+              "3": {
+                "title": "Suivre le statut du candidat",
+                "text": "Utilisez le statut candidat pour organiser examen, visites, demandes et décisions."
+              }
+            }
+          },
+          "3": {
+            "title": "Accepter, écrire et planifier",
+            "text": "Acceptez les demandes prometteuses pour ouvrir la messagerie et coordonner les visites.",
+            "points": {
+              "1": {
+                "title": "Écrire en sécurité",
+                "text": "Gardez les premières conversations liées à l’annonce et à la demande."
+              },
+              "2": {
+                "title": "Gérer les demandes de visite",
+                "text": "Approuvez, refusez ou terminez les rendez-vous de visite depuis votre tableau de bord."
+              },
+              "3": {
+                "title": "Partager les détails au bon moment",
+                "text": "L’accès à l’adresse exacte est lié au parcours de visite approuvé."
+              }
+            }
+          },
+          "4": {
+            "title": "Finaliser directement avec l’étudiant",
+            "text": "Travel Markets soutient la découverte, les demandes, les messages et la coordination de visites. La signature du bail et les paiements restent entre les deux parties.",
+            "points": {
+              "1": {
+                "title": "Demander des documents au besoin",
+                "text": "Demandez les documents aux candidats acceptés selon votre processus préféré."
+              },
+              "2": {
+                "title": "Garder les dossiers organisés",
+                "text": "Utilisez demandes, messages et visites pour suivre la communication."
+              },
+              "3": {
+                "title": "Signaler les abus",
+                "text": "Signalez les fausses demandes, absences ou activités suspectes."
+              }
+            }
+          }
+        }
+      }
     },
     "verifyIdentity": {
       "loginFirst": "Veuillez d’abord vous connecter.",

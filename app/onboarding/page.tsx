@@ -5,17 +5,33 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
-type Role = "student" | "landlord";
+type OnboardingPath = "find_housing" | "list_property";
 
 type ExistingProfile = {
-  full_name: string | null;
-  phone: string | null;
-  bio: string | null;
-  role: string | null;
-  avatar_url: string | null;
+  id: string;
+  onboarding_completed: boolean | null;
 };
 
-const totalSteps = 4;
+const totalGuideSteps = 4;
+
+function isMissingOnboardingInfrastructure(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const maybeError = error as { code?: string; message?: string };
+  const message = (maybeError.message || "").toLowerCase();
+
+  return (
+    maybeError.code === "42703" ||
+    maybeError.code === "42883" ||
+    message.includes("onboarding_completed") ||
+    message.includes("ensure_profile_for_current_user") ||
+    message.includes("complete_onboarding_for_current_user")
+  );
+}
+
+function getLocalOnboardingKey(userId: string) {
+  return `travel_markets_onboarding_completed_${userId}`;
+}
 
 export default function OnboardingPage() {
   const t = useTranslations("accountPages.onboarding");
@@ -24,17 +40,14 @@ export default function OnboardingPage() {
 
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
-  const [existingProfile, setExistingProfile] = useState<ExistingProfile | null>(
-    null
-  );
-  const [step, setStep] = useState(1);
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>("student");
-  const [bio, setBio] = useState("");
+  const [selectedPath, setSelectedPath] =
+    useState<OnboardingPath>("find_housing");
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [fallbackMessage, setFallbackMessage] = useState("");
+  const [supportsOnboardingColumn, setSupportsOnboardingColumn] =
+    useState(true);
 
   useEffect(() => {
     loadUser();
@@ -43,7 +56,7 @@ export default function OnboardingPage() {
 
   async function loadUser() {
     setLoading(true);
-    setError("");
+    setFallbackMessage("");
 
     const {
       data: { user },
@@ -57,66 +70,129 @@ export default function OnboardingPage() {
     setUserId(user.id);
     setEmail(user.email || "");
 
+    if (localStorage.getItem(getLocalOnboardingKey(user.id)) === "true") {
+      router.replace("/dashboard");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("profiles")
-      .select("full_name, phone, bio, role, avatar_url")
+      .select("id, onboarding_completed")
       .eq("id", user.id)
       .maybeSingle();
 
     if (error) {
-      setError(t("loadError"));
+      console.error("ONBOARDING PROFILE LOAD ERROR:", error);
+
+      if (!isMissingOnboardingInfrastructure(error)) {
+        setFallbackMessage(t("preparingProfile"));
+        setLoading(false);
+        return;
+      }
+
+      setSupportsOnboardingColumn(false);
+
+      const { data: profileWithoutFlag, error: idOnlyError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (idOnlyError) {
+        console.error("ONBOARDING PROFILE FALLBACK LOAD ERROR:", idOnlyError);
+        setFallbackMessage(t("preparingProfile"));
+        setLoading(false);
+        return;
+      }
+
+      if (!profileWithoutFlag) {
+        const { error: createFallbackError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            email: user.email || "",
+            updated_at: new Date().toISOString(),
+          });
+
+        if (createFallbackError && createFallbackError.code !== "23505") {
+          console.error(
+            "ONBOARDING PROFILE FALLBACK CREATE ERROR:",
+            createFallbackError
+          );
+          setFallbackMessage(t("preparingProfile"));
+        }
+      }
+
       setLoading(false);
       return;
     }
 
     const profile = data as ExistingProfile | null;
-    setExistingProfile(profile);
-    setFullName(profile?.full_name || "");
-    setPhone(profile?.phone || "");
-    setBio(profile?.bio || "");
-    setRole(profile?.role === "landlord" ? "landlord" : "student");
-    setLoading(false);
-  }
 
-  async function saveProfile(skip = false) {
-    if (!userId) return;
+    if (!profile) {
+      const { error: createError } = await supabase.from("profiles").insert({
+        id: user.id,
+        email: user.email || "",
+        onboarding_completed: false,
+        updated_at: new Date().toISOString(),
+      });
 
-    setSaving(true);
-    setError("");
+      if (createError && createError.code !== "23505") {
+        console.error("ONBOARDING PROFILE CREATE ERROR:", createError);
+        setFallbackMessage(t("preparingProfile"));
+      }
 
-    const payload = {
-      id: userId,
-      email,
-      full_name: skip ? existingProfile?.full_name || "" : fullName.trim(),
-      phone: skip ? existingProfile?.phone || null : phone.trim() || null,
-      bio: skip ? existingProfile?.bio || null : bio.trim() || null,
-      role: skip ? existingProfile?.role || "student" : role,
-      avatar_url: existingProfile?.avatar_url || null,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase.from("profiles").upsert(payload, {
-      onConflict: "id",
-    });
-
-    setSaving(false);
-
-    if (error) {
-      setError(t("saveError"));
+      setLoading(false);
       return;
     }
 
-    router.push("/dashboard");
+    if (profile?.onboarding_completed) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    setLoading(false);
+  }
+
+  async function completeOnboarding() {
+    if (!userId) return;
+
+    setSaving(true);
+    setFallbackMessage("");
+
+    if (!supportsOnboardingColumn) {
+      localStorage.setItem(getLocalOnboardingKey(userId), "true");
+      router.push(selectedPath === "list_property" ? "/dashboard" : "/search");
+      router.refresh();
+      return;
+    }
+
+    const { error } = await supabase.rpc(
+      "complete_onboarding_for_current_user"
+    );
+
+    if (error) {
+      console.error("ONBOARDING COMPLETE ERROR:", error);
+
+      if (isMissingOnboardingInfrastructure(error)) {
+        localStorage.setItem(getLocalOnboardingKey(userId), "true");
+        router.push(selectedPath === "list_property" ? "/dashboard" : "/search");
+        router.refresh();
+        return;
+      }
+
+      setFallbackMessage(t("preparingProfile"));
+      setSaving(false);
+      return;
+    }
+
+    router.push(selectedPath === "list_property" ? "/dashboard" : "/search");
     router.refresh();
   }
 
-  function nextStep() {
-    setStep((current) => Math.min(current + 1, totalSteps));
-  }
-
-  function previousStep() {
-    setStep((current) => Math.max(current - 1, 1));
-  }
+  const guideRole =
+    selectedPath === "list_property" ? "landlordGuide" : "studentGuide";
+  const guideStep = step > 0 ? step : 1;
 
   if (loading) {
     return (
@@ -128,11 +204,11 @@ export default function OnboardingPage() {
 
   return (
     <main className="min-h-screen bg-black px-6 py-12 text-white">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-8">
           <div className="flex items-center justify-between gap-3">
-            {Array.from({ length: totalSteps }).map((_, index) => {
-              const active = index + 1 <= step;
+            {Array.from({ length: totalGuideSteps + 1 }).map((_, index) => {
+              const active = index <= step;
 
               return (
                 <div
@@ -146,195 +222,171 @@ export default function OnboardingPage() {
           </div>
 
           <p className="mt-3 text-center text-sm text-zinc-500">
-            {t("progress", { step, total: totalSteps })}
+            {step === 0
+              ? t("chooseRoleProgress")
+              : t("progress", { step, total: totalGuideSteps })}
           </p>
         </div>
 
         <section className="rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-2xl sm:p-8">
-          {step === 1 && (
+          <div className="mb-6 flex justify-end">
+            <button
+              type="button"
+              onClick={() => completeOnboarding()}
+              disabled={saving}
+              className="text-sm font-semibold text-zinc-500 transition hover:text-white disabled:opacity-50"
+            >
+              {saving ? t("saving") : t("skip")}
+            </button>
+          </div>
+
+          {step === 0 ? (
             <div className="text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-pink-500 text-xl font-black">
                 TM
               </div>
 
-              <h1 className="mt-6 text-3xl font-black sm:text-5xl">
+              <p className="mt-6 text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
+                {t("eyebrow")}
+              </p>
+              <h1 className="mt-3 text-3xl font-black sm:text-5xl">
                 {t("welcomeTitle")}
               </h1>
-
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base">
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
                 {t("welcomeText")}
               </p>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                <button
-                  onClick={nextStep}
-                  className="rounded-2xl bg-white px-5 py-4 font-bold text-black hover:bg-zinc-200"
-                >
-                  {t("startSetup")}
-                </button>
+              {fallbackMessage && (
+                <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-500">
+                  {fallbackMessage}
+                </p>
+              )}
 
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <RoleButton
+                  active={selectedPath === "find_housing"}
+                  icon="🎓"
+                  title={t("findHousing")}
+                  text={t("findHousingText")}
+                  onClick={() => setSelectedPath("find_housing")}
+                />
+                <RoleButton
+                  active={selectedPath === "list_property"}
+                  icon="🏠"
+                  title={t("listProperty")}
+                  text={t("listPropertyText")}
+                  onClick={() => setSelectedPath("list_property")}
+                />
+              </div>
+
+              <div className="mt-8 flex justify-center">
                 <button
-                  onClick={() => saveProfile(true)}
-                  disabled={saving}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-bold text-white hover:bg-white/10 disabled:opacity-50"
+                  onClick={() => setStep(1)}
+                  className="rounded-2xl bg-white px-8 py-3 font-bold text-black shadow-lg shadow-white/10 transition hover:bg-zinc-200"
                 >
-                  {saving ? t("saving") : t("skipForNow")}
+                  {t("continue")}
                 </button>
               </div>
             </div>
-          )}
-
-          {step === 2 && (
+          ) : (
             <div>
-              <h1 className="text-3xl font-black">{t("basicInfoTitle")}</h1>
-              <p className="mt-2 text-sm text-zinc-400">{t("basicInfoText")}</p>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
+                {t(`${guideRole}.eyebrow`)}
+              </p>
+              <h1 className="mt-3 text-3xl font-black sm:text-5xl">
+                {t(`${guideRole}.steps.${guideStep}.title`)}
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
+                {t(`${guideRole}.steps.${guideStep}.text`)}
+              </p>
 
-              <div className="mt-7 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-zinc-300">
-                    {t("fullName")}
-                  </label>
-                  <input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder={t("fullNamePlaceholder")}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-pink-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-zinc-300">
-                    {t("phone")}
-                  </label>
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder={t("phonePlaceholder")}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-pink-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div>
-              <h1 className="text-3xl font-black">{t("roleTitle")}</h1>
-              <p className="mt-2 text-sm text-zinc-400">{t("roleText")}</p>
-
-              <div className="mt-7 grid gap-4 sm:grid-cols-2">
-                <button
-                  onClick={() => setRole("student")}
-                  className={`rounded-3xl border p-5 text-left transition ${
-                    role === "student"
-                      ? "border-pink-400 bg-pink-500/15"
-                      : "border-white/10 bg-black hover:bg-white/5"
-                  }`}
-                >
-                  <p className="text-xl font-black">{t("student")}</p>
-                  <p className="mt-2 text-sm text-zinc-400">
-                    {t("studentText")}
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setRole("landlord")}
-                  className={`rounded-3xl border p-5 text-left transition ${
-                    role === "landlord"
-                      ? "border-pink-400 bg-pink-500/15"
-                      : "border-white/10 bg-black hover:bg-white/5"
-                  }`}
-                >
-                  <p className="text-xl font-black">{t("landlord")}</p>
-                  <p className="mt-2 text-sm text-zinc-400">
-                    {t("landlordText")}
-                  </p>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div>
-              <h1 className="text-3xl font-black">{t("bioTitle")}</h1>
-              <p className="mt-2 text-sm text-zinc-400">{t("bioText")}</p>
-
-              <div className="mt-7 grid gap-4 lg:grid-cols-[1fr_260px]">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-zinc-300">
-                    {t("bio")}
-                  </label>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value.slice(0, 200))}
-                    maxLength={200}
-                    rows={6}
-                    placeholder={t("bioPlaceholder")}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 outline-none focus:border-pink-500"
-                  />
-                  <p className="mt-2 text-right text-xs text-zinc-500">
-                    {t("bioCount", { count: bio.length })}
-                  </p>
-                </div>
-
-                <div className="rounded-3xl border border-dashed border-white/10 bg-black p-5">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-2xl">
-                    {fullName ? fullName[0].toUpperCase() : "TM"}
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                {[1, 2, 3].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl border border-white/10 bg-black p-5"
+                  >
+                    <p className="font-bold text-white">
+                      {t(`${guideRole}.steps.${guideStep}.points.${item}.title`)}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-500">
+                      {t(`${guideRole}.steps.${guideStep}.points.${item}.text`)}
+                    </p>
                   </div>
-                  <h2 className="mt-5 font-bold">{t("photoLaterTitle")}</h2>
-                  <p className="mt-2 text-sm leading-6 text-zinc-500">
-                    {t("photoLaterText")}
-                  </p>
-                </div>
+                ))}
               </div>
-            </div>
-          )}
 
-          {error && (
-            <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-              {error}
-            </div>
-          )}
+              {fallbackMessage && (
+                <p className="mt-6 text-sm leading-6 text-zinc-500">
+                  {fallbackMessage}
+                </p>
+              )}
 
-          {step > 1 && (
-            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-              <button
-                onClick={previousStep}
-                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10"
-              >
-                {t("back")}
-              </button>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                 <button
-                  onClick={() => saveProfile(true)}
-                  disabled={saving}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10 disabled:opacity-50"
+                  onClick={() => setStep((current) => Math.max(current - 1, 0))}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10"
                 >
-                  {saving ? t("saving") : t("skip")}
+                  {t("back")}
                 </button>
 
-                {step < totalSteps ? (
-                  <button
-                    onClick={nextStep}
-                    className="rounded-2xl bg-white px-5 py-3 font-bold text-black hover:bg-zinc-200"
-                  >
-                    {t("continue")}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => saveProfile(false)}
-                    disabled={saving}
-                    className="rounded-2xl bg-white px-5 py-3 font-bold text-black hover:bg-zinc-200 disabled:opacity-50"
-                  >
-                    {saving ? t("saving") : t("finishSetup")}
-                  </button>
-                )}
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  {step < totalGuideSteps ? (
+                    <button
+                      onClick={() =>
+                        setStep((current) =>
+                          Math.min(current + 1, totalGuideSteps)
+                        )
+                      }
+                      className="rounded-2xl bg-white px-8 py-3 font-bold text-black shadow-lg shadow-white/10 transition hover:bg-zinc-200"
+                    >
+                      {t("continue")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => completeOnboarding()}
+                      disabled={saving}
+                      className="rounded-2xl bg-white px-8 py-3 font-bold text-black shadow-lg shadow-white/10 transition hover:bg-zinc-200 disabled:opacity-50"
+                    >
+                      {saving ? t("saving") : t("getStarted")}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </section>
       </div>
     </main>
+  );
+}
+
+function RoleButton({
+  active,
+  icon,
+  title,
+  text,
+  onClick,
+}: {
+  active: boolean;
+  icon: string;
+  title: string;
+  text: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-3xl border p-5 text-left transition ${
+        active
+          ? "border-pink-400 bg-pink-500/15"
+          : "border-white/10 bg-black hover:bg-white/5"
+      }`}
+    >
+      <p className="text-3xl">{icon}</p>
+      <p className="mt-4 text-xl font-black">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-zinc-400">{text}</p>
+    </button>
   );
 }

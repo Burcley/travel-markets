@@ -34,6 +34,21 @@ function getAuthErrorKey(message: string) {
   return "genericError";
 }
 
+function isMissingOnboardingColumn(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const maybeError = error as { code?: string; message?: string };
+  const message = (maybeError.message || "").toLowerCase();
+
+  return (
+    maybeError.code === "42703" || message.includes("onboarding_completed")
+  );
+}
+
+function getLocalOnboardingKey(userId: string) {
+  return `travel_markets_onboarding_completed_${userId}`;
+}
+
 export default function AuthPage() {
   const t = useTranslations("accountPages.auth");
   const router = useRouter();
@@ -58,7 +73,7 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -68,7 +83,35 @@ export default function AuthPage() {
           return;
         }
 
-        router.push("/dashboard");
+        const userId = data.user?.id;
+
+        const { data: profile, error: profileError } = userId
+          ? await supabase
+              .from("profiles")
+              .select("onboarding_completed")
+              .eq("id", userId)
+              .maybeSingle()
+          : { data: null, error: null };
+
+        if (profileError) {
+          console.error("AUTH ONBOARDING PROFILE CHECK ERROR:", profileError);
+        }
+
+        const localOnboardingComplete =
+          userId &&
+          localStorage.getItem(getLocalOnboardingKey(userId)) === "true";
+
+        if (profileError && !isMissingOnboardingColumn(profileError)) {
+          router.push("/dashboard");
+          router.refresh();
+          return;
+        }
+
+        router.push(
+          profile?.onboarding_completed || localOnboardingComplete
+            ? "/dashboard"
+            : "/onboarding"
+        );
         router.refresh();
         return;
       }
