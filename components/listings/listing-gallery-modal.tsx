@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 type GalleryImage = {
@@ -27,63 +27,141 @@ export default function ListingGalleryModal({
   onClose,
 }: ListingGalleryModalProps) {
   const t = useTranslations("listingGallery");
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastWheelNavigationRef = useRef(0);
 
   useEffect(() => {
-    setCurrentIndex(initialIndex);
-  }, [initialIndex]);
-
-  useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || images.length === 0) return;
 
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        setIsZoomed(false);
+        setSelectedIndex(null);
+        onClose();
+      }
       if (e.key === "ArrowRight") {
-        setCurrentIndex((prev) => (prev + 1) % images.length);
+        setIsZoomed(false);
+        setSelectedIndex((prev) => ((prev ?? initialIndex) + 1) % images.length);
       }
       if (e.key === "ArrowLeft") {
-        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+        setIsZoomed(false);
+        setSelectedIndex(
+          (prev) => ((prev ?? initialIndex) - 1 + images.length) % images.length
+        );
       }
     }
+
+    const previousOverflow = document.body.style.overflow;
 
     document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "auto";
+      document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, images.length, onClose]);
+  }, [initialIndex, isOpen, images.length, onClose]);
 
   if (!isOpen || images.length === 0) return null;
 
+  const currentIndex = Math.min(
+    Math.max(selectedIndex ?? initialIndex, 0),
+    images.length - 1
+  );
   const currentImage = images[currentIndex];
 
+  function closeModal() {
+    setIsZoomed(false);
+    setSelectedIndex(null);
+    onClose();
+  }
+
   function goNext() {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
+    setIsZoomed(false);
+    setSelectedIndex((currentIndex + 1) % images.length);
   }
 
   function goPrev() {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    setIsZoomed(false);
+    setSelectedIndex((currentIndex - 1 + images.length) % images.length);
+  }
+
+  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const touch = e.touches[0];
+
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  }
+
+  function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    const start = touchStartRef.current;
+    const touch = e.changedTouches[0];
+
+    touchStartRef.current = null;
+
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const isHorizontalSwipe =
+      Math.abs(deltaX) > 52 && Math.abs(deltaX) > Math.abs(deltaY) * 1.35;
+
+    if (!isHorizontalSwipe) return;
+
+    if (deltaX < 0) {
+      goNext();
+    } else {
+      goPrev();
+    }
+  }
+
+  function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
+    const now = Date.now();
+    const isHorizontalSwipe =
+      Math.abs(e.deltaX) > 48 && Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.35;
+
+    if (!isHorizontalSwipe || now - lastWheelNavigationRef.current < 650) {
+      return;
+    }
+
+    e.preventDefault();
+    lastWheelNavigationRef.current = now;
+
+    if (e.deltaX > 0) {
+      goNext();
+    } else {
+      goPrev();
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90">
+    <div className="fixed inset-0 z-[99999] bg-black/90">
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between px-4 py-4 text-white md:px-8">
-          <button
-            onClick={onClose}
-            className="rounded-full border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
-          >
-            {t("close")}
-          </button>
+        <button
+          type="button"
+          onClick={closeModal}
+          className="fixed right-4 top-4 z-[100000] flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl font-bold leading-none text-black shadow-2xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-white md:right-8 md:top-6"
+          aria-label={t("close")}
+        >
+          ×
+        </button>
 
+        <div className="flex items-center justify-center px-4 py-4 text-white md:px-8">
           <div className="text-sm">
             {currentIndex + 1} / {images.length}
           </div>
         </div>
 
-        <div className="relative flex flex-1 items-center justify-center px-4 md:px-12">
+        <div
+          className="relative flex flex-1 items-center justify-center overflow-auto px-4 md:px-12"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onWheel={handleWheel}
+        >
           <button
             onClick={goPrev}
             className="absolute left-3 z-10 rounded-full bg-white/10 p-3 text-white backdrop-blur hover:bg-white/20 md:left-6"
@@ -92,11 +170,27 @@ export default function ListingGalleryModal({
             ‹
           </button>
 
-          <img
-            src={currentImage.image_url}
-            alt={t("listingPhotoNumberAlt", { number: currentIndex + 1 })}
-            className="max-h-[72vh] w-auto max-w-full rounded-2xl object-contain"
-          />
+          <button
+            type="button"
+            onClick={() => setIsZoomed((current) => !current)}
+            className={
+              isZoomed
+                ? "fixed inset-0 z-[5] flex cursor-zoom-out items-center justify-center bg-black p-3"
+                : "flex min-h-full min-w-full cursor-zoom-in items-center justify-center"
+            }
+            aria-label={t("listingPhotoNumberAlt", { number: currentIndex + 1 })}
+          >
+            <img
+              src={currentImage.image_url}
+              alt={t("listingPhotoNumberAlt", { number: currentIndex + 1 })}
+              draggable={false}
+              className={`w-auto rounded-2xl object-contain transition-transform duration-200 ${
+                isZoomed
+                  ? "max-h-[calc(100vh-1.5rem)] max-w-[calc(100vw-1.5rem)] cursor-zoom-out"
+                  : "max-h-[72vh] max-w-full cursor-zoom-in"
+              }`}
+            />
+          </button>
 
           <button
             onClick={goNext}
@@ -115,7 +209,10 @@ export default function ListingGalleryModal({
               return (
                 <button
                   key={image.id}
-                  onClick={() => setCurrentIndex(index)}
+                  onClick={() => {
+                    setIsZoomed(false);
+                    setSelectedIndex(index);
+                  }}
                   className={`relative h-20 w-28 flex-shrink-0 overflow-hidden rounded-xl border ${
                     active
                       ? "border-white"
