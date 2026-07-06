@@ -70,11 +70,11 @@ export default function ListingImageGallery({
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-3xl border border-gray-800">
-        <div className="grid h-[440px] grid-cols-1 gap-2 bg-black md:grid-cols-4 md:grid-rows-2">
+      <div className="relative overflow-hidden rounded-3xl border border-gray-800 bg-black">
+        <div className="bg-black md:grid md:h-[440px] md:grid-cols-4 md:grid-rows-2 md:gap-2">
           <button
             onClick={() => openModal(0)}
-            className="md:col-span-2 md:row-span-2"
+            className="block h-[360px] w-full md:col-span-2 md:row-span-2 md:h-auto"
           >
             <img
               src={previewImages[0]?.image_url}
@@ -88,6 +88,22 @@ export default function ListingImageGallery({
               key={image.id}
               onClick={() => openModal(index + 1)}
               className="hidden md:block"
+            >
+              <img
+                src={image.image_url}
+                alt={t("listingImageNumberAlt", { number: index + 2 })}
+                className="h-full w-full object-cover transition duration-300 hover:brightness-95"
+              />
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto border-t border-gray-800 bg-black p-2 md:hidden">
+          {images.slice(1, 5).map((image, index) => (
+            <button
+              key={image.id}
+              onClick={() => openModal(index + 1)}
+              className="h-24 w-32 flex-shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5"
             >
               <img
                 src={image.image_url}
