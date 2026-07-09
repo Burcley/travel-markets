@@ -10,9 +10,13 @@ type OnboardingPath = "find_housing" | "list_property";
 type ExistingProfile = {
   id: string;
   onboarding_completed: boolean | null;
+  full_name?: string | null;
+  phone?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
 };
 
-const totalGuideSteps = 4;
+const totalGuideSteps = 5;
 
 function isMissingOnboardingInfrastructure(error: unknown) {
   if (!error || typeof error !== "object") return false;
@@ -43,6 +47,10 @@ export default function OnboardingPage() {
   const [selectedPath, setSelectedPath] =
     useState<OnboardingPath>("find_housing");
   const [step, setStep] = useState(0);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fallbackMessage, setFallbackMessage] = useState("");
@@ -77,7 +85,7 @@ export default function OnboardingPage() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, onboarding_completed")
+      .select("id, full_name, phone, bio, avatar_url, onboarding_completed")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -94,7 +102,7 @@ export default function OnboardingPage() {
 
       const { data: profileWithoutFlag, error: idOnlyError } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, full_name, phone, bio, avatar_url")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -151,7 +159,61 @@ export default function OnboardingPage() {
       return;
     }
 
+    setFullName(profile?.full_name || "");
+    setPhone(profile?.phone || "");
+    setBio(profile?.bio || "");
+    setAvatarUrl(profile?.avatar_url || null);
+
     setLoading(false);
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!userId) return;
+
+    const ext = file.name.split(".").pop();
+    const path = `${userId}/avatar-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, {
+      upsert: true,
+    });
+
+    if (error) {
+      console.error("ONBOARDING AVATAR UPLOAD ERROR:", error);
+      return;
+    }
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    setAvatarUrl(data.publicUrl);
+  }
+
+  async function saveProfileSetup() {
+    if (!userId) return true;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        phone,
+        bio,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("ONBOARDING PROFILE SAVE ERROR:", error);
+      setFallbackMessage(t("preparingProfile"));
+      return false;
+    }
+
+    return true;
+  }
+
+  async function continueFromProfile() {
+    setSaving(true);
+    const saved = await saveProfileSetup();
+    setSaving(false);
+
+    if (saved) setStep(1);
   }
 
   async function completeOnboarding() {
@@ -159,6 +221,7 @@ export default function OnboardingPage() {
 
     setSaving(true);
     setFallbackMessage("");
+    await saveProfileSetup();
 
     if (!supportsOnboardingColumn) {
       localStorage.setItem(getLocalOnboardingKey(userId), "true");
@@ -192,7 +255,7 @@ export default function OnboardingPage() {
 
   const guideRole =
     selectedPath === "list_property" ? "landlordGuide" : "studentGuide";
-  const guideStep = step > 0 ? step : 1;
+  const guideStep = step > 1 ? step - 1 : 1;
 
   if (loading) {
     return (
@@ -222,9 +285,9 @@ export default function OnboardingPage() {
           </div>
 
           <p className="mt-3 text-center text-sm text-zinc-500">
-            {step === 0
+            {step <= 1
               ? t("chooseRoleProgress")
-              : t("progress", { step, total: totalGuideSteps })}
+              : t("progress", { step: step - 1, total: totalGuideSteps - 1 })}
           </p>
         </div>
 
@@ -241,6 +304,93 @@ export default function OnboardingPage() {
           </div>
 
           {step === 0 ? (
+            <div>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-pink-500 text-xl font-black">
+                TM
+              </div>
+
+              <div className="mt-6 text-center">
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
+                  {t("profileSetupEyebrow")}
+                </p>
+                <h1 className="mt-3 text-3xl font-black sm:text-5xl">
+                  {t("profileSetupTitle")}
+                </h1>
+                <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
+                  {t("profileSetupText")}
+                </p>
+              </div>
+
+              <div className="mx-auto mt-8 max-w-2xl space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="h-24 w-24 overflow-hidden rounded-full border border-white/10 bg-black">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={fullName || email || "User"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl font-black">
+                        {(fullName || email || "U").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  <label className="cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-center text-sm font-semibold hover:bg-white/10">
+                    {t("uploadPhoto")}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadAvatar(file);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder={t("fullName")}
+                  className="w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
+                />
+
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder={t("phone")}
+                  className="w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
+                />
+
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder={t("bio")}
+                  rows={4}
+                  className="w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
+                />
+              </div>
+
+              {fallbackMessage && (
+                <p className="mx-auto mt-4 max-w-xl text-center text-sm leading-6 text-zinc-500">
+                  {fallbackMessage}
+                </p>
+              )}
+
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={continueFromProfile}
+                  disabled={saving}
+                  className="rounded-2xl bg-white px-8 py-3 font-bold text-black shadow-lg shadow-white/10 transition hover:bg-zinc-200 disabled:opacity-50"
+                >
+                  {saving ? t("saving") : t("continue")}
+                </button>
+              </div>
+            </div>
+          ) : step === 1 ? (
             <div className="text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-pink-500 text-xl font-black">
                 TM
@@ -281,7 +431,7 @@ export default function OnboardingPage() {
 
               <div className="mt-8 flex justify-center">
                 <button
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(2)}
                   className="rounded-2xl bg-white px-8 py-3 font-bold text-black shadow-lg shadow-white/10 transition hover:bg-zinc-200"
                 >
                   {t("continue")}
@@ -324,7 +474,7 @@ export default function OnboardingPage() {
 
               <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                 <button
-                  onClick={() => setStep((current) => Math.max(current - 1, 0))}
+                  onClick={() => setStep((current) => Math.max(current - 1, 1))}
                   className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10"
                 >
                   {t("back")}

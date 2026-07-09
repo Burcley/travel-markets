@@ -26,6 +26,8 @@ type Stats = {
   inquiries: number;
   chats: number;
   viewings: number;
+  savedHomes: number;
+  recentlyViewed: number;
 };
 
 type Subscription = {
@@ -100,6 +102,8 @@ export default function DashboardPage() {
     inquiries: 0,
     chats: 0,
     viewings: 0,
+    savedHomes: 0,
+    recentlyViewed: 0,
   });
 
   const [name, setName] = useState("User");
@@ -119,6 +123,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const displayName = getFirstName(name, t("fallbackUser"));
+  const normalizedRole = role === "owner" || role === "landlord" || role === "host" ? "owner" : role;
+  const isStudent = normalizedRole !== "owner" && normalizedRole !== "admin";
 
   const plan = subscription.plan || "free";
   const listingLimit = PLAN_LIMITS[plan] || 1;
@@ -242,11 +248,23 @@ export default function DashboardPage() {
       .select("*", { count: "exact", head: true })
       .or(`owner_id.eq.${user.id},requester_id.eq.${user.id}`);
 
+    const { count: savedHomes } = await supabase
+      .from("saved_listings")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    const { count: recentlyViewed } = await supabase
+      .from("recently_viewed")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
     setStats({
       listings: listings || 0,
       inquiries: inquiries || 0,
       chats: chats || 0,
       viewings: viewings || 0,
+      savedHomes: savedHomes || 0,
+      recentlyViewed: recentlyViewed || 0,
     });
 
     if (listingIds.length > 0) {
@@ -257,7 +275,9 @@ export default function DashboardPage() {
           supabase.from("viewings").select("listing_id").in("listing_id", listingIds),
         ]);
 
-      const countByListing = (rows: any[] | null | undefined) => {
+      const countByListing = (
+        rows: { listing_id?: string | null }[] | null | undefined
+      ) => {
         const map = new Map<string, number>();
 
         (rows || []).forEach((row) => {
@@ -304,6 +324,95 @@ export default function DashboardPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
         <p className="text-zinc-400">{t("loading")}</p>
+      </main>
+    );
+  }
+
+  if (isStudent) {
+    return (
+      <main className="min-h-screen overflow-x-hidden bg-black px-4 py-5 text-white sm:px-6 md:px-8 md:py-8">
+        <div className="mx-auto max-w-7xl space-y-6 md:space-y-8">
+          <section className="rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-zinc-900 via-black to-zinc-950 p-5 shadow-2xl sm:rounded-[2rem] md:p-8">
+            <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-pink-300 sm:text-sm sm:normal-case sm:tracking-normal">
+                  {t("student.center")}
+                </p>
+
+                <h1 className="mt-3 max-w-full text-[2rem] font-black leading-[1.06] tracking-tight sm:text-5xl md:text-6xl">
+                  {t("welcomeBack")}
+                  <span className="block max-w-full truncate text-white/90 sm:inline sm:pl-2">
+                    {displayName}
+                  </span>
+                </h1>
+
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
+                  {t("student.intro")}
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-1">
+                <DashboardButton href="/search" variant="white" icon={<Home size={18} />}>
+                  {t("student.findHousing")}
+                </DashboardButton>
+
+                <DashboardButton href="/profile" variant="dark" icon={<User size={18} />}>
+                  {t("editProfile")}
+                </DashboardButton>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[1.6rem] border border-pink-500/20 bg-pink-500/10 p-5 shadow-2xl sm:rounded-[2rem] md:p-6">
+            <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-pink-200">
+                  {t("profileCompletion.eyebrow")}
+                </p>
+                <h2 className="mt-1 text-2xl font-black">
+                  {t("profileCompletion.title")}
+                </h2>
+                <p className="mt-2 text-sm text-pink-100/75">
+                  {t("profileCompletion.text", { percent: completionPercent })}
+                </p>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/40">
+                  <div
+                    className="h-full rounded-full bg-white"
+                    style={{ width: `${completionPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <Link
+                href="/profile"
+                className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-bold text-black"
+              >
+                {t("profileCompletion.action")}
+              </Link>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
+            <StatCard title={t("student.savedHomes")} value={stats.savedHomes} icon={<Heart size={20} />} href="/saved-listings" />
+            <StatCard title={t("student.sentInquiries")} value={stats.inquiries} icon={<MessageCircle size={20} />} href="/inquiries/sent" />
+            <StatCard title={t("student.messages")} value={stats.chats} icon={<MessageCircle size={20} />} href="/messages" />
+            <StatCard title={t("student.viewingRequests")} value={stats.viewings} icon={<CalendarDays size={20} />} href="/viewings" />
+            <StatCard title={t("student.recentlyViewed")} value={stats.recentlyViewed} icon={<Eye size={20} />} href="/recently-viewed" />
+          </section>
+
+          <section className="rounded-[1.6rem] border border-white/10 bg-[#080808] p-5 shadow-2xl sm:rounded-[2rem] md:p-6">
+            <h2 className="text-xl font-bold sm:text-2xl">{t("quickActions.title")}</h2>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <ActionCard href="/search" title={t("student.searchTitle")} description={t("student.searchText")} icon={<Home size={20} />} />
+              <ActionCard href="/saved-listings" title={t("student.savedTitle")} description={t("student.savedText")} icon={<Heart size={20} />} />
+              <ActionCard href="/inquiries/sent" title={t("student.inquiriesTitle")} description={t("student.inquiriesText")} icon={<MessageCircle size={20} />} />
+              <ActionCard href="/viewings" title={t("student.viewingsTitle")} description={t("student.viewingsText")} icon={<CalendarDays size={20} />} />
+              <ActionCard href="/recently-viewed" title={t("student.recentTitle")} description={t("student.recentText")} icon={<Eye size={20} />} />
+              <ActionCard href="/settings" title={t("student.settingsTitle")} description={t("student.settingsText")} icon={<User size={20} />} />
+            </div>
+          </section>
+        </div>
       </main>
     );
   }

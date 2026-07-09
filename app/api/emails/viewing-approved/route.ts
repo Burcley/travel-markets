@@ -9,6 +9,13 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getViewingTypeLabel(type?: string | null) {
+  if (type === "video_call") return "Live video call";
+  if (type === "video_tour") return "Video tour request";
+
+  return "In-person viewing";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -30,7 +37,7 @@ export async function POST(request: NextRequest) {
     const { data: viewing, error: viewingError } = await supabaseAdmin
       .from("viewings")
       .select(
-        "id, owner_id, requester_id, listing_id, slot_id, requested_date, requested_time, status"
+        "id, owner_id, requester_id, listing_id, slot_id, requested_date, requested_time, status, viewing_type"
       )
       .eq("id", viewingId)
       .maybeSingle();
@@ -86,15 +93,21 @@ export async function POST(request: NextRequest) {
     }
 
     const listingTitle = listing?.title || "your viewing";
+    const isVideoTour = viewing.viewing_type === "video_tour";
+    const isVideoCall = viewing.viewing_type === "video_call";
 
     const viewingDate =
-      slot?.slot_date || viewing.requested_date || "Date unavailable";
+      isVideoTour
+        ? "Not required"
+        : slot?.slot_date || viewing.requested_date || "Date unavailable";
 
-    const viewingTime = slot?.start_time
-      ? slot.end_time
-        ? `${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)}`
-        : slot.start_time.slice(0, 5)
-      : viewing.requested_time || "Time unavailable";
+    const viewingTime = isVideoTour
+      ? "Continue in messages"
+      : slot?.start_time
+        ? slot.end_time
+          ? `${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)}`
+          : slot.start_time.slice(0, 5)
+        : viewing.requested_time || "Time unavailable";
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -103,10 +116,15 @@ export async function POST(request: NextRequest) {
       to: requesterUser.user.email,
       subject: "Your viewing was approved",
       html: viewingApprovedTemplate({
-        listingTitle,
+        listingTitle: `${listingTitle} (${getViewingTypeLabel(
+          viewing.viewing_type
+        )})`,
         viewingDate,
         viewingTime,
-        addressUrl: `${appUrl}/address-unlocked/${viewing.listing_id}`,
+        addressUrl:
+          isVideoTour || isVideoCall
+            ? `${appUrl}/messages`
+            : `${appUrl}/address-unlocked/${viewing.listing_id}`,
       }),
     });
 
@@ -117,11 +135,13 @@ export async function POST(request: NextRequest) {
       sentTo: requesterUser.user.email,
       result: emailResult,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("VIEWING APPROVED EMAIL ERROR:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to send email" },
+      {
+        error: error instanceof Error ? error.message : "Failed to send email",
+      },
       { status: 500 }
     );
   }

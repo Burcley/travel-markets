@@ -46,6 +46,27 @@ type Profile = {
   avatar_url: string | null;
 };
 
+type ListingImageRow = {
+  listing_id: string | null;
+  image_url: string | null;
+};
+
+type Viewing = {
+  id: string;
+  inquiry_id: string | null;
+  listing_id: string;
+  owner_id: string;
+  requester_id: string;
+  requested_date: string | null;
+  requested_time: string | null;
+  note: string | null;
+  status: "pending" | "accepted" | "declined" | "completed" | "suggested";
+  viewing_type?: "in_person" | "video_call" | "video_tour" | null;
+  owner_suggested_date?: string | null;
+  owner_suggested_time?: string | null;
+  owner_suggested_message?: string | null;
+};
+
 export default function ChatPage() {
   const t = useTranslations("chatPage");
   const supabase = createClient();
@@ -65,6 +86,7 @@ export default function ChatPage() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [listingCovers, setListingCovers] = useState<Record<string, string>>({});
   const [messages, setMessages] = useState<Message[]>([]);
+  const [latestViewing, setLatestViewing] = useState<Viewing | null>(null);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -138,6 +160,37 @@ export default function ChatPage() {
     );
   }
 
+  function getViewingTypeLabel(viewing?: Viewing | null) {
+    if (!viewing) return "";
+    if (viewing.viewing_type === "video_call") return t("viewingTypes.videoCall");
+    if (viewing.viewing_type === "video_tour") {
+      return t("viewingTypes.recordedTour");
+    }
+
+    return t("viewingTypes.inPerson");
+  }
+
+  function getViewingStatusLabel(status?: Viewing["status"]) {
+    if (status === "accepted") return t("viewingStatuses.accepted");
+    if (status === "declined") return t("viewingStatuses.declined");
+    if (status === "completed") return t("viewingStatuses.completed");
+    if (status === "suggested") return t("viewingStatuses.suggested");
+
+    return t("viewingStatuses.pending");
+  }
+
+  function getViewingGuidance(viewing: Viewing) {
+    if (viewing.viewing_type === "video_call") {
+      return t("videoCallGuidance");
+    }
+
+    if (viewing.viewing_type === "video_tour") {
+      return t("videoTourGuidance");
+    }
+
+    return t("inPersonGuidance");
+  }
+
   async function markMessagesAsRead(currentUserId: string) {
     if (!inquiryId) return;
 
@@ -161,6 +214,26 @@ export default function ChatPage() {
       .order("created_at", { ascending: true });
 
     setMessages((data || []) as Message[]);
+  }
+
+  async function loadLatestViewing(currentInquiryId: string) {
+    const { data, error } = await supabase
+      .from("viewings")
+      .select(
+        "id, inquiry_id, listing_id, owner_id, requester_id, requested_date, requested_time, note, status, viewing_type, owner_suggested_date, owner_suggested_time, owner_suggested_message"
+      )
+      .eq("inquiry_id", currentInquiryId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("LOAD LATEST VIEWING ERROR:", error);
+      setLatestViewing(null);
+      return;
+    }
+
+    setLatestViewing((data as Viewing) || null);
   }
 
   async function loadProfilesAndCovers(items: Inquiry[]) {
@@ -197,7 +270,9 @@ export default function ChatPage() {
 
       const coverMap: Record<string, string> = {};
 
-      (data || []).forEach((image: any) => {
+      ((data || []) as ListingImageRow[]).forEach((image) => {
+        if (!image.listing_id) return;
+
         if (!coverMap[image.listing_id] && image.image_url) {
           coverMap[image.listing_id] = image.image_url;
         }
@@ -322,6 +397,7 @@ export default function ChatPage() {
     setInquiry(normalizedInquiry);
 
     await loadProfilesAndCovers([normalizedInquiry, ...conversationList]);
+    await loadLatestViewing(normalizedInquiry.id);
     await loadMessagesOnly(user.id);
 
     setLoading(false);
@@ -564,6 +640,67 @@ export default function ChatPage() {
             </Link>
           </div>
 
+          {latestViewing && (
+            <div className="border-b border-white/10 bg-[#060606] px-4 py-4 sm:px-6 xl:hidden">
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-white">
+                    {t("viewingRequest")}
+                  </p>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-300">
+                    {getViewingStatusLabel(latestViewing.status)}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-sm text-zinc-300">
+                  {getViewingTypeLabel(latestViewing)}
+                </p>
+
+                {latestViewing.viewing_type !== "video_tour" && (
+                  <p className="mt-2 text-sm text-zinc-500">
+                    {latestViewing.requested_date || t("dateUnavailable")}
+                    {latestViewing.requested_time
+                      ? ` • ${latestViewing.requested_time.slice(0, 5)}`
+                      : ""}
+                  </p>
+                )}
+
+                {latestViewing.note && (
+                  <p className="mt-3 text-sm leading-6 text-zinc-400">
+                    {latestViewing.note}
+                  </p>
+                )}
+
+                {latestViewing.status === "suggested" && (
+                  <div className="mt-3 rounded-xl border border-purple-500/20 bg-purple-500/10 p-3 text-sm text-purple-100/80">
+                    <p className="font-semibold text-purple-300">
+                      {t("suggestedTime")}
+                    </p>
+                    <p className="mt-1">
+                      {latestViewing.owner_suggested_date ||
+                        t("dateUnavailable")}
+                      {latestViewing.owner_suggested_time
+                        ? ` • ${latestViewing.owner_suggested_time.slice(0, 5)}`
+                        : ""}
+                    </p>
+                    {latestViewing.owner_suggested_message && (
+                      <p className="mt-2">
+                        {latestViewing.owner_suggested_message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {(latestViewing.status === "pending" ||
+                  latestViewing.status === "accepted") && (
+                  <p className="mt-3 text-sm leading-6 text-blue-200/80">
+                    {getViewingGuidance(latestViewing)}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center text-zinc-500">
@@ -701,6 +838,65 @@ export default function ChatPage() {
             <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300">
               {t("acceptedInquiryNotice")}
             </div>
+
+            {latestViewing && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-white">
+                    {t("viewingRequest")}
+                  </p>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-300">
+                    {getViewingStatusLabel(latestViewing.status)}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-sm text-zinc-300">
+                  {getViewingTypeLabel(latestViewing)}
+                </p>
+
+                {latestViewing.viewing_type !== "video_tour" && (
+                  <p className="mt-2 text-sm text-zinc-500">
+                    {latestViewing.requested_date || t("dateUnavailable")}
+                    {latestViewing.requested_time
+                      ? ` • ${latestViewing.requested_time.slice(0, 5)}`
+                      : ""}
+                  </p>
+                )}
+
+                {latestViewing.note && (
+                  <p className="mt-3 text-sm leading-6 text-zinc-400">
+                    {latestViewing.note}
+                  </p>
+                )}
+
+                {latestViewing.status === "suggested" && (
+                  <div className="mt-3 rounded-xl border border-purple-500/20 bg-purple-500/10 p-3 text-sm text-purple-100/80">
+                    <p className="font-semibold text-purple-300">
+                      {t("suggestedTime")}
+                    </p>
+                    <p className="mt-1">
+                      {latestViewing.owner_suggested_date ||
+                        t("dateUnavailable")}
+                      {latestViewing.owner_suggested_time
+                        ? ` • ${latestViewing.owner_suggested_time.slice(0, 5)}`
+                        : ""}
+                    </p>
+                    {latestViewing.owner_suggested_message && (
+                      <p className="mt-2">
+                        {latestViewing.owner_suggested_message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {(latestViewing.status === "pending" ||
+                  latestViewing.status === "accepted") && (
+                  <p className="mt-3 text-sm leading-6 text-blue-200/80">
+                    {getViewingGuidance(latestViewing)}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="mt-5 border-t border-white/10 pt-5">
               <p className="text-sm font-bold text-zinc-400">{t("owner")}</p>

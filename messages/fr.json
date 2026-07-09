@@ -21,7 +21,8 @@
       "verifyIdentity": "Vérifier l’identité",
       "hostDashboard": "Tableau de bord hôte",
       "receivedInquiries": "Demandes reçues",
-      "adminPanel": "Panneau admin"
+      "adminPanel": "Panneau admin",
+      "settings": "Paramètres"
     },
     "notifications": {
       "title": "Notifications",
@@ -53,7 +54,8 @@
       "login": "Se connecter",
       "signup": "S’inscrire",
       "postListing": "Publier une annonce",
-      "signIn": "Se connecter"
+      "signIn": "Se connecter",
+      "findHousing": "Trouver un logement"
     }
   },
   "home": {
@@ -595,6 +597,28 @@
       "planStatus": "Statut du forfait",
       "boostsUsed": "Boosts utilisés",
       "nextBillingDate": "Prochaine date de facturation"
+    },
+    "student": {
+      "center": "Centre logement étudiant",
+      "intro": "Suivez vos logements favoris, demandes, messages, visites et la préparation de votre profil pendant votre recherche.",
+      "findHousing": "Trouver un logement",
+      "savedHomes": "Logements favoris",
+      "sentInquiries": "Demandes envoyées",
+      "messages": "Messages",
+      "viewingRequests": "Demandes de visite",
+      "recentlyViewed": "Vus récemment",
+      "searchTitle": "Rechercher des locations",
+      "searchText": "Trouvez des logements étudiants près du campus avec des filtres adaptés à votre budget et calendrier.",
+      "savedTitle": "Logements favoris",
+      "savedText": "Consultez les logements enregistrés pendant votre comparaison.",
+      "inquiriesTitle": "Demandes envoyées",
+      "inquiriesText": "Suivez les demandes sérieuses envoyées aux propriétaires.",
+      "viewingsTitle": "Demandes de visite",
+      "viewingsText": "Gérez les demandes en personne, par appel vidéo et visite vidéo.",
+      "recentTitle": "Vus récemment",
+      "recentText": "Revenez aux annonces consultées récemment.",
+      "settingsTitle": "Paramètres",
+      "settingsText": "Mettez à jour votre compte, préférences, notifications et sécurité."
     }
   },
   "profile": {
@@ -892,7 +916,25 @@
     "verifiedContact": "Contact vérifié",
     "viewListing": "Voir l’annonce",
     "requestViewing": "Demander une visite",
-    "manageViewings": "Gérer les visites"
+    "manageViewings": "Gérer les visites",
+    "viewingRequest": "Demande de visite",
+    "dateUnavailable": "Date indisponible",
+    "viewingTypes": {
+      "inPerson": "En personne",
+      "videoCall": "Appel vidéo en direct",
+      "recordedTour": "Demande de visite vidéo"
+    },
+    "viewingStatuses": {
+      "pending": "En attente",
+      "accepted": "Acceptée",
+      "declined": "Refusée",
+      "completed": "Terminée",
+      "suggested": "Nouvel horaire suggéré"
+    },
+    "videoCallGuidance": "Continuez dans les messages pour partager les détails de l’appel vidéo.",
+    "videoTourGuidance": "Continuez dans les messages pour partager la visite vidéo ou le lien vidéo.",
+    "inPersonGuidance": "Continuez dans les messages pour confirmer les détails d’arrivée.",
+    "suggestedTime": "Horaire suggéré"
   },
   "inquiries": {
     "hub": {
@@ -1019,7 +1061,34 @@
       "acceptViewing": "Accepter la visite",
       "decline": "Refuser",
       "completing": "Finalisation...",
-      "markCompleted": "Marquer la visite comme terminée"
+      "markCompleted": "Marquer la visite comme terminée",
+      "type": "Type",
+      "remoteApprovedText": "Le propriétaire partagera les détails de l’appel vidéo ou de la visite dans les messages.",
+      "remoteNextTitle": "Continuer dans les messages",
+      "remoteNextText": "Utilisez la discussion liée pour coordonner l’appel vidéo ou recevoir la visite enregistrée.",
+      "types": {
+        "inPerson": "En personne",
+        "videoCall": "Appel vidéo",
+        "recordedTour": "Visite vidéo enregistrée"
+      },
+      "tourApprovedText": "Continuez dans les messages pour recevoir la visite vidéo ou le lien vidéo.",
+      "tourNextText": "Utilisez la discussion liée pour recevoir la visite vidéo ou le lien vidéo du propriétaire.",
+      "suggestedTitle": "Autre horaire suggéré",
+      "suggestedText": "Le propriétaire a suggéré un autre horaire. Continuez dans les messages si vous devez coordonner.",
+      "suggestedTime": "Horaire suggéré",
+      "suggestAnotherTime": "Suggérer un autre horaire",
+      "suggestedDate": "Date suggérée",
+      "suggestedTimeLabel": "Heure suggérée",
+      "suggestionMessagePlaceholder": "Ajoutez une note facultative au sujet de l’horaire suggéré...",
+      "sendSuggestion": "Envoyer la suggestion",
+      "suggestionRequired": "Veuillez entrer une date et une heure suggérées.",
+      "statuses": {
+        "pending": "En attente",
+        "accepted": "Acceptée",
+        "declined": "Refusée",
+        "completed": "Terminée",
+        "suggested": "Horaire suggéré"
+      }
     },
     "request": {
       "restrictedError": "Votre compte est restreint. Vous ne pouvez pas demander de visites.",
@@ -1040,7 +1109,21 @@
       "noteToOwner": "Note au propriétaire",
       "notePlaceholder": "Exemple : Je suis disponible après les cours.",
       "submitting": "Envoi...",
-      "requestViewing": "Demander une visite"
+      "requestViewing": "Demander une visite",
+      "types": {
+        "in_person": {
+          "title": "Visite en personne",
+          "text": "Demandez une date et une heure préférées pour visiter la propriété."
+        },
+        "video_call": {
+          "title": "Appel vidéo en direct",
+          "text": "Demandez une visite vidéo en direct. Le lien et les détails se poursuivent dans les messages."
+        },
+        "video_tour": {
+          "title": "Demander une visite vidéo",
+          "text": "Demandez au propriétaire de partager une visite vidéo enregistrée dans les messages. Aucune date ni heure requise."
+        }
+      }
     }
   },
   "listingManagement": {
@@ -1252,7 +1335,25 @@
       "noTimes": "Aucun créneau de visite disponible pour le moment.",
       "messagePlaceholder": "Message facultatif au propriétaire...",
       "sending": "Envoi...",
-      "requestViewing": "Demander une visite"
+      "requestViewing": "Demander une visite",
+      "chooseVideoDateTime": "Choisissez une date et une heure préférées.",
+      "loginRequired": "Veuillez vous connecter pour demander une visite.",
+      "preferredDate": "Date préférée",
+      "preferredTime": "Heure préférée",
+      "types": {
+        "in_person": {
+          "title": "Visite en personne",
+          "text": "Demandez une date et une heure préférées pour visiter la propriété."
+        },
+        "video_call": {
+          "title": "Appel vidéo en direct",
+          "text": "Demandez une visite vidéo en direct. Le lien et les détails se poursuivent dans les messages."
+        },
+        "video_tour": {
+          "title": "Demander une visite vidéo",
+          "text": "Demandez au propriétaire de partager une visite vidéo enregistrée dans les messages. Aucune date ni heure requise."
+        }
+      }
     },
     "review": {
       "ownListing": "Vous ne pouvez pas évaluer votre propre annonce.",
@@ -1625,7 +1726,14 @@
             }
           }
         }
-      }
+      },
+      "profileSetupEyebrow": "Configuration du profil",
+      "profileSetupTitle": "Configurez votre profil étudiant",
+      "profileSetupText": "Ajoutez les informations de base visibles par les propriétaires lorsque vous envoyez des demandes sérieuses. Vous pouvez ignorer cette étape et la modifier plus tard.",
+      "uploadPhoto": "Téléverser une photo",
+      "fullName": "Nom complet",
+      "phone": "Numéro de téléphone",
+      "bio": "Courte présentation"
     },
     "verifyIdentity": {
       "loginFirst": "Veuillez d’abord vous connecter.",

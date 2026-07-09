@@ -18,6 +18,8 @@ type Inquiry = {
   } | null;
 };
 
+type ViewingType = "in_person" | "video_call" | "video_tour";
+
 export default function RequestViewingPage() {
   const t = useTranslations("viewings.request");
   const router = useRouter();
@@ -29,6 +31,7 @@ export default function RequestViewingPage() {
     : params.inquiryId;
 
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
+  const [viewingType, setViewingType] = useState<ViewingType>("in_person");
   const [requestedDate, setRequestedDate] = useState("");
   const [requestedTime, setRequestedTime] = useState("");
   const [note, setNote] = useState("");
@@ -139,7 +142,7 @@ export default function RequestViewingPage() {
 
     if (!inquiry) return;
 
-    if (!requestedDate || !requestedTime) {
+    if (viewingType !== "video_tour" && (!requestedDate || !requestedTime)) {
       setErrorMessage(t("chooseDateTime"));
       return;
     }
@@ -154,10 +157,11 @@ export default function RequestViewingPage() {
         listing_id: inquiry.listing_id,
         owner_id: inquiry.owner_id,
         requester_id: inquiry.requester_id,
-        requested_date: requestedDate,
-        requested_time: requestedTime,
+        requested_date: viewingType === "video_tour" ? null : requestedDate,
+        requested_time: viewingType === "video_tour" ? null : requestedTime,
         note: note.trim() || null,
         status: "pending",
+        viewing_type: viewingType,
       })
       .select("id")
       .single();
@@ -248,31 +252,63 @@ export default function RequestViewingPage() {
           )}
 
           <form onSubmit={submitViewing} className="mt-6 space-y-5">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-zinc-300">
-                {t("viewingDate")}
-              </label>
-              <input
-                type="date"
-                required
-                value={requestedDate}
-                onChange={(e) => setRequestedDate(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none focus:border-zinc-500"
-              />
+            <div className="grid gap-3 sm:grid-cols-3">
+              {(["in_person", "video_call", "video_tour"] as ViewingType[]).map(
+                (type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setViewingType(type)}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      viewingType === type
+                        ? "border-white bg-white text-black"
+                        : "border-white/10 bg-black text-white hover:border-white/30"
+                    }`}
+                  >
+                    <p className="font-semibold">
+                      {t(`types.${type}.title`)}
+                    </p>
+                    <p
+                      className={`mt-2 text-sm ${
+                        viewingType === type ? "text-zinc-700" : "text-zinc-400"
+                      }`}
+                    >
+                      {t(`types.${type}.text`)}
+                    </p>
+                  </button>
+                )
+              )}
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-zinc-300">
-                {t("viewingTime")}
-              </label>
-              <input
-                type="time"
-                required
-                value={requestedTime}
-                onChange={(e) => setRequestedTime(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none focus:border-zinc-500"
-              />
-            </div>
+            {viewingType !== "video_tour" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-zinc-300">
+                    {t("viewingDate")}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={requestedDate}
+                    onChange={(e) => setRequestedDate(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none focus:border-zinc-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-zinc-300">
+                    {t("viewingTime")}
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={requestedTime}
+                    onChange={(e) => setRequestedTime(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 text-white outline-none focus:border-zinc-500"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-zinc-300">

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
@@ -50,8 +50,38 @@ function getLocalOnboardingKey(userId: string) {
 }
 
 export default function AuthPage() {
+  return (
+    <Suspense fallback={<AuthLoading />}>
+      <AuthForm />
+    </Suspense>
+  );
+}
+
+function AuthLoading() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
+      <p className="text-zinc-400">Loading...</p>
+    </main>
+  );
+}
+
+function normalizeRole(role?: string | null, isAdmin?: boolean | null) {
+  const value = (role || "").toLowerCase();
+
+  if (isAdmin || value === "admin") return "admin";
+  if (value === "owner" || value === "landlord" || value === "host") return "owner";
+
+  return "student";
+}
+
+function isSafeReturnTo(value: string | null) {
+  return Boolean(value && value.startsWith("/") && !value.startsWith("//"));
+}
+
+function AuthForm() {
   const t = useTranslations("accountPages.auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [isLogin, setIsLogin] = useState(true);
@@ -88,7 +118,7 @@ export default function AuthPage() {
         const { data: profile, error: profileError } = userId
           ? await supabase
               .from("profiles")
-              .select("onboarding_completed")
+              .select("role, is_admin, onboarding_completed")
               .eq("id", userId)
               .maybeSingle()
           : { data: null, error: null };
@@ -101,15 +131,27 @@ export default function AuthPage() {
           userId &&
           localStorage.getItem(getLocalOnboardingKey(userId)) === "true";
 
+        const role = normalizeRole(profile?.role, profile?.is_admin);
+        const returnTo = searchParams.get("returnTo") || searchParams.get("redirectTo");
+        const destination =
+          isSafeReturnTo(returnTo) && returnTo
+            ? returnTo
+            : role === "admin"
+              ? "/admin"
+              : role === "owner"
+                ? "/dashboard"
+                : "/search";
+
         if (profileError && !isMissingOnboardingColumn(profileError)) {
-          router.push("/dashboard");
+          console.error("AUTH PROFILE CHECK ERROR:", profileError);
+          router.push(destination);
           router.refresh();
           return;
         }
 
         router.push(
           profile?.onboarding_completed || localOnboardingComplete
-            ? "/dashboard"
+            ? destination
             : "/onboarding"
         );
         router.refresh();

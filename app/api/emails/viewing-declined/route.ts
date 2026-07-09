@@ -8,6 +8,13 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getViewingTypeLabel(type?: string | null) {
+  if (type === "video_call") return "Live video call";
+  if (type === "video_tour") return "Video tour request";
+
+  return "In-person viewing";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -28,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { data: viewing, error } = await supabaseAdmin
       .from("viewings")
-      .select("id, owner_id, requester_id, listing_id, status")
+      .select("id, owner_id, requester_id, listing_id, status, viewing_type")
       .eq("id", viewingId)
       .maybeSingle();
 
@@ -72,6 +79,7 @@ export async function POST(request: NextRequest) {
           <h2>Your viewing request was declined</h2>
           <p>The owner declined your viewing request for:</p>
           <p><strong>${listing?.title || "a listing"}</strong></p>
+          <p><strong>Type:</strong> ${getViewingTypeLabel(viewing.viewing_type)}</p>
           <p>You can continue browsing other listings on Travel Markets.</p>
           <p>
             <a href="${appUrl}/search" style="display:inline-block;background:#000;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold;">
@@ -83,11 +91,16 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("VIEWING DECLINED EMAIL ERROR:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to send viewing declined email" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to send viewing declined email",
+      },
       { status: 500 }
     );
   }

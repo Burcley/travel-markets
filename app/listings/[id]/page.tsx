@@ -191,7 +191,7 @@ export default function ListingDetailsPage() {
 
         const { data: acceptedViewing, error: viewingError } = await supabase
           .from("viewings")
-          .select("id")
+          .select("id, viewing_type")
           .eq("listing_id", safeListing.id)
           .eq("requester_id", user.id)
           .eq("status", "accepted")
@@ -278,9 +278,9 @@ export default function ListingDetailsPage() {
       } else {
         setReviewers([]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("LISTING PAGE CRASH:", error);
-      setPageError(error?.message || t("errors.crashed"));
+      setPageError(error instanceof Error ? error.message : t("errors.crashed"));
       setListing(null);
     } finally {
       setLoading(false);
@@ -342,9 +342,9 @@ export default function ListingDetailsPage() {
 
       router.push("/my-listings");
       router.refresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("DELETE LISTING ERROR:", error);
-      alert(error?.message || t("alerts.deleteFailed"));
+      alert(error instanceof Error ? error.message : t("alerts.deleteFailed"));
     } finally {
       setDeleting(false);
     }

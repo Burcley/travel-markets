@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
   AlertTriangle,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { getCurrentUserSubscription } from "@/lib/subscriptions/server";
 import { OWNER_PLANS } from "@/lib/subscriptions/plans";
+import { createClient } from "@/lib/supabase/server";
 import BillingActions from "./BillingActions";
 
 const PLAN_LIMITS = {
@@ -69,6 +71,7 @@ function getPlanStatusClass(status?: string | null) {
 export default async function BillingPage() {
   const t = await getTranslations("billing");
   const { user, subscription, plan } = await getCurrentUserSubscription();
+  const supabase = await createClient();
 
   const currentPlanKey = (plan || "free") as keyof typeof OWNER_PLANS;
   const currentPlan = OWNER_PLANS[currentPlanKey];
@@ -92,6 +95,24 @@ export default async function BillingPage() {
         </div>
       </main>
     );
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role = (profile?.role || "").toLowerCase();
+  const isOwner =
+    profile?.is_admin ||
+    role === "admin" ||
+    role === "owner" ||
+    role === "landlord" ||
+    role === "host";
+
+  if (!isOwner) {
+    redirect("/search");
   }
 
   return (

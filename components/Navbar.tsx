@@ -72,6 +72,7 @@ const publicNavLinks: NavLink[] = [
 ];
 
 const studentAccountLinks: NavLink[] = [
+  { href: "/settings", label: "settings" },
   { href: "/profile", label: "profile" },
   { href: "/saved-listings", label: "savedListings" },
   { href: "/saved-searches", label: "savedSearches" },
@@ -81,6 +82,7 @@ const studentAccountLinks: NavLink[] = [
 ];
 
 const hostAccountLinks: NavLink[] = [
+  { href: "/settings", label: "settings" },
   { href: "/profile", label: "profile" },
   { href: "/dashboard", label: "hostDashboard" },
   { href: "/my-listings", label: "myListings" },
@@ -90,6 +92,7 @@ const hostAccountLinks: NavLink[] = [
 ];
 
 const adminAccountLinks: NavLink[] = [
+  { href: "/settings", label: "settings" },
   { href: "/profile", label: "profile" },
   { href: "/dashboard", label: "dashboard" },
   { href: "/admin", label: "adminPanel" },
@@ -288,7 +291,8 @@ export default function Navbar() {
       type === "viewing_accepted" ||
       type === "viewing_declined" ||
       type === "viewing_cancelled" ||
-      type === "viewing_completed"
+      type === "viewing_completed" ||
+      type === "viewing_suggested"
     ) {
       return "/viewings";
     }
@@ -674,16 +678,6 @@ export default function Navbar() {
                         </Link>
                       ))}
 
-                      {role !== "host" && role !== "admin" && (
-                        <Link
-                          href="/post"
-                          onClick={() => setAccountOpen(false)}
-                          className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20"
-                        >
-                          {t("actions.becomeHost")}
-                        </Link>
-                      )}
-
                       <button
                         type="button"
                         onClick={handleLogout}
@@ -738,13 +732,13 @@ export default function Navbar() {
           </div>
 
           <Link
-            href={isSignedIn ? "/post" : "/auth"}
+            href={isSignedIn ? role === "host" || role === "admin" ? "/post" : "/search" : "/auth"}
             className="hidden h-12 items-center rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg transition hover:bg-zinc-200 md:flex"
           >
             {isSignedIn
               ? role === "host" || role === "admin"
                 ? t("actions.postListing")
-                : t("actions.becomeHost")
+                : t("actions.findHousing")
               : t("actions.signIn")}
           </Link>
 
@@ -822,13 +816,13 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href="/post"
+                    href={role === "host" || role === "admin" ? "/post" : "/search"}
                     onClick={() => setMobileOpen(false)}
                     className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
                   >
                     {role === "host" || role === "admin"
                       ? t("actions.postListing")
-                      : t("actions.becomeHost")}
+                      : t("actions.findHousing")}
                   </Link>
 
                   <button

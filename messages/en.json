@@ -21,7 +21,8 @@
       "verifyIdentity": "Verify Identity",
       "hostDashboard": "Host Dashboard",
       "receivedInquiries": "Received Inquiries",
-      "adminPanel": "Admin Panel"
+      "adminPanel": "Admin Panel",
+      "settings": "Settings"
     },
     "notifications": {
       "title": "Notifications",
@@ -53,7 +54,8 @@
       "login": "Log in",
       "signup": "Sign up",
       "postListing": "Post Listing",
-      "signIn": "Sign In"
+      "signIn": "Sign In",
+      "findHousing": "Find Housing"
     }
   },
   "home": {
@@ -595,6 +597,28 @@
       "planStatus": "Plan Status",
       "boostsUsed": "Boosts Used",
       "nextBillingDate": "Next Billing Date"
+    },
+    "student": {
+      "center": "Student Housing Center",
+      "intro": "Track saved homes, inquiries, messages, viewings, and profile readiness while you search for housing.",
+      "findHousing": "Find Housing",
+      "savedHomes": "Saved Homes",
+      "sentInquiries": "Sent Inquiries",
+      "messages": "Messages",
+      "viewingRequests": "Viewing Requests",
+      "recentlyViewed": "Recently Viewed",
+      "searchTitle": "Search rentals",
+      "searchText": "Find student homes near campus with filters that match your budget and timeline.",
+      "savedTitle": "Saved homes",
+      "savedText": "Review homes you saved while comparing options.",
+      "inquiriesTitle": "Sent inquiries",
+      "inquiriesText": "Track serious rental inquiries you have sent to landlords.",
+      "viewingsTitle": "Viewing requests",
+      "viewingsText": "Manage in-person, video call, and video tour requests.",
+      "recentTitle": "Recently viewed",
+      "recentText": "Return to listings you opened recently.",
+      "settingsTitle": "Settings",
+      "settingsText": "Update account, preferences, notifications, and security."
     }
   },
   "profile": {
@@ -892,7 +916,25 @@
     "verifiedContact": "Verified contact",
     "viewListing": "View Listing",
     "requestViewing": "Request Viewing",
-    "manageViewings": "Manage Viewings"
+    "manageViewings": "Manage Viewings",
+    "viewingRequest": "Viewing request",
+    "dateUnavailable": "Date unavailable",
+    "viewingTypes": {
+      "inPerson": "In-person",
+      "videoCall": "Live video call",
+      "recordedTour": "Video tour request"
+    },
+    "viewingStatuses": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "completed": "Completed",
+      "suggested": "New time suggested"
+    },
+    "videoCallGuidance": "Continue in messages to share video call details.",
+    "videoTourGuidance": "Continue in messages to share the video tour or video link.",
+    "inPersonGuidance": "Continue in messages to confirm arrival details.",
+    "suggestedTime": "Suggested time"
   },
   "inquiries": {
     "hub": {
@@ -1019,7 +1061,34 @@
       "acceptViewing": "Accept Viewing",
       "decline": "Decline",
       "completing": "Completing...",
-      "markCompleted": "Mark Viewing as Completed"
+      "markCompleted": "Mark Viewing as Completed",
+      "type": "Type",
+      "remoteApprovedText": "The landlord will share the video call or tour details in messages.",
+      "remoteNextTitle": "Continue in messages",
+      "remoteNextText": "Use the related chat to coordinate video call details or receive the recorded tour.",
+      "types": {
+        "inPerson": "In-person",
+        "videoCall": "Video call",
+        "recordedTour": "Recorded video tour"
+      },
+      "tourApprovedText": "Continue in messages to receive the video tour or video link.",
+      "tourNextText": "Use the related chat to receive the video tour or video link from the landlord.",
+      "suggestedTitle": "Another time suggested",
+      "suggestedText": "The landlord suggested another time. Continue in messages if you need to coordinate.",
+      "suggestedTime": "Suggested time",
+      "suggestAnotherTime": "Suggest another time",
+      "suggestedDate": "Suggested date",
+      "suggestedTimeLabel": "Suggested time",
+      "suggestionMessagePlaceholder": "Add an optional note about the suggested time...",
+      "sendSuggestion": "Send suggestion",
+      "suggestionRequired": "Please enter a suggested date and time.",
+      "statuses": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "declined": "Declined",
+        "completed": "Completed",
+        "suggested": "Time suggested"
+      }
     },
     "request": {
       "restrictedError": "Your account is restricted. You cannot request viewings.",
@@ -1040,7 +1109,21 @@
       "noteToOwner": "Note to owner",
       "notePlaceholder": "Example: I am available after class.",
       "submitting": "Submitting...",
-      "requestViewing": "Request Viewing"
+      "requestViewing": "Request Viewing",
+      "types": {
+        "in_person": {
+          "title": "In-person viewing",
+          "text": "Request a preferred date and time to visit the property."
+        },
+        "video_call": {
+          "title": "Live video call",
+          "text": "Request a live video walkthrough. The call link/details continue in messages."
+        },
+        "video_tour": {
+          "title": "Request video tour",
+          "text": "Ask the landlord to share a recorded video tour in messages. No date or time needed."
+        }
+      }
     }
   },
   "listingManagement": {
@@ -1252,7 +1335,25 @@
       "noTimes": "No available viewing times right now.",
       "messagePlaceholder": "Optional message to the owner...",
       "sending": "Sending...",
-      "requestViewing": "Request Viewing"
+      "requestViewing": "Request Viewing",
+      "chooseVideoDateTime": "Choose a preferred date and time.",
+      "loginRequired": "Please sign in to request a viewing.",
+      "preferredDate": "Preferred date",
+      "preferredTime": "Preferred time",
+      "types": {
+        "in_person": {
+          "title": "In-person viewing",
+          "text": "Request a preferred date and time to visit the property."
+        },
+        "video_call": {
+          "title": "Live video call",
+          "text": "Request a live video walkthrough. The call link/details continue in messages."
+        },
+        "video_tour": {
+          "title": "Request video tour",
+          "text": "Ask the landlord to share a recorded video tour in messages. No date or time needed."
+        }
+      }
     },
     "review": {
       "ownListing": "You cannot review your own listing.",
@@ -1625,7 +1726,14 @@
             }
           }
         }
-      }
+      },
+      "profileSetupEyebrow": "Profile setup",
+      "profileSetupTitle": "Set up your student profile",
+      "profileSetupText": "Add the basics landlords and hosts see when you send serious inquiries. You can skip this and update it later.",
+      "uploadPhoto": "Upload profile photo",
+      "fullName": "Full name",
+      "phone": "Phone number",
+      "bio": "Short introduction"
     },
     "verifyIdentity": {
       "loginFirst": "Please log in first.",
