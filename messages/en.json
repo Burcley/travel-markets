@@ -72,6 +72,20 @@
       "viewingAppointments": "Viewing appointments",
       "builtForStudents": "Built for students"
     },
+    "transparencyStrip": {
+      "campusDistance": {
+        "title": "Approximate campus distance",
+        "text": "Listings can show approximate distance and travel times to the nearest campus without exposing the exact address."
+      },
+      "utilities": {
+        "title": "Utilities made clear",
+        "text": "See what is included, what is separate, and any estimated monthly utility costs before you inquire."
+      },
+      "leaseConditions": {
+        "title": "Lease terms upfront",
+        "text": "Review move-in timing, lease type, deposits, guest rules, guarantor needs, and student-friendly conditions earlier."
+      }
+    },
     "finalCta": {
       "title": "Ready to find your next student home?",
       "text": "Search trusted student rentals or list your property for students today.",
@@ -427,6 +441,54 @@
       "city": "City",
       "campusArea": "Campus / Area",
       "exactAddress": "Exact Address"
+    },
+    "campusRoute": {
+      "eyebrow": "Location",
+      "title": "Location and campus route",
+      "description": "Compare estimated travel routes from this property area to the selected campus.",
+      "location": "Location",
+      "nearestCampus": "Nearest campus",
+      "campusMissing": "Campus not selected",
+      "chooseMode": "Choose a travel mode",
+      "modes": {
+        "transit": "Transit",
+        "cycling": "Cycling",
+        "walking": "Walking",
+        "driving": "Driving"
+      },
+      "propertyArea": "Approximate property area",
+      "mapLabel": "Map showing the route from the property area to campus",
+      "calculating": "Calculating route...",
+      "routeError": "We could not load this route right now.",
+      "routeUnavailable": "The route could not be calculated right now.",
+      "mapError": "We could not load the map right now.",
+      "missingMapboxToken": "Mapbox access token is missing.",
+      "missingCampus": "Route unavailable because this campus does not have map coordinates yet.",
+      "retry": "Retry",
+      "from": "From",
+      "to": "To",
+      "routeSummary": "Route summary",
+      "fromTo": "From {from} to {to}",
+      "travelMode": "Travel mode",
+      "distance": "Distance",
+      "estimatedTime": "Estimated time",
+      "openDirections": "Open directions",
+      "openLiveTransitDirections": "Open live transit directions",
+      "viewLiveRoute": "View live route",
+      "checkCurrentSchedule": "Check current schedule",
+      "transit": "Transit",
+      "walk": "Walk",
+      "toward": "toward",
+      "stops": "{count, plural, one {# stop} other {# stops}}",
+      "transitStep": "Transit segment",
+      "summarySentence": "Approximately {duration} by {mode} to {campus}.",
+      "privacyDisclaimer": "The property marker is placed nearby to protect the exact address. Distance and travel-time estimates are calculated from the actual property location.",
+      "externalDirectionsDisclaimer": "External directions begin from the approximate map location.",
+      "exactAddressDisclaimer": "This route uses the unlocked property location.",
+      "walkingCyclingNotice": "Walking and cycling routes are estimates and may not include every sidewalk, pathway or cycling route.",
+      "transitUnavailable": "Live transit routing is currently unavailable.",
+      "transitGoogleMapsHint": "Bus times and routes open in Google Maps.",
+      "transitEstimate": "Live transit routing opens in Google Maps. Transit times are estimates and may vary by schedule, waiting time and service changes."
     },
     "errors": {
       "notFound": "Listing not found.",

@@ -29,9 +29,17 @@ function StatusBadge({
   labels,
 }: {
   status: string | null;
-  labels: { rented: string; pending: string; available: string };
+  labels: { rented: string; pending: string; available: string; draft: string };
 }) {
   const safeStatus = status || "available";
+
+  if (safeStatus === "draft") {
+    return (
+      <span className="rounded-full bg-zinc-500/20 px-3 py-1 text-xs font-semibold text-zinc-300">
+        {labels.draft}
+      </span>
+    );
+  }
 
   if (safeStatus === "rented") {
     return (
@@ -78,6 +86,7 @@ export default async function MyListingsPage() {
     rented: t("status.rented"),
     pending: t("status.pending"),
     available: t("status.available"),
+    draft: "Draft",
   };
 
   const {

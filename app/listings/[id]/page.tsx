@@ -10,7 +10,26 @@ import SaveListingButton from "@/components/SaveListingButton";
 import SimilarListings from "@/components/SimilarListings";
 import OwnerTrustCard from "@/components/OwnerTrustCard";
 import ListingImageGallery from "@/components/listings/listing-image-gallery";
+import CampusRouteMap from "@/components/listings/CampusRouteMap";
 import Money from "@/components/Money";
+import {
+  FairHousingNotice,
+  OntarioOccupancyNotice,
+  UnverifiedListingNotice,
+  VerificationDisclaimer,
+} from "@/components/trust/TrustDisclaimers";
+import TrustVerificationPrompt from "@/components/trust/TrustVerificationPrompt";
+import { getDocumentTypeLabel } from "@/lib/trust/document-types";
+import {
+  getAmenityLabel,
+  getLeaseTypeLabel,
+  getTransparencyLabel,
+  getUtilityStatusLabel,
+  utilityItems,
+  type AmenitiesDetails,
+  type LeaseConditions,
+  type UtilitiesDetails,
+} from "@/lib/listing-transparency";
 
 type Profile = {
   id: string;
@@ -36,7 +55,26 @@ type Listing = {
   guests: number | null;
   roommates: number | null;
   amenities: string[] | null;
-  status: "available" | "pending" | "rented" | null;
+  status: "draft" | "available" | "pending" | "rented" | null;
+  owner_occupies_property?: boolean | null;
+  owner_family_occupies_property?: boolean | null;
+  shared_kitchen_with_owner?: boolean | null;
+  shared_bathroom_with_owner?: boolean | null;
+  private_bedroom?: boolean | null;
+  self_contained_unit?: boolean | null;
+  other_occupants_present?: boolean | null;
+  estimated_other_occupant_count?: number | null;
+  occupancy_notes?: string | null;
+  nearest_campus_name?: string | null;
+  nearest_campus_address?: string | null;
+  distance_to_campus_km?: number | null;
+  walking_time_minutes?: number | null;
+  cycling_time_minutes?: number | null;
+  driving_time_minutes?: number | null;
+  transit_time_minutes?: number | null;
+  utilities_details?: UtilitiesDetails | null;
+  amenities_details?: AmenitiesDetails | null;
+  lease_conditions?: LeaseConditions | null;
 };
 
 type ListingImage = {
@@ -60,6 +98,25 @@ type Review = {
   created_at: string;
 };
 
+type ListingVerificationStatus = {
+  listing_id: string;
+  status: string;
+  relationship_type: string | null;
+  reviewed_at: string | null;
+  expires_at: string | null;
+  owner_visible_reason: string | null;
+};
+
+type ListingDocumentRequirement = {
+  id: string;
+  document_type: string;
+  display_name: string;
+  description: string | null;
+  requirement_level: string;
+  applies_when: string;
+  alternative_documents: string[] | null;
+};
+
 export default function ListingDetailsPage() {
   const t = useTranslations("listingDetail");
   const router = useRouter();
@@ -72,6 +129,11 @@ export default function ListingDetailsPage() {
   const [images, setImages] = useState<ListingImage[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewers, setReviewers] = useState<Profile[]>([]);
+  const [verificationStatus, setVerificationStatus] =
+    useState<ListingVerificationStatus | null>(null);
+  const [documentRequirements, setDocumentRequirements] = useState<
+    ListingDocumentRequirement[]
+  >([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [addressUnlocked, setAddressUnlocked] = useState(false);
@@ -140,7 +202,9 @@ export default function ListingDetailsPage() {
 
       const { data: listingData, error: listingError } = await supabase
         .from("listings")
-        .select("*")
+        .select(
+          "id, user_id, title, description, price, city, campus, address, bedrooms, bathrooms, guests, roommates, amenities, status, owner_occupies_property, owner_family_occupies_property, shared_kitchen_with_owner, shared_bathroom_with_owner, private_bedroom, self_contained_unit, other_occupants_present, estimated_other_occupant_count, occupancy_notes, nearest_campus_name, nearest_campus_address, distance_to_campus_km, walking_time_minutes, cycling_time_minutes, driving_time_minutes, transit_time_minutes, utilities_details, amenities_details, lease_conditions"
+        )
         .eq("id", id)
         .maybeSingle();
 
@@ -158,6 +222,13 @@ export default function ListingDetailsPage() {
       }
 
       const safeListing = listingData as Listing;
+
+      if (safeListing.status === "draft" && user?.id !== safeListing.user_id) {
+        setPageError(t("errors.notFound"));
+        setListing(null);
+        return;
+      }
+
       setListing(safeListing);
 
       if (user?.id && user.id !== safeListing.user_id) {
@@ -242,6 +313,40 @@ export default function ListingDetailsPage() {
       );
 
       setImages(sortedImages);
+
+      const { data: verificationData, error: verificationError } =
+        await supabase
+          .from("public_listing_verification_status")
+          .select(
+            "listing_id, status, relationship_type, reviewed_at, expires_at, owner_visible_reason"
+          )
+          .eq("listing_id", safeListing.id)
+          .maybeSingle();
+
+      if (verificationError) {
+        console.error("VERIFICATION STATUS FETCH ERROR:", verificationError);
+      }
+
+      setVerificationStatus(
+        (verificationData as ListingVerificationStatus) || null
+      );
+
+      const { data: requirementData, error: requirementError } = await supabase
+        .from("listing_document_requirements")
+        .select(
+          "id, document_type, display_name, description, requirement_level, applies_when, alternative_documents"
+        )
+        .eq("listing_id", safeListing.id)
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+      if (requirementError) {
+        console.error("DOCUMENT REQUIREMENTS FETCH ERROR:", requirementError);
+      }
+
+      setDocumentRequirements(
+        (requirementData || []) as ListingDocumentRequirement[]
+      );
 
       const { data: reviewData, error: reviewError } = await supabase
         .from("reviews")
@@ -387,6 +492,14 @@ export default function ListingDetailsPage() {
       );
     }
 
+    if (status === "draft") {
+      return (
+        <span className="rounded-full bg-zinc-500/20 px-3 py-1 text-xs font-semibold text-zinc-300">
+          Draft
+        </span>
+      );
+    }
+
     if (status === "pending") {
       return (
         <span className="rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-semibold text-yellow-300">
@@ -402,6 +515,67 @@ export default function ListingDetailsPage() {
     );
   }
 
+  function getVerificationLabel() {
+    if (verificationStatus?.status === "verified") {
+      return "Verified property relationship";
+    }
+
+    if (verificationStatus?.status === "pending") {
+      return "Verification pending";
+    }
+
+    if (verificationStatus?.status === "more_information_required") {
+      return "More information required";
+    }
+
+    if (verificationStatus?.status === "declined") {
+      return "Verification declined";
+    }
+
+    if (verificationStatus?.status === "expired") {
+      return "Verification expired";
+    }
+
+    return "Not verified";
+  }
+
+  function getVerificationClassName() {
+    if (verificationStatus?.status === "verified") {
+      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+    }
+
+    if (verificationStatus?.status === "pending") {
+      return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+    }
+
+    return "border-gray-800 bg-white/5 text-gray-300";
+  }
+
+  function formatBoolean(value: boolean | null | undefined) {
+    if (value === true) return "Yes";
+    if (value === false) return "No";
+    return "Not answered";
+  }
+
+  const hasOwnerSharedKitchenOrBathroom =
+    listing?.shared_kitchen_with_owner || listing?.shared_bathroom_with_owner;
+  const utilitiesDetails = listing?.utilities_details || {};
+  const amenitiesDetails = listing?.amenities_details || {};
+  const leaseConditions = listing?.lease_conditions || {};
+  const structuredAmenityLabels = (amenitiesDetails.selected || []).map(
+    getAmenityLabel
+  );
+  const includedUtilityLabels = utilityItems
+    .filter(([key]) => utilitiesDetails.statuses?.[key] === "included")
+    .map(([, label]) => label);
+  const transparencyLabel = listing
+    ? getTransparencyLabel({
+        nearestCampusName: listing.nearest_campus_name,
+        utilitiesDetails,
+        amenitiesDetails,
+        leaseConditions,
+      })
+    : "";
   function Stars({ rating }: { rating: number }) {
     const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
     const filled = Math.round(safeRating);
@@ -478,6 +652,16 @@ export default function ListingDetailsPage() {
             <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-3 py-1 text-sm text-yellow-400">
               ⭐ {averageRating} ({t("reviewCount", { count: reviews.length })})
             </span>
+
+            <span
+              className={`rounded-full border px-3 py-1 text-sm font-semibold ${getVerificationClassName()}`}
+            >
+              {getVerificationLabel()}
+            </span>
+
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm font-semibold text-cyan-200">
+              {transparencyLabel}
+            </span>
           </div>
         </section>
 
@@ -485,12 +669,164 @@ export default function ListingDetailsPage() {
 
         <section className="grid gap-8 lg:grid-cols-[1fr_420px]">
           <div className="space-y-8">
+            {isOwner && verificationStatus?.status !== "verified" && (
+              <TrustVerificationPrompt
+                kind="listing_relationship"
+                storageKey={`listing-relationship-${listing.id}`}
+              />
+            )}
+
+            <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
+                    Property verification
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold">
+                    {getVerificationLabel()}
+                  </h2>
+                </div>
+                <span
+                  className={`rounded-full border px-3 py-1 text-sm font-semibold ${getVerificationClassName()}`}
+                >
+                  {getVerificationLabel()}
+                </span>
+              </div>
+
+              <div className="mt-5">
+                {verificationStatus?.status === "verified" ? (
+                  <VerificationDisclaimer />
+                ) : (
+                  <UnverifiedListingNotice />
+                )}
+              </div>
+
+              {verificationStatus?.owner_visible_reason && (
+                <p className="mt-4 rounded-2xl border border-white/10 bg-black p-4 text-sm leading-6 text-zinc-300">
+                  {verificationStatus.owner_visible_reason}
+                </p>
+              )}
+            </div>
+
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
               <h2 className="text-2xl font-bold">{t("aboutTitle")}</h2>
 
               <p className="mt-4 leading-7 text-gray-300">
                 {listing.description || t("noDescription")}
               </p>
+            </div>
+
+            <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
+              <h2 className="text-2xl font-bold">Living arrangement</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-400">
+                Owner-sharing and occupancy details are shown separately so
+                applicants can review the arrangement before applying.
+              </p>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <DisclosureRow
+                  label="Owner lives at property"
+                  value={formatBoolean(listing.owner_occupies_property)}
+                />
+                <DisclosureRow
+                  label="Owner family lives at property"
+                  value={formatBoolean(listing.owner_family_occupies_property)}
+                />
+                <DisclosureRow
+                  label="Shared kitchen with owner/family"
+                  value={formatBoolean(listing.shared_kitchen_with_owner)}
+                />
+                <DisclosureRow
+                  label="Shared bathroom with owner/family"
+                  value={formatBoolean(listing.shared_bathroom_with_owner)}
+                />
+                <DisclosureRow
+                  label="Private bedroom"
+                  value={formatBoolean(listing.private_bedroom)}
+                />
+                <DisclosureRow
+                  label="Self-contained unit"
+                  value={formatBoolean(listing.self_contained_unit)}
+                />
+                <DisclosureRow
+                  label="Other occupants present"
+                  value={formatBoolean(listing.other_occupants_present)}
+                />
+                <DisclosureRow
+                  label="Estimated other occupants"
+                  value={
+                    listing.estimated_other_occupant_count == null
+                      ? "Not answered"
+                      : String(listing.estimated_other_occupant_count)
+                  }
+                />
+              </div>
+
+              {listing.occupancy_notes && (
+                <p className="mt-5 rounded-2xl border border-white/10 bg-black p-4 text-sm leading-6 text-zinc-300">
+                  {listing.occupancy_notes}
+                </p>
+              )}
+
+              {hasOwnerSharedKitchenOrBathroom && (
+                <div className="mt-5">
+                  <OntarioOccupancyNotice />
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
+              <h2 className="text-2xl font-bold">
+                Application documents that may be requested
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-gray-400">
+                These are landlord-stated application documents. Do not send
+                sensitive documents until you understand who is requesting them
+                and why.
+              </p>
+
+              {documentRequirements.length === 0 ? (
+                <div className="mt-5 rounded-2xl border border-dashed border-gray-700 p-6 text-center text-gray-400">
+                  No application document requirements have been added for this listing.
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-4">
+                  {documentRequirements.map((requirement) => (
+                    <div
+                      key={requirement.id}
+                      className="rounded-2xl border border-gray-800 bg-black p-5"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-zinc-300">
+                          {requirement.requirement_level.replaceAll("_", " ")}
+                        </span>
+                        <span className="rounded-full border border-pink-400/20 bg-pink-500/10 px-3 py-1 text-xs font-bold uppercase text-pink-200">
+                          {requirement.applies_when.replaceAll("_", " ")}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-lg font-bold text-white">
+                        {requirement.display_name ||
+                          getDocumentTypeLabel(requirement.document_type)}
+                      </p>
+                      {requirement.description && (
+                        <p className="mt-2 text-sm leading-6 text-zinc-400">
+                          {requirement.description}
+                        </p>
+                      )}
+                      {requirement.alternative_documents?.length ? (
+                        <p className="mt-3 text-sm text-zinc-500">
+                          Accepted alternatives:{" "}
+                          {requirement.alternative_documents.join(", ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-5">
+                <FairHousingNotice />
+              </div>
             </div>
 
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
@@ -551,8 +887,67 @@ export default function ListingDetailsPage() {
               )}
             </div>
 
+            <CampusRouteMap
+              listingId={listing.id}
+              propertyArea={getPublicLocationText()}
+              campusName={listing.nearest_campus_name}
+              hasCampusCoordinates={Boolean(listing.nearest_campus_name)}
+            />
+
+            <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
+              <h2 className="text-2xl font-bold">Rent and utilities</h2>
+              {includedUtilityLabels.length > 0 && (
+                <p className="mt-3 text-sm leading-6 text-emerald-200">
+                  Included in rent: {includedUtilityLabels.join(", ")}
+                </p>
+              )}
+              {(utilitiesDetails.estimatedMonthlyMin != null ||
+                utilitiesDetails.estimatedMonthlyMax != null) && (
+                <p className="mt-3 text-sm leading-6 text-gray-300">
+                  Estimated extra utilities:{" "}
+                  {utilitiesDetails.estimatedMonthlyMin != null && (
+                    <Money amountCAD={utilitiesDetails.estimatedMonthlyMin} />
+                  )}
+                  {utilitiesDetails.estimatedMonthlyMin != null &&
+                    utilitiesDetails.estimatedMonthlyMax != null &&
+                    " - "}
+                  {utilitiesDetails.estimatedMonthlyMax != null && (
+                    <Money amountCAD={utilitiesDetails.estimatedMonthlyMax} />
+                  )}
+                  /mo
+                </p>
+              )}
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {utilityItems.map(([key, label]) => (
+                  <DisclosureRow
+                    key={key}
+                    label={label}
+                    value={getUtilityStatusLabel(utilitiesDetails.statuses?.[key])}
+                  />
+                ))}
+              </div>
+              {utilitiesDetails.notes && (
+                <p className="mt-5 rounded-2xl border border-white/10 bg-black p-4 text-sm leading-6 text-zinc-300">
+                  {utilitiesDetails.notes}
+                </p>
+              )}
+            </div>
+
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
               <h2 className="text-2xl font-bold">{t("amenitiesTitle")}</h2>
+
+              {structuredAmenityLabels.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-3">
+                  {structuredAmenityLabels.map((amenity) => (
+                    <span
+                      key={amenity}
+                      className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-100"
+                    >
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {listing.amenities && listing.amenities.length > 0 ? (
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -566,7 +961,110 @@ export default function ListingDetailsPage() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 text-gray-400">{t("noAmenities")}</p>
+                structuredAmenityLabels.length === 0 && (
+                  <p className="mt-4 text-gray-400">{t("noAmenities")}</p>
+                )
+              )}
+              {(amenitiesDetails.parking ||
+                amenitiesDetails.laundry ||
+                amenitiesDetails.furnishing ||
+                amenitiesDetails.internetDetails ||
+                amenitiesDetails.accessibilityNotes ||
+                amenitiesDetails.petDetails) && (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {amenitiesDetails.parking && (
+                    <DisclosureRow label="Parking" value={amenitiesDetails.parking} />
+                  )}
+                  {amenitiesDetails.laundry && (
+                    <DisclosureRow label="Laundry" value={amenitiesDetails.laundry} />
+                  )}
+                  {amenitiesDetails.furnishing && (
+                    <DisclosureRow label="Furnishing" value={amenitiesDetails.furnishing} />
+                  )}
+                  {amenitiesDetails.internetDetails && (
+                    <DisclosureRow label="Internet" value={amenitiesDetails.internetDetails} />
+                  )}
+                  {amenitiesDetails.accessibilityNotes && (
+                    <DisclosureRow label="Accessibility" value={amenitiesDetails.accessibilityNotes} />
+                  )}
+                  {amenitiesDetails.petDetails && (
+                    <DisclosureRow label="Pets" value={amenitiesDetails.petDetails} />
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
+              <h2 className="text-2xl font-bold">Lease conditions</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-400">
+                Landlord-stated lease details. Review the final lease directly
+                before signing.
+              </p>
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <DisclosureRow
+                  label="Lease type"
+                  value={getLeaseTypeLabel(leaseConditions.leaseType) || "Ask landlord"}
+                />
+                <DisclosureRow
+                  label="Move-in date"
+                  value={leaseConditions.moveInDate || "Ask landlord"}
+                />
+                <DisclosureRow
+                  label="Minimum lease"
+                  value={
+                    leaseConditions.minimumLeaseMonths
+                      ? `${leaseConditions.minimumLeaseMonths} months`
+                      : "Ask landlord"
+                  }
+                />
+                <DisclosureRow
+                  label="International students"
+                  value={formatBoolean(
+                    leaseConditions.internationalStudentsAccepted
+                  )}
+                />
+                <DisclosureRow
+                  label="Guarantor required"
+                  value={formatBoolean(leaseConditions.guarantorRequired)}
+                />
+                <DisclosureRow
+                  label="Last month rent"
+                  value={formatBoolean(leaseConditions.lastMonthRentRequired)}
+                />
+                <DisclosureRow
+                  label="Key deposit"
+                  value={
+                    leaseConditions.keyDepositAmount == null
+                      ? "Not answered"
+                      : `$${leaseConditions.keyDepositAmount}`
+                  }
+                />
+                <DisclosureRow
+                  label="Tenant insurance"
+                  value={formatBoolean(leaseConditions.tenantInsuranceRequired)}
+                />
+              </div>
+              {(leaseConditions.guarantorDetails ||
+                leaseConditions.overnightGuestPolicy ||
+                leaseConditions.additionalFees ||
+                leaseConditions.notes) && (
+                <details className="mt-5 rounded-2xl border border-white/10 bg-black p-4">
+                  <summary className="cursor-pointer font-semibold text-white">
+                    More lease details
+                  </summary>
+                  <div className="mt-4 space-y-3 text-sm leading-6 text-zinc-300">
+                    {leaseConditions.guarantorDetails && (
+                      <p>{leaseConditions.guarantorDetails}</p>
+                    )}
+                    {leaseConditions.overnightGuestPolicy && (
+                      <p>{leaseConditions.overnightGuestPolicy}</p>
+                    )}
+                    {leaseConditions.additionalFees && (
+                      <p>{leaseConditions.additionalFees}</p>
+                    )}
+                    {leaseConditions.notes && <p>{leaseConditions.notes}</p>}
+                  </div>
+                </details>
               )}
             </div>
 
@@ -802,6 +1300,15 @@ function Detail({
     <div className="rounded-2xl border border-gray-800 bg-black p-5">
       <p className="text-sm uppercase tracking-wide text-gray-400">{label}</p>
       <p className="mt-2 text-xl font-semibold">{value ?? "—"}</p>
+    </div>
+  );
+}
+
+function DisclosureRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-gray-800 bg-black p-5">
+      <p className="text-sm uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="mt-2 text-base font-semibold text-white">{value}</p>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { getSafePublicCoordinate } from "@/lib/location-privacy";
 import type { ListingSearchParams } from "./search-types";
 
 const PAGE_SIZE = 12;
@@ -63,6 +64,17 @@ function isFeaturedActive(featuredUntil?: string | null) {
 function isBoostActive(boostUntil?: string | null) {
   if (!boostUntil) return false;
   return new Date(boostUntil).getTime() > Date.now();
+}
+
+function isMissingPublicCoordinateColumn(error: unknown) {
+  const typedError = error as { code?: string | null; message?: string | null };
+  const message = typedError?.message || "";
+
+  return (
+    (typedError?.code === "42703" || typedError?.code === "PGRST204") &&
+    (message.includes("public_latitude") ||
+      message.includes("public_longitude"))
+  );
 }
 
 function getOwnerPlan(subscription?: {
@@ -161,72 +173,90 @@ export async function searchListings(params: ListingSearchParams) {
 
   const sort = normalizeSort(clean(params.sort));
 
-  let query = supabase
-    .from("listings")
-    .select(
-      `
-      id,
-      user_id,
-      title,
-      city,
-      location,
-      campus,
-      price,
-      bedrooms,
-      bathrooms,
-      guests,
-      status,
-      latitude,
-      longitude,
-      created_at,
-      is_featured,
-      featured_until,
-      featured_rank,
-      boost_until,
-      boost_rank,
-      listing_images (
-        image_url,
-        is_cover,
-        sort_order
+  function createListingQuery(includePublicCoordinates: boolean) {
+    let query = supabase
+      .from("listings")
+      .select(
+        `
+        id,
+        user_id,
+        title,
+        city,
+        location,
+        campus,
+        price,
+        bedrooms,
+        bathrooms,
+        guests,
+        status,
+        ${includePublicCoordinates ? "public_latitude, public_longitude," : "latitude, longitude,"}
+        created_at,
+        is_featured,
+        featured_until,
+        featured_rank,
+        boost_until,
+        boost_rank,
+        listing_images (
+          image_url,
+          is_cover,
+          sort_order
+        )
+      `,
+        { count: "exact" }
       )
-    `,
-      { count: "exact" }
-    )
-    .neq("status", "rented");
+      .neq("status", "rented")
+      .neq("status", "draft");
 
-  if (q) {
-    const safeQ = escapeSearchValue(q);
-    query = query.or(
-      `title.ilike.%${safeQ}%,city.ilike.%${safeQ}%,location.ilike.%${safeQ}%,campus.ilike.%${safeQ}%`
+    if (q) {
+      const safeQ = escapeSearchValue(q);
+      query = query.or(
+        `title.ilike.%${safeQ}%,city.ilike.%${safeQ}%,location.ilike.%${safeQ}%,campus.ilike.%${safeQ}%`
+      );
+    }
+
+    if (city) {
+      const safeCity = escapeSearchValue(city);
+      query = query.or(`city.ilike.%${safeCity}%,location.ilike.%${safeCity}%`);
+    }
+
+    if (campus) {
+      const safeCampus = escapeSearchValue(campus);
+      query = query.ilike("campus", `%${safeCampus}%`);
+    }
+
+    if (status && status !== "rented") query = query.eq("status", status);
+    if (minPrice !== undefined) query = query.gte("price", minPrice);
+    if (maxPrice !== undefined) query = query.lte("price", maxPrice);
+    if (bedrooms !== undefined) query = query.gte("bedrooms", bedrooms);
+    if (bathrooms !== undefined) query = query.gte("bathrooms", bathrooms);
+    if (guests !== undefined) query = query.gte("guests", guests);
+
+    if (sort === "price-low") {
+      query = query.order("price", { ascending: true, nullsFirst: false });
+    } else if (sort === "price-high") {
+      query = query.order("price", { ascending: false, nullsFirst: false });
+    } else {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    return query;
+  }
+
+  let { data, error } = await createListingQuery(true);
+
+  if (error && isMissingPublicCoordinateColumn(error)) {
+    console.error(
+      "SEARCH LISTINGS PUBLIC COORDINATE FALLBACK:",
+      JSON.stringify({
+        code: error.code,
+        message: error.message,
+      })
     );
+
+    const legacyResult = await createListingQuery(false);
+    data = legacyResult.data;
+    error = legacyResult.error;
   }
-
-  if (city) {
-    const safeCity = escapeSearchValue(city);
-    query = query.or(`city.ilike.%${safeCity}%,location.ilike.%${safeCity}%`);
-  }
-
-  if (campus) {
-    const safeCampus = escapeSearchValue(campus);
-    query = query.ilike("campus", `%${safeCampus}%`);
-  }
-
-  if (status && status !== "rented") query = query.eq("status", status);
-  if (minPrice !== undefined) query = query.gte("price", minPrice);
-  if (maxPrice !== undefined) query = query.lte("price", maxPrice);
-  if (bedrooms !== undefined) query = query.gte("bedrooms", bedrooms);
-  if (bathrooms !== undefined) query = query.gte("bathrooms", bathrooms);
-  if (guests !== undefined) query = query.gte("guests", guests);
-
-  if (sort === "price-low") {
-    query = query.order("price", { ascending: true, nullsFirst: false });
-  } else if (sort === "price-high") {
-    query = query.order("price", { ascending: false, nullsFirst: false });
-  } else {
-    query = query.order("created_at", { ascending: false });
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     console.error("SEARCH LISTINGS ERROR:", error);
@@ -346,6 +376,13 @@ export async function searchListings(params: ListingSearchParams) {
 
     const displayCity = listing.city || listing.location || "";
     const fallback = getApproxCoordinates(displayCity, listing.campus);
+    const safeCoordinate = getSafePublicCoordinate({
+      id: listing.id,
+      latitude: listing.latitude,
+      longitude: listing.longitude,
+      publicLatitude: listing.public_latitude,
+      publicLongitude: listing.public_longitude,
+    });
 
     const activeFeatured =
       Boolean(listing.is_featured) && isFeaturedActive(listing.featured_until);
@@ -393,8 +430,8 @@ export async function searchListings(params: ListingSearchParams) {
       image_url: cover,
       cover_image_url: cover,
 
-      latitude: listing.latitude ?? fallback.latitude,
-      longitude: listing.longitude ?? fallback.longitude,
+      latitude: safeCoordinate.latitude ?? fallback.latitude,
+      longitude: safeCoordinate.longitude ?? fallback.longitude,
 
       bedrooms: listing.bedrooms ?? null,
       bathrooms: listing.bathrooms ?? null,

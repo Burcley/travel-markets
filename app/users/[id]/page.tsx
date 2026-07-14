@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   BadgeCheck,
@@ -26,6 +27,12 @@ type Profile = {
   role: string | null;
   avatar_url: string | null;
   is_verified?: boolean | null;
+  identity_verification_status?: string | null;
+  identity_verified_at?: string | null;
+  student_verification_status?: string | null;
+  phone_verified_at?: string | null;
+  profile_completion_percentage?: number | null;
+  created_at?: string | null;
 };
 
 type Listing = {
@@ -68,6 +75,8 @@ export default function PublicUserProfilePage() {
   const [images, setImages] = useState<ListingImage[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewers, setReviewers] = useState<Profile[]>([]);
+  const [hasVerifiedPropertyRelationship, setHasVerifiedPropertyRelationship] =
+    useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [ownerPlan, setOwnerPlan] = useState("free");
   const [loading, setLoading] = useState(true);
@@ -99,7 +108,7 @@ export default function PublicUserProfilePage() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, bio, role, avatar_url, is_verified")
+        .select("id, full_name, phone, bio, role, avatar_url, is_verified, identity_verification_status, identity_verified_at, student_verification_status, phone_verified_at, profile_completion_percentage, created_at")
         .eq("id", userId)
         .maybeSingle();
 
@@ -121,6 +130,22 @@ export default function PublicUserProfilePage() {
 
       const ownerListings = (listingsData || []) as Listing[];
       setListings(ownerListings);
+
+      if (ownerListings.length > 0) {
+        const { data: verificationData } = await supabase
+          .from("public_listing_verification_status")
+          .select("listing_id, status")
+          .in(
+            "listing_id",
+            ownerListings.map((listing) => listing.id)
+          )
+          .eq("status", "verified")
+          .limit(1);
+
+        setHasVerifiedPropertyRelationship(Boolean(verificationData?.length));
+      } else {
+        setHasVerifiedPropertyRelationship(false);
+      }
 
       if (ownerListings.length > 0) {
         const listingIds = ownerListings.map((listing) => listing.id);
@@ -307,6 +332,50 @@ export default function PublicUserProfilePage() {
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
                     {t("addressProtection")}
                   </span>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <TrustIndicator
+                    label="Identity verified"
+                    active={
+                      Boolean(profile.is_verified) ||
+                      profile.identity_verification_status === "approved"
+                    }
+                  />
+                  <TrustIndicator label="Email verified" active />
+                  <TrustIndicator
+                    label="Phone verified"
+                    active={Boolean(profile.phone_verified_at)}
+                  />
+                  <TrustIndicator
+                    label="Student status verified"
+                    active={profile.student_verification_status === "approved"}
+                  />
+                  <TrustIndicator
+                    label="Property relationship verified"
+                    active={hasVerifiedPropertyRelationship}
+                  />
+                  <TrustIndicator
+                    label="Profile completeness"
+                    active={(profile.profile_completion_percentage || 0) >= 70}
+                    value={
+                      profile.profile_completion_percentage == null
+                        ? "Not calculated"
+                        : `${profile.profile_completion_percentage}%`
+                    }
+                  />
+                  <TrustIndicator
+                    label="Member since"
+                    active={Boolean(profile.created_at)}
+                    value={
+                      profile.created_at
+                        ? new Date(profile.created_at).toLocaleDateString("en-CA", {
+                            year: "numeric",
+                            month: "short",
+                          })
+                        : "Not available"
+                    }
+                  />
                 </div>
 
                 <p className="mt-5 max-w-2xl leading-7 text-gray-300">
@@ -588,7 +657,7 @@ function Highlight({
   text,
   color,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   text: string;
   color: string;
@@ -600,6 +669,29 @@ function Highlight({
         <p className="text-sm font-semibold text-white">{label}</p>
         <p className="mt-0.5 text-xs leading-5 text-gray-400">{text}</p>
       </div>
+    </div>
+  );
+}
+
+function TrustIndicator({
+  label,
+  active,
+  value,
+}: {
+  label: string;
+  active: boolean;
+  value?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-800 bg-black/50 p-4">
+      <p
+        className={`text-xs font-bold uppercase tracking-wide ${
+          active ? "text-emerald-300" : "text-gray-500"
+        }`}
+      >
+        {active ? "✓" : "•"} {label}
+      </p>
+      {value && <p className="mt-2 text-sm text-gray-300">{value}</p>}
     </div>
   );
 }

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
 import { HomeListing } from "@/types/home-listing";
 import { usePreferences } from "@/components/preferences/PreferencesProvider";
 import { formatMoney } from "@/lib/currency";
@@ -42,6 +41,11 @@ const CLUSTER_COUNT_LAYER_ID = "travel-markets-cluster-count";
 const POINT_BG_LAYER_ID = "travel-markets-point-bg";
 const POINT_TEXT_LAYER_ID = "travel-markets-point-text";
 
+const EMPTY_GEOJSON: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+  type: "FeatureCollection",
+  features: [],
+};
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -65,11 +69,15 @@ export default function ListingMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const hoveredFeatureIdRef = useRef<string | null>(null);
+  const selectedFeatureIdRef = useRef<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const initialFitDoneRef = useRef(false);
+  const geoJsonRef = useRef<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_GEOJSON);
+  const mapListingsRef = useRef<HomeListing[]>([]);
+  const listingFitKeyRef = useRef("");
+  const lastFitKeyRef = useRef("");
   const { currency, convertFromCAD } = usePreferences();
 
-  function getPopupPriceLabel(amountCAD: number | null | undefined) {
+  const getPopupPriceLabel = useCallback((amountCAD: number | null | undefined) => {
     if (amountCAD == null) return t("askForPrice");
 
     const converted = convertFromCAD(Number(amountCAD));
@@ -77,9 +85,9 @@ export default function ListingMap({
     if (!Number.isFinite(converted)) return t("askForPrice");
 
     return `${formatMoney(converted, currency as CurrencyCode)}/mo`;
-  }
+  }, [convertFromCAD, currency, t]);
 
-  function getMarkerPriceLabel(amountCAD: number | null | undefined) {
+  const getMarkerPriceLabel = useCallback((amountCAD: number | null | undefined) => {
     if (amountCAD == null) return t("ask");
 
     const converted = convertFromCAD(Number(amountCAD));
@@ -95,17 +103,40 @@ export default function ListingMap({
     })
       .format(converted)
       .replace(/\s/g, "");
-  }
+  }, [convertFromCAD, currency, t]);
 
   const mapListings = useMemo(() => {
-    return listings.filter(
-      (item) =>
-        typeof item.latitude === "number" &&
-        typeof item.longitude === "number" &&
-        Number.isFinite(item.latitude) &&
-        Number.isFinite(item.longitude)
-    );
+    return listings.filter((item) => {
+      const latitude = Number(item.latitude);
+      const longitude = Number(item.longitude);
+      const isValid =
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+
+      if (!isValid && process.env.NODE_ENV !== "production") {
+        console.warn("Skipping invalid public map marker", {
+          listingId: item.id,
+          hasLatitude: Number.isFinite(latitude),
+          hasLongitude: Number.isFinite(longitude),
+        });
+      }
+
+      return isValid;
+    });
   }, [listings]);
+
+  const listingFitKey = useMemo(
+    () =>
+      mapListings
+        .map((listing) => `${listing.id}:${listing.latitude}:${listing.longitude}`)
+        .sort()
+        .join("|"),
+    [mapListings]
+  );
 
   const geoJson = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => {
     const features: ListingFeature[] = mapListings.map((listing) => ({
@@ -133,9 +164,54 @@ export default function ListingMap({
       type: "FeatureCollection",
       features,
     };
-  }, [mapListings, currency, convertFromCAD, t]);
+  }, [mapListings, getMarkerPriceLabel, getPopupPriceLabel, t]);
 
-  function createPopupHtml(properties: ListingFeature["properties"]) {
+  useEffect(() => {
+    geoJsonRef.current = geoJson;
+  }, [geoJson]);
+
+  useEffect(() => {
+    mapListingsRef.current = mapListings;
+
+    if (
+      selectedFeatureIdRef.current &&
+      !mapListings.some((listing) => listing.id === selectedFeatureIdRef.current)
+    ) {
+      selectedFeatureIdRef.current = null;
+      popupRef.current?.remove();
+      setActiveListingId(null);
+    }
+  }, [mapListings, setActiveListingId]);
+
+  useEffect(() => {
+    listingFitKeyRef.current = listingFitKey;
+  }, [listingFitKey]);
+
+  const fitMapToListings = useCallback(
+    (map: mapboxgl.Map, listingsToFit: HomeListing[], fitKey: string) => {
+      if (listingsToFit.length === 0) return;
+      if (lastFitKeyRef.current === fitKey) return;
+
+      const bounds = new mapboxgl.LngLatBounds();
+
+      listingsToFit.forEach((listing) => {
+        bounds.extend([listing.longitude!, listing.latitude!]);
+      });
+
+      if (bounds.isEmpty()) return;
+
+      lastFitKeyRef.current = fitKey;
+      map.resize();
+      map.fitBounds(bounds, {
+        padding: 70,
+        maxZoom: 13,
+        duration: 500,
+      });
+    },
+    []
+  );
+
+  const createPopupHtml = useCallback((properties: ListingFeature["properties"]) => {
     const title = escapeHtml(properties.title || t("untitledListing"));
     const cityText = escapeHtml(properties.city || t("locationPreview"));
     const campusText = escapeHtml(properties.campus || "");
@@ -179,9 +255,9 @@ export default function ListingMap({
         </div>
       </div>
     `;
-  }
+  }, [t]);
 
-  async function fetchViewportListings() {
+  const fetchViewportListings = useCallback(async () => {
     if (!mapRef.current || !onViewportListingsChange) return;
 
     const bounds = mapRef.current.getBounds();
@@ -212,17 +288,15 @@ export default function ListingMap({
     } catch (error) {
       console.error("VIEWPORT FETCH ERROR:", error);
     }
-  }
+  }, [campus, city, onViewportListingsChange, query]);
 
-  function addMapLayers(map: mapboxgl.Map) {
+  const addMapLayers = useCallback((map: mapboxgl.Map) => {
     if (map.getSource(SOURCE_ID)) return;
 
     map.addSource(SOURCE_ID, {
       type: "geojson",
-      data: geoJson,
-      cluster: true,
-      clusterMaxZoom: 13,
-      clusterRadius: 56,
+      data: geoJsonRef.current,
+      cluster: false,
     });
 
     map.addLayer({
@@ -277,7 +351,7 @@ export default function ListingMap({
       paint: {
         "circle-radius": [
           "case",
-          ["==", ["get", "id"], activeListingId || ""],
+          ["==", ["get", "id"], ""],
           22,
           ["==", ["get", "is_featured"], true],
           21,
@@ -299,13 +373,13 @@ export default function ListingMap({
         ],
         "circle-stroke-width": [
           "case",
-          ["==", ["get", "id"], activeListingId || ""],
+          ["==", ["get", "id"], ""],
           4,
           2,
         ],
         "circle-stroke-color": [
           "case",
-          ["==", ["get", "id"], activeListingId || ""],
+          ["==", ["get", "id"], ""],
           "#38bdf8",
           "rgba(0,0,0,0.45)",
         ],
@@ -349,70 +423,86 @@ export default function ListingMap({
       }, 350);
     });
 
-    map.on("mouseenter", POINT_BG_LAYER_ID, (event) => {
-      map.getCanvas().style.cursor = "pointer";
-
-      const feature = event.features?.[0];
-      const properties = feature?.properties as ListingFeature["properties"];
-
-      if (!properties?.id) return;
-
-      hoveredFeatureIdRef.current = properties.id;
-      setActiveListingId(properties.id);
-
-      if (!feature?.geometry || feature.geometry.type !== "Point") return;
-
+    function openListingPopup(
+      properties: ListingFeature["properties"],
+      coordinates: [number, number],
+      closeOnClick = false
+    ) {
       popupRef.current?.remove();
 
       popupRef.current = new mapboxgl.Popup({
         offset: 22,
         closeButton: false,
-        closeOnClick: false,
+        closeOnClick,
         className: "travel-markets-popup",
       })
-        .setLngLat(feature.geometry.coordinates as [number, number])
+        .setLngLat(coordinates)
         .setHTML(createPopupHtml(properties))
         .addTo(map);
+    }
+
+    function getPointData(event: mapboxgl.MapLayerMouseEvent) {
+      const feature = event.features?.[0];
+      const properties = feature?.properties as ListingFeature["properties"];
+
+      if (
+        !properties?.id ||
+        !feature?.geometry ||
+        feature.geometry.type !== "Point"
+      ) {
+        return null;
+      }
+
+      return {
+        properties,
+        coordinates: feature.geometry.coordinates as [number, number],
+      };
+    }
+
+    map.on("mouseenter", POINT_BG_LAYER_ID, (event) => {
+      map.getCanvas().style.cursor = "pointer";
+
+      const point = getPointData(event);
+
+      if (!point) return;
+
+      hoveredFeatureIdRef.current = point.properties.id;
+      setActiveListingId(point.properties.id);
+
+      openListingPopup(point.properties, point.coordinates);
     });
 
     map.on("mouseleave", POINT_BG_LAYER_ID, () => {
       map.getCanvas().style.cursor = "";
       hoveredFeatureIdRef.current = null;
-      setActiveListingId(null);
-      popupRef.current?.remove();
+      setActiveListingId(selectedFeatureIdRef.current);
+
+      if (!selectedFeatureIdRef.current) {
+        popupRef.current?.remove();
+      }
     });
 
     map.on("mouseenter", POINT_TEXT_LAYER_ID, (event) => {
       map.getCanvas().style.cursor = "pointer";
 
-      const feature = event.features?.[0];
-      const properties = feature?.properties as ListingFeature["properties"];
+      const point = getPointData(event);
 
-      if (!properties?.id) return;
+      if (!point) return;
 
-      hoveredFeatureIdRef.current = properties.id;
-      setActiveListingId(properties.id);
+      hoveredFeatureIdRef.current = point.properties.id;
+      setActiveListingId(point.properties.id);
 
-      if (!feature?.geometry || feature.geometry.type !== "Point") return;
-
-      popupRef.current?.remove();
-
-      popupRef.current = new mapboxgl.Popup({
-        offset: 22,
-        closeButton: false,
-        closeOnClick: false,
-        className: "travel-markets-popup",
-      })
-        .setLngLat(feature.geometry.coordinates as [number, number])
-        .setHTML(createPopupHtml(properties))
-        .addTo(map);
+      openListingPopup(point.properties, point.coordinates);
     });
 
     map.on("mouseleave", POINT_TEXT_LAYER_ID, () => {
       map.getCanvas().style.cursor = "";
       hoveredFeatureIdRef.current = null;
-      setActiveListingId(null);
-      popupRef.current?.remove();
+      setActiveListingId(selectedFeatureIdRef.current);
+
+      if (!selectedFeatureIdRef.current) {
+        popupRef.current?.remove();
+      }
     });
 
     map.on("click", CLUSTER_LAYER_ID, (event) => {
@@ -437,7 +527,35 @@ export default function ListingMap({
         });
       });
     });
-  }
+
+    map.on("click", POINT_BG_LAYER_ID, (event) => {
+      const point = getPointData(event);
+      if (!point) return;
+
+      selectedFeatureIdRef.current = point.properties.id;
+      setActiveListingId(point.properties.id);
+      openListingPopup(point.properties, point.coordinates, true);
+      map.easeTo({
+        center: point.coordinates,
+        zoom: Math.max(map.getZoom(), 12),
+        duration: 500,
+      });
+    });
+
+    map.on("click", POINT_TEXT_LAYER_ID, (event) => {
+      const point = getPointData(event);
+      if (!point) return;
+
+      selectedFeatureIdRef.current = point.properties.id;
+      setActiveListingId(point.properties.id);
+      openListingPopup(point.properties, point.coordinates, true);
+      map.easeTo({
+        center: point.coordinates,
+        zoom: Math.max(map.getZoom(), 12),
+        duration: 500,
+      });
+    });
+  }, [createPopupHtml, fetchViewportListings, setActiveListingId, t]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -457,22 +575,10 @@ export default function ListingMap({
 
     map.on("load", () => {
       addMapLayers(map);
-
-      if (!initialFitDoneRef.current && mapListings.length > 0) {
-        initialFitDoneRef.current = true;
-
-        const bounds = new mapboxgl.LngLatBounds();
-
-        mapListings.forEach((listing) => {
-          bounds.extend([listing.longitude!, listing.latitude!]);
-        });
-
-        map.fitBounds(bounds, {
-          padding: 80,
-          maxZoom: 13,
-          duration: 700,
-        });
-      }
+      const source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | null;
+      source?.setData(geoJsonRef.current);
+      fitMapToListings(map, mapListingsRef.current, listingFitKeyRef.current);
+      map.resize();
     });
 
     return () => {
@@ -485,19 +591,32 @@ export default function ListingMap({
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [addMapLayers, fitMapToListings]);
 
   useEffect(() => {
     const map = mapRef.current;
 
     if (!map) return;
 
+    if (map.loaded() && !map.getSource(SOURCE_ID)) {
+      addMapLayers(map);
+    }
+
     const source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | null;
 
     if (!source) return;
 
     source.setData(geoJson);
-  }, [geoJson]);
+  }, [addMapLayers, geoJson]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !map.loaded() || mapListings.length === 0) return;
+    if (lastFitKeyRef.current === listingFitKey) return;
+
+    fitMapToListings(map, mapListings, listingFitKey);
+  }, [fitMapToListings, listingFitKey, mapListings]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -59,6 +59,19 @@ type IdentityVerification = {
   created_at: string;
 };
 
+type PropertyVerificationStatus =
+  | "pending"
+  | "more_information_required"
+  | "verified"
+  | "declined"
+  | "expired"
+  | "not_submitted";
+
+type PropertyVerification = {
+  id: string;
+  status: PropertyVerificationStatus | string | null;
+};
+
 type SupportTicket = {
   id: string;
   user_id: string | null;
@@ -84,6 +97,10 @@ export default function AdminDashboardPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [verifications, setVerifications] = useState<IdentityVerification[]>([]);
+  const [propertyVerifications, setPropertyVerifications] = useState<
+    PropertyVerification[]
+  >([]);
+  const [propertyVerificationError, setPropertyVerificationError] = useState("");
   const [reportFilter, setReportFilter] = useState<"pending" | "resolved">(
     "pending"
   );
@@ -112,6 +129,25 @@ export default function AdminDashboardPage() {
   const rejectedVerifications = verifications.filter(
     (item) => item.status === "rejected"
   );
+  const propertyVerificationCounts = useMemo(() => {
+    return propertyVerifications.reduce(
+      (counts, item) => {
+        const status = item.status || "not_submitted";
+        if (status in counts) {
+          counts[status as PropertyVerificationStatus] += 1;
+        }
+        return counts;
+      },
+      {
+        pending: 0,
+        more_information_required: 0,
+        verified: 0,
+        declined: 0,
+        expired: 0,
+        not_submitted: 0,
+      } satisfies Record<PropertyVerificationStatus, number>
+    );
+  }, [propertyVerifications]);
 
   useEffect(() => {
     loadAdminDashboard();
@@ -177,6 +213,36 @@ export default function AdminDashboardPage() {
           "id, user_id, full_legal_name, document_type, status, created_at"
         )
         .order("created_at", { ascending: false });
+
+      const {
+        data: propertyVerificationsData,
+        error: propertyVerificationsError,
+      } = await supabase
+        .from("listing_verifications")
+        .select("id, status")
+        .in("status", [
+          "pending",
+          "more_information_required",
+          "verified",
+          "declined",
+          "expired",
+          "not_submitted",
+        ]);
+
+      if (propertyVerificationsError) {
+        console.error(
+          "ADMIN PROPERTY VERIFICATION COUNTS ERROR:",
+          propertyVerificationsError
+        );
+        setPropertyVerificationError(
+          "Property verification counts could not be loaded."
+        );
+      } else {
+        setPropertyVerificationError("");
+        setPropertyVerifications(
+          (propertyVerificationsData || []) as PropertyVerification[]
+        );
+      }
 
       setProfiles((profilesData || []) as Profile[]);
       setListings((listingsData || []) as Listing[]);
@@ -273,6 +339,33 @@ export default function AdminDashboardPage() {
         return;
       }
 
+      await loadAdminDashboard();
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function repairListingLocation(listingId: string) {
+    if (!confirm("Repair this listing location and recalculate routes?")) return;
+
+    try {
+      setWorkingId(listingId);
+
+      const response = await fetch(`/api/listings/${listingId}/repair-location`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.error || "Location repair failed.");
+        return;
+      }
+
+      alert(
+        `Location repaired. Old coordinate difference: ${
+          result.oldVsGeocodedDifferenceMeters ?? "unknown"
+        }m.`
+      );
       await loadAdminDashboard();
     } finally {
       setWorkingId(null);
@@ -442,6 +535,10 @@ export default function AdminDashboardPage() {
             <Stat label="Reports" value={reports.length} />
             <Stat label="Support" value={supportTickets.length} />
             <Stat label="Pending IDs" value={pendingVerifications.length} />
+            <Stat
+              label="Pending Properties"
+              value={propertyVerificationCounts.pending}
+            />
           </div>
         </section>
 
@@ -638,6 +735,55 @@ export default function AdminDashboardPage() {
                 )}
               </div>
             )}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-pink-500/20 bg-pink-500/5 p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex rounded-full bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-300">
+                PROPERTY VERIFICATION
+              </div>
+              <h2 className="text-2xl font-bold">
+                Property / Listing Verifications
+              </h2>
+              <p className="mt-1 text-sm text-gray-400">
+                Review landlord property relationship documents separately from
+                identity verification.
+              </p>
+
+              {propertyVerificationError && (
+                <p className="mt-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-sm text-yellow-100">
+                  {propertyVerificationError}
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300">
+                  Pending: {propertyVerificationCounts.pending}
+                </span>
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
+                  More info required:{" "}
+                  {propertyVerificationCounts.more_information_required}
+                </span>
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                  Verified: {propertyVerificationCounts.verified}
+                </span>
+                <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
+                  Declined: {propertyVerificationCounts.declined}
+                </span>
+                <span className="rounded-full bg-zinc-500/10 px-3 py-1 text-xs font-semibold text-zinc-300">
+                  Expired: {propertyVerificationCounts.expired}
+                </span>
+              </div>
+            </div>
+
+            <Link
+              href="/admin/verifications"
+              className="rounded-xl bg-pink-500 px-5 py-3 font-bold text-white hover:bg-pink-400"
+            >
+              Review Property Verifications
+            </Link>
           </div>
         </section>
 
@@ -894,13 +1040,21 @@ export default function AdminDashboardPage() {
                     </p>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     <Link
                       href={`/listings/${listing.id}`}
                       className="rounded-xl border border-gray-700 bg-white/5 px-5 py-3 font-semibold text-white"
                     >
                       View
                     </Link>
+
+                    <button
+                      onClick={() => repairListingLocation(listing.id)}
+                      disabled={workingId === listing.id}
+                      className="rounded-xl border border-pink-500/30 bg-pink-500/10 px-5 py-3 font-semibold text-pink-200 disabled:bg-gray-600 disabled:text-white"
+                    >
+                      Repair listing location
+                    </button>
 
                     <button
                       onClick={() => deleteListing(listing.id)}

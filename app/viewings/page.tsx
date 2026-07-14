@@ -118,13 +118,12 @@ export default function ViewingsPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, status, account_status")
+      .select("role, account_status")
       .eq("id", user.id)
       .maybeSingle();
 
     if (
       profile?.role === "banned" ||
-      profile?.status === "banned" ||
       profile?.account_status === "banned" ||
       profile?.account_status === "suspended"
     ) {

@@ -72,6 +72,20 @@
       "viewingAppointments": "Rendez-vous de visite",
       "builtForStudents": "Conçu pour les étudiants"
     },
+    "transparencyStrip": {
+      "campusDistance": {
+        "title": "Distance approximative du campus",
+        "text": "Les annonces peuvent afficher la distance et les temps de trajet approximatifs vers le campus le plus proche sans révéler l’adresse exacte."
+      },
+      "utilities": {
+        "title": "Services publics clarifiés",
+        "text": "Voyez ce qui est inclus, ce qui est séparé et les coûts mensuels estimés avant d’envoyer une demande."
+      },
+      "leaseConditions": {
+        "title": "Conditions de bail à l’avance",
+        "text": "Consultez plus tôt la date d’emménagement, le type de bail, les dépôts, les règles d’invités, les garants et les conditions adaptées aux étudiants."
+      }
+    },
     "finalCta": {
       "title": "Prêt à trouver votre prochain logement étudiant?",
       "text": "Recherchez des locations étudiantes fiables ou inscrivez votre propriété pour les étudiants dès aujourd’hui.",
@@ -427,6 +441,54 @@
       "city": "Ville",
       "campusArea": "Campus / secteur",
       "exactAddress": "Adresse exacte"
+    },
+    "campusRoute": {
+      "eyebrow": "Emplacement",
+      "title": "Emplacement et trajet vers le campus",
+      "description": "Comparez les trajets estimés depuis le secteur de la propriété vers le campus sélectionné.",
+      "location": "Emplacement",
+      "nearestCampus": "Campus le plus proche",
+      "campusMissing": "Campus non sélectionné",
+      "chooseMode": "Choisir un mode de transport",
+      "modes": {
+        "transit": "Transport",
+        "cycling": "Vélo",
+        "walking": "Marche",
+        "driving": "Voiture"
+      },
+      "propertyArea": "Secteur approximatif de la propriété",
+      "mapLabel": "Carte montrant le trajet du secteur de la propriété au campus",
+      "calculating": "Calcul du trajet...",
+      "routeError": "Impossible de charger ce trajet pour le moment.",
+      "routeUnavailable": "Le trajet n’a pas pu être calculé pour le moment.",
+      "mapError": "Impossible de charger la carte pour le moment.",
+      "missingMapboxToken": "Le jeton d’accès Mapbox est manquant.",
+      "missingCampus": "Le trajet est indisponible parce que ce campus n’a pas encore de coordonnées cartographiques.",
+      "retry": "Réessayer",
+      "from": "De",
+      "to": "À",
+      "routeSummary": "Résumé du trajet",
+      "fromTo": "De {from} à {to}",
+      "travelMode": "Mode de transport",
+      "distance": "Distance",
+      "estimatedTime": "Temps estimé",
+      "openDirections": "Ouvrir l’itinéraire",
+      "openLiveTransitDirections": "Ouvrir les itinéraires de transport en direct",
+      "viewLiveRoute": "Voir le trajet en direct",
+      "checkCurrentSchedule": "Vérifier l’horaire actuel",
+      "transit": "Transport",
+      "walk": "Marche",
+      "toward": "vers",
+      "stops": "{count, plural, one {# arrêt} other {# arrêts}}",
+      "transitStep": "Segment de transport",
+      "summarySentence": "Environ {duration} en mode {mode} vers {campus}.",
+      "privacyDisclaimer": "Le marqueur de la propriété est placé à proximité pour protéger l’adresse exacte. Les estimations de distance et de temps de trajet sont calculées à partir de l’emplacement réel de la propriété.",
+      "externalDirectionsDisclaimer": "Les itinéraires externes commencent à partir de l’emplacement approximatif affiché sur la carte.",
+      "exactAddressDisclaimer": "Ce trajet utilise l’emplacement déverrouillé de la propriété.",
+      "walkingCyclingNotice": "Les trajets à pied et à vélo sont des estimations et peuvent ne pas inclure tous les trottoirs, sentiers ou pistes cyclables.",
+      "transitUnavailable": "Les itinéraires de transport en direct sont actuellement indisponibles.",
+      "transitGoogleMapsHint": "Les horaires et trajets d’autobus s’ouvrent dans Google Maps.",
+      "transitEstimate": "Les itinéraires de transport en direct s’ouvrent dans Google Maps. Les temps de transport sont des estimations et peuvent varier selon les horaires, l’attente et les changements de service."
     },
     "errors": {
       "notFound": "Annonce introuvable.",

@@ -12,6 +12,7 @@ import {
   SendHorizonal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import ApplicationDocumentsPanel from "@/components/trust/ApplicationDocumentsPanel";
 
 type Inquiry = {
   id: string;
@@ -88,6 +89,9 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [latestViewing, setLatestViewing] = useState<Viewing | null>(null);
   const [body, setBody] = useState("");
+  const [activeTab, setActiveTab] = useState<"messages" | "documents">(
+    "messages"
+  );
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -619,7 +623,9 @@ export default function ChatPage() {
                 <ArrowLeft size={18} />
               </Link>
 
-              {renderAvatar(otherProfile, "h-11 w-11")}
+              <Link href={`/users/${otherUserId}`}>
+                {renderAvatar(otherProfile, "h-11 w-11")}
+              </Link>
 
               <div className="min-w-0">
                 <h2 className="line-clamp-1 font-black">
@@ -629,6 +635,14 @@ export default function ChatPage() {
                 <p className="text-xs text-zinc-500">
                   {inquiry?.listings?.title || t("housingConversation")}
                 </p>
+                {otherUserId && (
+                  <Link
+                    href={`/users/${otherUserId}`}
+                    className="mt-1 inline-block text-xs font-semibold text-pink-300 hover:text-pink-200"
+                  >
+                    View profile
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -638,6 +652,33 @@ export default function ChatPage() {
             >
               {t("listing")}
             </Link>
+          </div>
+
+          <div className="border-b border-white/10 bg-[#060606] px-4 py-3 sm:px-6">
+            <div className="flex rounded-2xl border border-white/10 bg-black/60 p-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("messages")}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-bold transition ${
+                  activeTab === "messages"
+                    ? "bg-white text-black"
+                    : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                Messages
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("documents")}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-bold transition ${
+                  activeTab === "documents"
+                    ? "bg-white text-black"
+                    : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                Application documents
+              </button>
+            </div>
           </div>
 
           {latestViewing && (
@@ -701,99 +742,117 @@ export default function ChatPage() {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-            {messages.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center text-center text-zinc-500">
-                <MessageCircle size={42} className="mb-4 opacity-50" />
+          {activeTab === "messages" ? (
+            <>
+              <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                {messages.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center text-center text-zinc-500">
+                    <MessageCircle size={42} className="mb-4 opacity-50" />
 
-                <p className="text-lg font-bold text-zinc-300">
-                  {t("noMessages")}
-                </p>
+                    <p className="text-lg font-bold text-zinc-300">
+                      {t("noMessages")}
+                    </p>
 
-                <p className="mt-2 max-w-sm text-sm">
-                  {t("safeConversation")}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {messages.map((msg) => {
-                  const isMine = msg.sender_id === userId;
+                    <p className="mt-2 max-w-sm text-sm">
+                      {t("safeConversation")}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {messages.map((msg) => {
+                      const isMine = msg.sender_id === userId;
 
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${
-                        isMine ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      <div className="flex max-w-[82%] gap-3 sm:max-w-[70%]">
-                        {!isMine &&
-                          renderAvatar(profiles[msg.sender_id], "h-9 w-9")}
-
+                      return (
                         <div
-                          className={`rounded-[28px] px-5 py-3 text-sm shadow-xl ${
-                            isMine
-                              ? "rounded-br-md bg-white text-black"
-                              : "rounded-bl-md bg-zinc-900 text-white"
+                          key={msg.id}
+                          className={`flex ${
+                            isMine ? "justify-end" : "justify-start"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap break-words leading-6">
-                            {msg.body}
-                          </p>
+                          <div className="flex max-w-[82%] gap-3 sm:max-w-[70%]">
+                            {!isMine &&
+                              renderAvatar(profiles[msg.sender_id], "h-9 w-9")}
 
-                          <div
-                            className={`mt-2 flex justify-end gap-2 text-[11px] ${
-                              isMine ? "text-zinc-600" : "text-zinc-500"
-                            }`}
-                          >
-                            <span>
-                              {new Date(msg.created_at).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
+                            <div
+                              className={`rounded-[28px] px-5 py-3 text-sm shadow-xl ${
+                                isMine
+                                  ? "rounded-br-md bg-white text-black"
+                                  : "rounded-bl-md bg-zinc-900 text-white"
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap break-words leading-6">
+                                {msg.body}
+                              </p>
 
-                            {isMine && (
-                              <span>{msg.read_at ? t("read") : t("sent")}</span>
-                            )}
+                              <div
+                                className={`mt-2 flex justify-end gap-2 text-[11px] ${
+                                  isMine ? "text-zinc-600" : "text-zinc-500"
+                                }`}
+                              >
+                                <span>
+                                  {new Date(msg.created_at).toLocaleTimeString(
+                                    [],
+                                    {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    }
+                                  )}
+                                </span>
+
+                                {isMine && (
+                                  <span>
+                                    {msg.read_at ? t("read") : t("sent")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
 
-                <div ref={bottomRef} />
-              </div>
-            )}
-          </div>
-
-          <form
-            onSubmit={sendMessage}
-            className="border-t border-white/10 bg-black p-4"
-          >
-            <div className="flex items-end gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-3">
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder={t("writeMessage")}
-                rows={1}
-                className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-3 text-white outline-none placeholder:text-zinc-600"
-              />
-
-              <button
-                type="submit"
-                disabled={sending || body.trim().length === 0}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-black transition hover:bg-zinc-200 disabled:opacity-40"
-              >
-                {sending ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <SendHorizonal size={18} />
+                    <div ref={bottomRef} />
+                  </div>
                 )}
-              </button>
+              </div>
+
+              <form
+                onSubmit={sendMessage}
+                className="border-t border-white/10 bg-black p-4"
+              >
+                <div className="flex items-end gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-3">
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder={t("writeMessage")}
+                    rows={1}
+                    className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-3 text-white outline-none placeholder:text-zinc-600"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={sending || body.trim().length === 0}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-black transition hover:bg-zinc-200 disabled:opacity-40"
+                  >
+                    {sending ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <SendHorizonal size={18} />
+                    )}
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+              {inquiry && (
+                <ApplicationDocumentsPanel
+                  inquiryId={inquiry.id}
+                  isOwner={Boolean(isOwner)}
+                />
+              )}
             </div>
-          </form>
+          )}
         </section>
 
         <aside className="hidden border-l border-white/10 bg-[#060606] p-5 xl:block">
@@ -902,12 +961,17 @@ export default function ChatPage() {
               <p className="text-sm font-bold text-zinc-400">{t("owner")}</p>
 
               <div className="mt-3 flex items-center gap-3">
-                {renderAvatar(ownerProfile, "h-12 w-12")}
+                <Link href={`/users/${inquiry?.owner_id}`}>
+                  {renderAvatar(ownerProfile, "h-12 w-12")}
+                </Link>
 
                 <div>
-                  <p className="font-bold">
+                  <Link
+                    href={`/users/${inquiry?.owner_id}`}
+                    className="font-bold hover:text-pink-200"
+                  >
                     {ownerProfile?.full_name || t("propertyOwner")}
-                  </p>
+                  </Link>
 
                   <p className="text-sm text-zinc-500">{t("verifiedContact")}</p>
                 </div>

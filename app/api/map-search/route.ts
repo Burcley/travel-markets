@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSafePublicCoordinate } from "@/lib/location-privacy";
 import { createClient } from "@/lib/supabase/server";
 
 const PLAN_RANK: Record<string, number> = {
@@ -72,6 +73,98 @@ function getListingRankScore(listing: any) {
   return featuredScore + planScore + dateScore;
 }
 
+function isMissingPublicCoordinateColumn(error: unknown) {
+  const typedError = error as { code?: string | null; message?: string | null };
+  const message = typedError?.message || "";
+
+  return (
+    (typedError?.code === "42703" || typedError?.code === "PGRST204") &&
+    (message.includes("public_latitude") ||
+      message.includes("public_longitude"))
+  );
+}
+
+function createListingQuery({
+  supabase,
+  includePublicCoordinates,
+  north,
+  south,
+  east,
+  west,
+  q,
+  city,
+  campus,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  includePublicCoordinates: boolean;
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+  q?: string;
+  city?: string;
+  campus?: string;
+}) {
+  let query = supabase
+    .from("listings")
+    .select(
+      `
+      id,
+      user_id,
+      title,
+      city,
+      location,
+      campus,
+      price,
+      bedrooms,
+      bathrooms,
+      guests,
+      status,
+      ${includePublicCoordinates ? "public_latitude, public_longitude," : "latitude, longitude,"}
+      created_at,
+      is_featured,
+      featured_until,
+      featured_rank,
+      listing_images (
+        image_url,
+        is_cover,
+        sort_order
+      )
+    `
+    )
+    .neq("status", "rented")
+    .neq("status", "draft")
+    .limit(80);
+
+  if (includePublicCoordinates) {
+    if (!Number.isNaN(north)) query = query.lte("public_latitude", north);
+    if (!Number.isNaN(south)) query = query.gte("public_latitude", south);
+    if (!Number.isNaN(east)) query = query.lte("public_longitude", east);
+    if (!Number.isNaN(west)) query = query.gte("public_longitude", west);
+  }
+
+  if (q) {
+    const safeQ = escapeSearchValue(q);
+    query = query.or(
+      `title.ilike.%${safeQ}%,city.ilike.%${safeQ}%,location.ilike.%${safeQ}%,campus.ilike.%${safeQ}%`
+    );
+  }
+
+  if (city) {
+    const safeCity = escapeSearchValue(city);
+    query = query.or(`city.ilike.%${safeCity}%,location.ilike.%${safeCity}%`);
+  }
+
+  if (campus) {
+    const safeCampus = escapeSearchValue(campus);
+    query = query.ilike("campus", `%${safeCampus}%`);
+  }
+
+  return query.order("created_at", {
+    ascending: false,
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -86,76 +179,44 @@ export async function GET(request: NextRequest) {
     const city = clean(searchParams.get("city"));
     const campus = clean(searchParams.get("campus"));
 
-    let query = supabase
-      .from("listings")
-      .select(
-        `
-        id,
-        user_id,
-        title,
-        city,
-        location,
-        campus,
-        price,
-        bedrooms,
-        bathrooms,
-        guests,
-        status,
-        latitude,
-        longitude,
-        created_at,
-        is_featured,
-        featured_until,
-        featured_rank,
-        listing_images (
-          image_url,
-          is_cover,
-          sort_order
-        )
-      `
-      )
-      .neq("status", "rented")
-      .limit(80);
-
-    if (!Number.isNaN(north)) {
-      query = query.lte("latitude", north);
-    }
-
-    if (!Number.isNaN(south)) {
-      query = query.gte("latitude", south);
-    }
-
-    if (!Number.isNaN(east)) {
-      query = query.lte("longitude", east);
-    }
-
-    if (!Number.isNaN(west)) {
-      query = query.gte("longitude", west);
-    }
-
-    if (q) {
-      const safeQ = escapeSearchValue(q);
-
-      query = query.or(
-        `title.ilike.%${safeQ}%,city.ilike.%${safeQ}%,location.ilike.%${safeQ}%,campus.ilike.%${safeQ}%`
-      );
-    }
-
-    if (city) {
-      const safeCity = escapeSearchValue(city);
-      query = query.or(`city.ilike.%${safeCity}%,location.ilike.%${safeCity}%`);
-    }
-
-    if (campus) {
-      const safeCampus = escapeSearchValue(campus);
-      query = query.ilike("campus", `%${safeCampus}%`);
-    }
-
-    query = query.order("created_at", {
-      ascending: false,
+    let includePublicCoordinates = true;
+    let { data, error } = await createListingQuery({
+      supabase,
+      includePublicCoordinates,
+      north,
+      south,
+      east,
+      west,
+      q,
+      city,
+      campus,
     });
 
-    const { data, error } = await query;
+    if (error && isMissingPublicCoordinateColumn(error)) {
+      console.error(
+        "MAP SEARCH PUBLIC COORDINATE FALLBACK:",
+        JSON.stringify({
+          code: error.code,
+          message: error.message,
+        })
+      );
+
+      includePublicCoordinates = false;
+      const legacyResult = await createListingQuery({
+        supabase,
+        includePublicCoordinates,
+        north,
+        south,
+        east,
+        west,
+        q,
+        city,
+        campus,
+      });
+
+      data = legacyResult.data;
+      error = legacyResult.error;
+    }
 
     if (error) {
       console.error("MAP SEARCH ERROR:", error);
@@ -225,6 +286,13 @@ export async function GET(request: NextRequest) {
         null;
 
       const fallback = getApproxCoordinates(listing.city, listing.campus);
+      const safeCoordinate = getSafePublicCoordinate({
+        id: listing.id,
+        latitude: listing.latitude,
+        longitude: listing.longitude,
+        publicLatitude: listing.public_latitude,
+        publicLongitude: listing.public_longitude,
+      });
 
       const activeFeatured =
         Boolean(listing.is_featured) && isFeaturedActive(listing.featured_until);
@@ -257,8 +325,8 @@ export async function GET(request: NextRequest) {
 
         image_url: cover,
 
-        latitude: listing.latitude ?? fallback.latitude,
-        longitude: listing.longitude ?? fallback.longitude,
+        latitude: safeCoordinate.latitude ?? fallback.latitude,
+        longitude: safeCoordinate.longitude ?? fallback.longitude,
 
         is_saved: false,
       };

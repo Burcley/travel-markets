@@ -67,6 +67,8 @@ export default function ListingsPage() {
           )
         `
         )
+        .neq("status", "draft")
+        .neq("status", "rented")
         .order("created_at", { ascending: false });
 
       query = query.gte("price", filters.minPrice);
