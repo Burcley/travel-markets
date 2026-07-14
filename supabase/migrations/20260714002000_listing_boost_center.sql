@@ -21,14 +21,29 @@ alter table public.listing_boosts
 
 alter table public.listing_boosts
   add constraint listing_boosts_source_check
-  check (source in ('included', 'purchased_7_day', 'purchased_14_day', 'purchased_30_day', 'legacy'));
+  check (
+    source in (
+      'included',
+      'purchased_7_day',
+      'purchased_14_day',
+      'purchased_30_day',
+      'legacy'
+    )
+  );
 
 alter table public.listing_boosts
   drop constraint if exists listing_boosts_status_check;
 
 alter table public.listing_boosts
   add constraint listing_boosts_status_check
-  check (status in ('active', 'expired', 'canceled', 'pending'));
+  check (
+    status in (
+      'active',
+      'expired',
+      'canceled',
+      'pending'
+    )
+  );
 
 alter table public.listing_boosts
   drop constraint if exists listing_boosts_duration_days_check;
@@ -71,9 +86,12 @@ select
   l.id,
   'legacy',
   7,
-  greatest(coalesce(l.updated_at, l.created_at, now()), coalesce(l.created_at, now())),
+  coalesce(l.created_at, now()),
   l.boost_until,
-  case when l.boost_until > now() then 'active' else 'expired' end,
+  case
+    when l.boost_until > now() then 'active'
+    else 'expired'
+  end,
   coalesce(l.created_at, now()),
   now()
 from public.listings l
@@ -87,14 +105,18 @@ where l.boost_until is not null
 
 alter table public.listing_boosts enable row level security;
 
-drop policy if exists "Owners can read their own listing boosts" on public.listing_boosts;
+drop policy if exists "Owners can read their own listing boosts"
+  on public.listing_boosts;
+
 create policy "Owners can read their own listing boosts"
 on public.listing_boosts
 for select
 to authenticated
 using (auth.uid() = owner_id);
 
-drop policy if exists "Listing boosts are service-role writable only" on public.listing_boosts;
+drop policy if exists "Listing boosts are service-role writable only"
+  on public.listing_boosts;
+
 create policy "Listing boosts are service-role writable only"
 on public.listing_boosts
 for all
@@ -121,29 +143,56 @@ declare
   expires_at_value timestamptz := now() + interval '7 days';
 begin
   if p_monthly_allowance <= 0 then
-    return jsonb_build_object('ok', false, 'code', 'SUBSCRIPTION_NOT_ELIGIBLE');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'SUBSCRIPTION_NOT_ELIGIBLE'
+    );
   end if;
 
   select *
-    into listing_row
+  into listing_row
   from public.listings
   where id = p_listing_id
   for update;
 
   if listing_row.id is null then
-    return jsonb_build_object('ok', false, 'code', 'LISTING_NOT_FOUND');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'LISTING_NOT_FOUND'
+    );
   end if;
 
   if listing_row.user_id <> p_owner_id then
-    return jsonb_build_object('ok', false, 'code', 'NOT_OWNER');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'NOT_OWNER'
+    );
   end if;
 
   if coalesce(listing_row.status, '') not in ('available', 'pending') then
-    return jsonb_build_object('ok', false, 'code', 'LISTING_NOT_ACTIVE');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'LISTING_NOT_ACTIVE'
+    );
   end if;
 
-  if listing_row.boost_until is not null and listing_row.boost_until > now() then
-    return jsonb_build_object('ok', false, 'code', 'LISTING_ALREADY_BOOSTED');
+  if listing_row.boost_until is not null
+    and listing_row.boost_until > now()
+  then
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'LISTING_ALREADY_BOOSTED'
+    );
   end if;
 
   if exists (
@@ -154,31 +203,58 @@ begin
       and started_at <= now()
       and expires_at > now()
   ) then
-    return jsonb_build_object('ok', false, 'code', 'LISTING_ALREADY_BOOSTED');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'LISTING_ALREADY_BOOSTED'
+    );
   end if;
 
   select *
-    into subscription_row
+  into subscription_row
   from public.owner_subscriptions
   where user_id = p_owner_id
   for update;
 
   if subscription_row.user_id is null then
-    return jsonb_build_object('ok', false, 'code', 'SUBSCRIPTION_INACTIVE');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'SUBSCRIPTION_INACTIVE'
+    );
   end if;
 
   if subscription_row.status not in ('active', 'trialing') then
-    return jsonb_build_object('ok', false, 'code', 'SUBSCRIPTION_INACTIVE');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'SUBSCRIPTION_INACTIVE'
+    );
   end if;
 
-  if coalesce(subscription_row.included_monthly_boosts_used, 0) >= p_monthly_allowance then
-    return jsonb_build_object('ok', false, 'code', 'NO_INCLUDED_BOOSTS');
+  if coalesce(
+    subscription_row.included_monthly_boosts_used,
+    0
+  ) >= p_monthly_allowance then
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'NO_INCLUDED_BOOSTS'
+    );
   end if;
 
   update public.owner_subscriptions
   set
-    included_monthly_boosts_used = included_monthly_boosts_used + 1,
-    monthly_boosts_used = greatest(monthly_boosts_used, included_monthly_boosts_used + 1),
+    included_monthly_boosts_used =
+      coalesce(included_monthly_boosts_used, 0) + 1,
+    monthly_boosts_used = greatest(
+      coalesce(monthly_boosts_used, 0),
+      coalesce(included_monthly_boosts_used, 0) + 1
+    ),
     updated_at = now()
   where user_id = p_owner_id;
 
@@ -204,7 +280,8 @@ begin
     p_billing_period_start,
     p_billing_period_end
   )
-  returning * into boost_row;
+  returning *
+  into boost_row;
 
   update public.listings
   set
@@ -215,24 +292,64 @@ begin
     and user_id = p_owner_id;
 
   return jsonb_build_object(
-    'ok', true,
-    'boostId', boost_row.id,
-    'listingId', boost_row.listing_id,
-    'source', boost_row.source,
-    'startedAt', boost_row.started_at,
-    'expiresAt', boost_row.expires_at,
-    'remaining', greatest(0, p_monthly_allowance - (subscription_row.included_monthly_boosts_used + 1))
+    'ok',
+    true,
+    'boostId',
+    boost_row.id,
+    'listingId',
+    boost_row.listing_id,
+    'source',
+    boost_row.source,
+    'startedAt',
+    boost_row.started_at,
+    'expiresAt',
+    boost_row.expires_at,
+    'remaining',
+    greatest(
+      0,
+      p_monthly_allowance -
+      (
+        coalesce(
+          subscription_row.included_monthly_boosts_used,
+          0
+        ) + 1
+      )
+    )
   );
 exception
   when unique_violation then
-    return jsonb_build_object('ok', false, 'code', 'LISTING_ALREADY_BOOSTED');
+    return jsonb_build_object(
+      'ok',
+      false,
+      'code',
+      'LISTING_ALREADY_BOOSTED'
+    );
 end;
 $$;
 
-revoke all on function public.activate_included_listing_boost(uuid, uuid, integer, timestamptz, timestamptz) from public;
-grant execute on function public.activate_included_listing_boost(uuid, uuid, integer, timestamptz, timestamptz) to service_role;
+revoke all
+on function public.activate_included_listing_boost(
+  uuid,
+  uuid,
+  integer,
+  timestamptz,
+  timestamptz
+)
+from public;
 
-create or replace function public.increment_purchased_boost_credit(p_user_id uuid)
+grant execute
+on function public.activate_included_listing_boost(
+  uuid,
+  uuid,
+  integer,
+  timestamptz,
+  timestamptz
+)
+to service_role;
+
+create or replace function public.increment_purchased_boost_credit(
+  p_user_id uuid
+)
 returns integer
 language plpgsql
 security definer
@@ -257,13 +374,23 @@ begin
   )
   on conflict (user_id)
   do update set
-    purchased_boost_credits = coalesce(public.owner_subscriptions.purchased_boost_credits, 0) + 1,
+    purchased_boost_credits =
+      coalesce(
+        public.owner_subscriptions.purchased_boost_credits,
+        0
+      ) + 1,
     updated_at = now()
-  returning purchased_boost_credits into next_balance;
+  returning purchased_boost_credits
+  into next_balance;
 
   return next_balance;
 end;
 $$;
 
-revoke all on function public.increment_purchased_boost_credit(uuid) from public;
-grant execute on function public.increment_purchased_boost_credit(uuid) to service_role;
+revoke all
+on function public.increment_purchased_boost_credit(uuid)
+from public;
+
+grant execute
+on function public.increment_purchased_boost_credit(uuid)
+to service_role;
