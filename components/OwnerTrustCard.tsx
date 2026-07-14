@@ -10,7 +10,6 @@ import {
   LockKeyhole,
   MessageCircle,
   ShieldCheck,
-  Sparkles,
   Star,
   Zap,
 } from "lucide-react";
@@ -90,8 +89,8 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
   const ownerName = owner.full_name || t("propertyOwner");
   const ownerInitial = ownerName.charAt(0).toUpperCase();
 
+  const isElite = ownerPlan === "elite" || ownerPlan === "legacy_premium";
   const isPremium = ownerPlan === "premium";
-  const isPro = ownerPlan === "pro";
 
   const isVerified = Boolean(owner.is_verified || owner.identity_verified);
   const trustScore = owner.trust_score ?? 20;
@@ -118,10 +117,10 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
   return (
     <div
       className={`rounded-3xl border p-6 shadow-2xl ${
-        isPremium
-          ? "border-yellow-400/40 bg-gradient-to-br from-yellow-500/15 via-[#070707] to-black"
-          : isPro
+        isElite
           ? "border-purple-400/40 bg-gradient-to-br from-purple-500/15 via-[#070707] to-black"
+          : isPremium
+          ? "border-yellow-400/40 bg-gradient-to-br from-yellow-500/15 via-[#070707] to-black"
           : trustLevel === "elite"
           ? "border-emerald-400/30 bg-gradient-to-br from-emerald-500/15 via-[#070707] to-black"
           : "border-gray-800 bg-[#070707]"
@@ -133,17 +132,10 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
         </p>
 
         <div className="flex flex-wrap justify-end gap-2">
-          {isPremium && (
+          {(isPremium || isElite) && (
             <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
               <Crown size={13} />
-              {t("premium")}
-            </span>
-          )}
-
-          {isPro && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-purple-500 px-3 py-1 text-xs font-black text-white">
-              <Sparkles size={13} />
-              {t("pro")}
+              {isElite ? "Elite" : "Premium"}
             </span>
           )}
 
@@ -159,10 +151,10 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
       <div className="flex items-center gap-4">
         <div
           className={`flex h-16 w-16 items-center justify-center overflow-hidden rounded-full ${
-            isPremium
-              ? "bg-yellow-400/20 ring-2 ring-yellow-400/40"
-              : isPro
+            isElite
               ? "bg-purple-500/20 ring-2 ring-purple-400/40"
+              : isPremium
+              ? "bg-yellow-400/20 ring-2 ring-yellow-400/40"
               : isVerified
               ? "bg-emerald-500/20 ring-2 ring-emerald-400/40"
               : "bg-gray-800"
@@ -274,20 +266,11 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
             active
           />
 
-          {isPremium && (
+          {(isPremium || isElite) && (
             <HighlightItem
               icon={<Crown size={15} />}
-              label={t("premiumOwner")}
+              label={isElite ? "Elite Property Manager" : "Premium Landlord"}
               description={t("signals.premiumOwnerDescription")}
-              active
-            />
-          )}
-
-          {isPro && (
-            <HighlightItem
-              icon={<Sparkles size={15} />}
-              label={t("proOwner")}
-              description={t("signals.proOwnerDescription")}
               active
             />
           )}

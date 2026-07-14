@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canCreateOrActivateListing } from "@/lib/subscriptions/server";
 
 const publishVerificationError =
   "Property verification is required before this listing can be published. Upload at least one document showing your ownership, management authority or authorization to advertise this property.";
@@ -71,6 +72,27 @@ export async function POST(request: NextRequest) {
 
   if (!listing || listing.user_id !== user.id) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+  }
+
+  if (listing.status === "draft" || listing.status === "rented") {
+    const planCheck = await canCreateOrActivateListing({
+      userId: user.id,
+      excludeListingId: listingId,
+    });
+
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: planCheck.reason,
+          code: planCheck.code,
+          billingUrl: "/billing",
+          currentCount: planCheck.currentCount,
+          limit: planCheck.limit,
+          plan: planCheck.plan,
+        },
+        { status: 403 }
+      );
+    }
   }
 
   if (!listing.verification_disclaimer_acknowledged) {

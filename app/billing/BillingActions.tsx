@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import type { OwnerPlan } from "@/lib/subscriptions/plans";
+import type { CheckoutOwnerPlan } from "@/lib/subscriptions/plans";
 
 type Props = {
   action: "checkout" | "portal";
-  plan?: OwnerPlan;
+  plan?: CheckoutOwnerPlan;
   label: string;
   fullWidth?: boolean;
 };

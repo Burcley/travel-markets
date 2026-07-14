@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import {
+  normalizeOwnerPlan,
+  subscriptionStatusHasPaidAccess,
+} from "@/lib/subscriptions/plans";
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -24,10 +28,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ plan: "free", status: "inactive" });
     }
 
-    const active = data.status === "active" || data.status === "trialing";
-
     return NextResponse.json({
-      plan: active ? data.plan || "free" : "free",
+      plan: subscriptionStatusHasPaidAccess(data.status)
+        ? normalizeOwnerPlan(data.plan)
+        : "free",
       status: data.status || "inactive",
     });
   } catch (error) {

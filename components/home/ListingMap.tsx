@@ -223,10 +223,10 @@ export default function ListingMap({
       : "";
 
     const planBadge =
-      properties.owner_plan === "premium"
-        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#facc15;color:#000;padding:5px 9px;font-size:11px;font-weight:900">👑 ${escapeHtml(t("premiumOwner"))}</div>`
-        : properties.owner_plan === "pro"
-        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#a855f7;color:#fff;padding:5px 9px;font-size:11px;font-weight:900">⚡ ${escapeHtml(t("proOwner"))}</div>`
+      properties.owner_plan === "elite" || properties.owner_plan === "legacy_premium"
+        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#a855f7;color:#fff;padding:5px 9px;font-size:11px;font-weight:900">👑 Elite Property Manager</div>`
+        : properties.owner_plan === "premium"
+        ? `<div style="margin-top:8px;display:inline-block;border-radius:999px;background:#facc15;color:#000;padding:5px 9px;font-size:11px;font-weight:900">⚡ Premium Landlord</div>`
         : "";
 
     return `
@@ -355,20 +355,24 @@ export default function ListingMap({
           22,
           ["==", ["get", "is_featured"], true],
           21,
+          ["==", ["get", "owner_plan"], "elite"],
+          20,
+          ["==", ["get", "owner_plan"], "legacy_premium"],
+          20,
           ["==", ["get", "owner_plan"], "premium"],
           19,
-          ["==", ["get", "owner_plan"], "pro"],
-          18,
           17,
         ],
         "circle-color": [
           "case",
           ["==", ["get", "is_featured"], true],
           "#facc15",
+          ["==", ["get", "owner_plan"], "elite"],
+          "#a855f7",
+          ["==", ["get", "owner_plan"], "legacy_premium"],
+          "#a855f7",
           ["==", ["get", "owner_plan"], "premium"],
           "#eab308",
-          ["==", ["get", "owner_plan"], "pro"],
-          "#a855f7",
           "#ffffff",
         ],
         "circle-stroke-width": [
@@ -406,7 +410,9 @@ export default function ListingMap({
       paint: {
         "text-color": [
           "case",
-          ["==", ["get", "owner_plan"], "pro"],
+          ["==", ["get", "owner_plan"], "elite"],
+          "#ffffff",
+          ["==", ["get", "owner_plan"], "legacy_premium"],
           "#ffffff",
           "#000000",
         ],
@@ -629,10 +635,12 @@ export default function ListingMap({
       22,
       ["==", ["get", "is_featured"], true],
       21,
+      ["==", ["get", "owner_plan"], "elite"],
+      20,
+      ["==", ["get", "owner_plan"], "legacy_premium"],
+      20,
       ["==", ["get", "owner_plan"], "premium"],
       19,
-      ["==", ["get", "owner_plan"], "pro"],
-      18,
       17,
     ]);
 
@@ -685,7 +693,11 @@ export default function ListingMap({
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-purple-500" />
-          {t("proOwner")}
+          Elite Property Manager
+        </div>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-yellow-600" />
+          Premium Landlord
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-white" />

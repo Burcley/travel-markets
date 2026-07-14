@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { planFromPriceId } from "@/lib/subscriptions/plans";
+import { boostRankForDuration, type BoostSource } from "@/lib/boosts/config";
+import { getOwnerPlanLabel, planFromPriceId } from "@/lib/subscriptions/plans";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -170,22 +171,48 @@ async function syncSubscription(subscriptionId: string) {
 
   const periodStart = getSubscriptionPeriodStart(subscription);
   const periodEnd = getSubscriptionPeriodEnd(subscription);
+  const periodStartIso = periodStart
+    ? new Date(periodStart * 1000).toISOString()
+    : null;
+  const periodEndIso = periodEnd
+    ? new Date(periodEnd * 1000).toISOString()
+    : null;
+
+  const { data: existingSubscription } = await supabaseAdmin
+    .from("owner_subscriptions")
+    .select("current_period_start, plan")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const existingPeriodStart = existingSubscription?.current_period_start
+    ? new Date(existingSubscription.current_period_start).getTime()
+    : null;
+  const nextPeriodStart = periodStartIso
+    ? new Date(periodStartIso).getTime()
+    : null;
+  const billingPeriodChanged =
+    existingPeriodStart !== null &&
+    nextPeriodStart !== null &&
+    existingPeriodStart !== nextPeriodStart;
 
   const { error } = await supabaseAdmin.from("owner_subscriptions").upsert(
     {
       user_id: userId,
-      plan: active ? plan : "free",
+      plan: active ? plan : existingSubscription?.plan || plan || "free",
       status: subscription.status,
       stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
       stripe_price_id: priceId,
-      current_period_start: periodStart
-        ? new Date(periodStart * 1000).toISOString()
-        : null,
-      current_period_end: periodEnd
-        ? new Date(periodEnd * 1000).toISOString()
-        : null,
+      current_period_start: periodStartIso,
+      current_period_end: periodEndIso,
       cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+      ...(billingPeriodChanged
+        ? {
+            included_monthly_boosts_used: 0,
+            monthly_boosts_used: 0,
+            included_monthly_boosts_reset_at: periodStartIso,
+          }
+        : {}),
     },
     { onConflict: "user_id" }
   );
@@ -197,6 +224,7 @@ async function syncSubscription(subscriptionId: string) {
   return {
     userId,
     plan,
+    planLabel: getOwnerPlanLabel(plan),
     status: subscription.status,
     active,
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
@@ -207,18 +235,21 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
   const listingId = session.metadata?.listing_id;
   const userId = session.metadata?.user_id;
   const boostDays = Number(session.metadata?.boost_days || 7);
+  const boostSource = String(
+    session.metadata?.boost_source || "purchased_7_day"
+  ) as BoostSource;
 
   if (!listingId || !userId) {
     throw new Error("Missing listing_id or user_id in boost metadata.");
   }
 
-  if (![1, 7, 30].includes(boostDays)) {
+  if (![7, 14, 30].includes(boostDays)) {
     throw new Error("Invalid boost_days in boost metadata.");
   }
 
   const { data: listing, error: listingReadError } = await supabaseAdmin
     .from("listings")
-    .select("id, user_id, title")
+    .select("id, user_id, title, status, boost_until")
     .eq("id", listingId)
     .maybeSingle();
 
@@ -234,10 +265,66 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
     throw new Error("Boost user_id does not match listing.user_id.");
   }
 
+  if (
+    !["available", "pending"].includes(String(listing.status || "")) ||
+    (listing.boost_until && new Date(listing.boost_until).getTime() > Date.now())
+  ) {
+    await supabaseAdmin.rpc("increment_purchased_boost_credit", {
+      p_user_id: userId,
+    }).then(async ({ error }) => {
+      if (!error) return;
+
+      await supabaseAdmin.from("owner_subscriptions").upsert(
+        {
+          user_id: userId,
+          purchased_boost_credits: 1,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+    });
+
+    await createBillingNotification({
+      userId,
+      title: "Boost credit saved",
+      message:
+        "Your boost purchase was saved as a credit because the listing is not currently eligible.",
+      type: "listing_boost_credit",
+      href: "/dashboard/boosts",
+    });
+
+    return;
+  }
+
   const boostUntil = new Date();
   boostUntil.setDate(boostUntil.getDate() + boostDays);
 
-  const boostRank = boostDays === 30 ? 300 : boostDays === 7 ? 200 : 100;
+  const boostRank = boostRankForDuration(boostDays);
+
+  const { error: boostInsertError } = await supabaseAdmin
+    .from("listing_boosts")
+    .insert({
+      owner_id: userId,
+      listing_id: listingId,
+      source: boostSource,
+      duration_days: boostDays,
+      started_at: new Date().toISOString(),
+      expires_at: boostUntil.toISOString(),
+      status: "active",
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id:
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id || null,
+    });
+
+  if (boostInsertError) {
+    if (boostInsertError.code === "23505") {
+      return;
+    }
+
+    throw boostInsertError;
+  }
 
   const { data: updatedRows, error: updateError } = await supabaseAdmin
     .from("listings")
@@ -263,7 +350,7 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
     title: "Listing boost activated",
     message: `Your listing "${listing.title || "Untitled listing"}" has been boosted for ${boostDays} day(s).`,
     type: "listing_boost",
-    href: `/listings/${listingId}`,
+    href: `/dashboard/boosts`,
   });
 
   await sendBillingEmail({
@@ -334,7 +421,7 @@ async function handleInvoicePaymentSucceeded(invoice: any) {
   await createBillingNotification({
     userId: subscriptionResult.userId,
     title: "Payment successful",
-    message: `Your Travel Markets ${subscriptionResult.plan} subscription payment was successful.`,
+    message: `Your Travel Markets ${subscriptionResult.planLabel} subscription payment was successful.`,
     type: "payment_success",
     href: "/billing",
   });
@@ -343,7 +430,7 @@ async function handleInvoicePaymentSucceeded(invoice: any) {
     userId: subscriptionResult.userId,
     subject: "Travel Markets payment successful",
     heading: "Payment successful",
-    body: `Your Travel Markets ${subscriptionResult.plan} subscription payment was successful. Your owner plan is active.`,
+    body: `Your Travel Markets ${subscriptionResult.planLabel} subscription payment was successful. Your owner plan is active.`,
   });
 }
 
@@ -419,6 +506,21 @@ export async function POST(request: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
 
+    const { error: eventInsertError } = await supabaseAdmin
+      .from("stripe_webhook_events")
+      .insert({
+        id: event.id,
+        type: event.type,
+      });
+
+    if (eventInsertError) {
+      if (eventInsertError.code === "23505") {
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+
+      throw eventInsertError;
+    }
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
@@ -430,7 +532,7 @@ export async function POST(request: NextRequest) {
         await createBillingNotification({
           userId: subscriptionResult.userId,
           title: "Owner plan activated",
-          message: `Your Travel Markets ${subscriptionResult.plan} owner plan is now active.`,
+          message: `Your Travel Markets ${subscriptionResult.planLabel} owner plan is now active.`,
           type: "subscription_started",
           href: "/billing",
         });
@@ -439,7 +541,7 @@ export async function POST(request: NextRequest) {
           userId: subscriptionResult.userId,
           subject: "Your Travel Markets owner plan is active",
           heading: "Owner plan activated",
-          body: `Your Travel Markets ${subscriptionResult.plan} owner plan is now active. You can manage your plan anytime from Billing.`,
+          body: `Your Travel Markets ${subscriptionResult.planLabel} owner plan is now active. You can manage your plan anytime from Billing.`,
         });
       }
 
@@ -481,7 +583,7 @@ export async function POST(request: NextRequest) {
           await createBillingNotification({
             userId: subscriptionResult.userId,
             title: "Subscription updated",
-            message: `Your Travel Markets owner plan is now ${subscriptionResult.plan}.`,
+            message: `Your Travel Markets owner plan is now ${subscriptionResult.planLabel}.`,
             type: "subscription_updated",
             href: "/billing",
           });

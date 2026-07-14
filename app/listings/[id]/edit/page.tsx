@@ -804,6 +804,32 @@ export default function EditListingPage() {
 
       const shouldPublishDraft =
         previousListing?.status === "draft" && status === "available";
+      const nextListingStatus = shouldPublishDraft ? "draft" : status;
+      const activatingListing =
+        ["draft", "rented"].includes(String(previousListing?.status || "")) &&
+        ["available", "pending"].includes(nextListingStatus);
+
+      if (activatingListing) {
+        const limitResponse = await fetch("/api/listings/status", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            listingId,
+            status: nextListingStatus,
+            dryRun: true,
+          }),
+        });
+        const limitData = await limitResponse.json().catch(() => null);
+
+        if (!limitResponse.ok) {
+          throw new Error(
+            limitData?.error ||
+              "Your current plan cannot activate another listing. Visit Billing to upgrade."
+          );
+        }
+      }
       const campusLat = toNumberOrNull(campusLatitude);
       const campusLng = toNumberOrNull(campusLongitude);
       const addressChanged =
@@ -892,7 +918,7 @@ export default function EditListingPage() {
         bathrooms: bathrooms ? Number(bathrooms) : null,
         guests: guests ? Number(guests) : null,
         roommates: roommates ? Number(roommates) : null,
-        status: shouldPublishDraft ? "draft" : status,
+        status: nextListingStatus,
         description: description.trim(),
         amenities: amenitiesArray,
         nearest_campus_name: nearestCampusName.trim() || null,

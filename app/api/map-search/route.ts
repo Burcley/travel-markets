@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSafePublicCoordinate } from "@/lib/location-privacy";
 import { createClient } from "@/lib/supabase/server";
-
-const PLAN_RANK: Record<string, number> = {
-  free: 0,
-  pro: 10,
-  premium: 30,
-};
+import {
+  getOwnerBadgeLabel,
+  getPlanEntitlements,
+  normalizeOwnerPlan,
+  subscriptionStatusHasPaidAccess,
+} from "@/lib/subscriptions/plans";
 
 function getApproxCoordinates(city?: string | null, campus?: string | null) {
   const text = `${city || ""} ${campus || ""}`.toLowerCase();
@@ -44,26 +44,27 @@ function isFeaturedActive(featuredUntil?: string | null) {
   return new Date(featuredUntil).getTime() > Date.now();
 }
 
+function isBoostActive(boostUntil?: string | null) {
+  if (!boostUntil) return false;
+  return new Date(boostUntil).getTime() > Date.now();
+}
+
 function getOwnerPlan(subscription?: { plan?: string | null; status?: string | null }) {
-  const active =
-    subscription?.status === "active" || subscription?.status === "trialing";
+  if (!subscriptionStatusHasPaidAccess(subscription?.status)) return "free";
 
-  if (!active) return "free";
-  if (subscription?.plan === "premium") return "premium";
-  if (subscription?.plan === "pro") return "pro";
-
-  return "free";
+  return normalizeOwnerPlan(subscription?.plan);
 }
 
 function getListingRankScore(listing: any) {
   const activeFeatured =
-    Boolean(listing.is_featured) && isFeaturedActive(listing.featured_until);
+    (Boolean(listing.is_featured) && isFeaturedActive(listing.featured_until)) ||
+    isBoostActive(listing.boost_until);
 
   const ownerPlan = listing.owner_plan || "free";
-  const planScore = PLAN_RANK[ownerPlan] || 0;
+  const planScore = getPlanEntitlements(ownerPlan).searchWeight * 10;
 
   const featuredScore = activeFeatured
-    ? 1000 + Number(listing.featured_rank || 0)
+    ? 1000 + Number(listing.boost_rank || listing.featured_rank || 0)
     : 0;
 
   const dateScore = listing.created_at
@@ -125,6 +126,8 @@ function createListingQuery({
       is_featured,
       featured_until,
       featured_rank,
+      boost_until,
+      boost_rank,
       listing_images (
         image_url,
         is_cover,
@@ -295,7 +298,9 @@ export async function GET(request: NextRequest) {
       });
 
       const activeFeatured =
-        Boolean(listing.is_featured) && isFeaturedActive(listing.featured_until);
+        (Boolean(listing.is_featured) &&
+          isFeaturedActive(listing.featured_until)) ||
+        isBoostActive(listing.boost_until);
 
       const ownerPlan = listing.owner_plan || "free";
 
@@ -314,14 +319,11 @@ export async function GET(request: NextRequest) {
         is_featured: activeFeatured,
         featured_until: listing.featured_until ?? null,
         featured_rank: listing.featured_rank ?? 0,
+        boost_until: listing.boost_until ?? null,
+        boost_rank: listing.boost_rank ?? 0,
 
         owner_plan: ownerPlan,
-        owner_badge:
-          ownerPlan === "premium"
-            ? "Premium Owner"
-            : ownerPlan === "pro"
-            ? "Pro Owner"
-            : null,
+        owner_badge: getOwnerBadgeLabel(ownerPlan),
 
         image_url: cover,
 

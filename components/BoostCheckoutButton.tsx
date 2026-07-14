@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import type { BoostOptionSlug } from "@/lib/boosts/config";
 
 export default function BoostCheckoutButton({
   listingId,
-  days,
+  option = "boost_7_day",
   label,
 }: {
   listingId: string;
-  days: number;
+  option?: BoostOptionSlug;
   label: string;
 }) {
   const t = useTranslations("finalBatchD.boostCheckoutButton");
@@ -26,7 +27,7 @@ export default function BoostCheckoutButton({
         },
         body: JSON.stringify({
           listingId,
-          days,
+          option,
         }),
       });
 
@@ -43,8 +44,8 @@ export default function BoostCheckoutButton({
       }
 
       window.location.href = data.url;
-    } catch (error: any) {
-      alert(error?.message || t("checkoutFailed"));
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : t("checkoutFailed"));
     } finally {
       setLoading(false);
     }

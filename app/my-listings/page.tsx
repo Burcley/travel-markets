@@ -5,7 +5,6 @@ import { Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import DeleteListingButton from "@/components/DeleteListingButton";
 import ListingStatusControls from "@/components/ListingStatusControls";
-import BoostCheckoutButton from "@/components/BoostCheckoutButton";
 
 type Listing = {
   id: string;
@@ -152,6 +151,12 @@ export default async function MyListingsPage() {
           >
             {t("createListing")}
           </Link>
+          <Link
+            href="/dashboard/boosts"
+            className="rounded-2xl border border-yellow-400/30 bg-yellow-500/10 px-5 py-3 font-bold text-yellow-100 hover:bg-yellow-500/20"
+          >
+            Boost Center
+          </Link>
         </div>
 
         {!listings || listings.length === 0 ? (
@@ -225,24 +230,12 @@ export default async function MyListingsPage() {
                             ),
                           })}
                         </p>
-
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                          <BoostCheckoutButton
-                            listingId={listing.id}
-                            days={1}
-                            label={t("addOneDay")}
-                          />
-                          <BoostCheckoutButton
-                            listingId={listing.id}
-                            days={7}
-                            label={t("addSevenDays")}
-                          />
-                          <BoostCheckoutButton
-                            listingId={listing.id}
-                            days={30}
-                            label={t("addThirtyDays")}
-                          />
-                        </div>
+                        <button
+                          disabled
+                          className="mt-4 w-full rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-100/70"
+                        >
+                          Boost Active
+                        </button>
                       </div>
                     ) : (
                       <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-500/10 p-4">
@@ -255,23 +248,12 @@ export default async function MyListingsPage() {
                           {t("boostText")}
                         </p>
 
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                          <BoostCheckoutButton
-                            listingId={listing.id}
-                            days={1}
-                            label={t("oneDay")}
-                          />
-                          <BoostCheckoutButton
-                            listingId={listing.id}
-                            days={7}
-                            label={t("sevenDays")}
-                          />
-                          <BoostCheckoutButton
-                            listingId={listing.id}
-                            days={30}
-                            label={t("thirtyDays")}
-                          />
-                        </div>
+                        <Link
+                          href={`/dashboard/boosts?listing=${listing.id}`}
+                          className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-yellow-400 px-3 py-3 text-sm font-black text-black hover:bg-yellow-300"
+                        >
+                          Boost Listing
+                        </Link>
                       </div>
                     )}
 

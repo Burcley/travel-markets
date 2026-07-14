@@ -12,7 +12,6 @@ import {
   LockKeyhole,
   MessageCircle,
   ShieldCheck,
-  Sparkles,
   Star,
   Zap,
 } from "lucide-react";
@@ -81,8 +80,8 @@ export default function PublicUserProfilePage() {
   const [ownerPlan, setOwnerPlan] = useState("free");
   const [loading, setLoading] = useState(true);
 
+  const isElite = ownerPlan === "elite" || ownerPlan === "legacy_premium";
   const isPremium = ownerPlan === "premium";
-  const isPro = ownerPlan === "pro";
 
   useEffect(() => {
     loadData();
@@ -258,10 +257,10 @@ export default function PublicUserProfilePage() {
       <div className="mx-auto max-w-7xl space-y-10">
         <section
           className={`overflow-hidden rounded-[2rem] border p-8 shadow-2xl ${
-            isPremium
-              ? "border-yellow-400/40 bg-gradient-to-br from-yellow-500/15 via-[#070707] to-black"
-              : isPro
+            isElite
               ? "border-purple-400/40 bg-gradient-to-br from-purple-500/15 via-[#070707] to-black"
+              : isPremium
+              ? "border-yellow-400/40 bg-gradient-to-br from-yellow-500/15 via-[#070707] to-black"
               : "border-gray-800 bg-[#070707]"
           }`}
         >
@@ -269,10 +268,10 @@ export default function PublicUserProfilePage() {
             <div className="flex flex-col gap-6 md:flex-row md:items-center">
               <div
                 className={`h-28 w-28 overflow-hidden rounded-full ${
-                  isPremium
-                    ? "bg-yellow-400/20 ring-2 ring-yellow-400/50"
-                    : isPro
+                  isElite
                     ? "bg-purple-500/20 ring-2 ring-purple-400/50"
+                    : isPremium
+                    ? "bg-yellow-400/20 ring-2 ring-yellow-400/50"
                     : "bg-gray-800"
                 }`}
               >
@@ -295,17 +294,10 @@ export default function PublicUserProfilePage() {
                     {getDisplayName()}
                   </h1>
 
-                  {isPremium && (
+                  {(isPremium || isElite) && (
                     <span className="inline-flex items-center gap-2 rounded-full bg-yellow-400 px-4 py-2 text-sm font-black text-black">
                       <Crown size={16} />
-                      {t("premiumOwner")}
-                    </span>
-                  )}
-
-                  {isPro && (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-purple-500 px-4 py-2 text-sm font-black text-white">
-                      <Sparkles size={16} />
-                      {t("proOwner")}
+                      {isElite ? "Elite Property Manager" : "Premium Landlord"}
                     </span>
                   )}
 
@@ -421,21 +413,12 @@ export default function PublicUserProfilePage() {
             </div>
 
             <div className="space-y-4">
-              {isPremium && (
+              {(isPremium || isElite) && (
                 <Highlight
                   icon={<Crown size={16} />}
-                  label={t("premiumOwner")}
+                  label={isElite ? "Elite Property Manager" : "Premium Landlord"}
                   text={t("premiumOwnerText")}
                   color="text-yellow-300"
-                />
-              )}
-
-              {isPro && (
-                <Highlight
-                  icon={<Sparkles size={16} />}
-                  label={t("proOwner")}
-                  text={t("proOwnerText")}
-                  color="text-purple-300"
                 />
               )}
 
@@ -708,8 +691,10 @@ function OwnerListingCard({
   featured?: boolean;
 }) {
   const t = useTranslations("finalBatchD.publicProfile");
-  const isPremium = ownerPlan === "premium";
-  const isPro = ownerPlan === "pro";
+  const isPremium =
+    ownerPlan === "premium" ||
+    ownerPlan === "elite" ||
+    ownerPlan === "legacy_premium";
 
   return (
     <Link
@@ -717,10 +702,10 @@ function OwnerListingCard({
       className={`overflow-hidden rounded-3xl border bg-[#070707] transition hover:-translate-y-1 ${
         featured
           ? "border-yellow-400/50"
+          : ownerPlan === "elite" || ownerPlan === "legacy_premium"
+          ? "border-purple-400/30"
           : isPremium
           ? "border-yellow-400/30"
-          : isPro
-          ? "border-purple-400/30"
           : "border-gray-800 hover:border-gray-600"
       }`}
     >
@@ -749,10 +734,9 @@ function OwnerListingCard({
               {t("premiumBadge")}
             </span>
           )}
-
-          {isPro && (
+          {(ownerPlan === "elite" || ownerPlan === "legacy_premium") && (
             <span className="rounded-full bg-purple-500 px-3 py-1 text-xs font-black text-white">
-              {t("proBadge")}
+              Elite
             </span>
           )}
         </div>

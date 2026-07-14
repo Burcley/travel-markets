@@ -42,8 +42,9 @@ import { generatePublicCoordinate } from "@/lib/location-privacy";
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 1,
-  pro: 5,
-  premium: 25,
+  premium: 5,
+  elite: Infinity,
+  legacy_premium: Infinity,
 };
 
 const yesNoOptions = [
@@ -172,7 +173,9 @@ export default function PostListingPage() {
   const [formError, setFormError] = useState("");
 
   const listingLimit = PLAN_LIMITS[plan] || 1;
-  const limitReached = activeListings >= listingLimit;
+  const listingLimitLabel =
+    listingLimit === Infinity ? "Unlimited" : String(listingLimit);
+  const limitReached = false;
   const sharedWithOwner =
     sharedKitchenWithOwner === "true" || sharedBathroomWithOwner === "true";
   const livingArrangementCompleted = [
@@ -698,7 +701,7 @@ export default function PostListingPage() {
               <p className="mt-3 text-zinc-300">
                 {t.rich("limitReachedText", {
                   plan,
-                  listingLimit,
+                  listingLimit: listingLimitLabel,
                   activeListings,
                   strong: (chunks) => (
                     <span className="font-bold text-white">{chunks}</span>
@@ -746,7 +749,10 @@ export default function PostListingPage() {
                   {t("ownerPlan", { plan })}
                 </p>
                 <p className="text-sm text-zinc-400">
-                  {t("activeListingsUsed", { activeListings, listingLimit })}
+                  {t("activeListingsUsed", {
+                    activeListings,
+                    listingLimit: listingLimitLabel,
+                  })}
                 </p>
               </div>
             </div>

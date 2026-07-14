@@ -1,15 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { getSafePublicCoordinate } from "@/lib/location-privacy";
+import {
+  getOwnerBadgeLabel,
+  getPlanEntitlements,
+  normalizeOwnerPlan,
+  subscriptionStatusHasPaidAccess,
+} from "@/lib/subscriptions/plans";
 import type { ListingSearchParams } from "./search-types";
 
 const PAGE_SIZE = 12;
-
-const PLAN_TIER: Record<string, number> = {
-  free: 1,
-  pro: 2,
-  premium: 3,
-};
 
 const TRUST_TIER: Record<string, number> = {
   new: 1,
@@ -81,14 +81,9 @@ function getOwnerPlan(subscription?: {
   plan?: string | null;
   status?: string | null;
 }) {
-  const active =
-    subscription?.status === "active" || subscription?.status === "trialing";
+  if (!subscriptionStatusHasPaidAccess(subscription?.status)) return "free";
 
-  if (!active) return "free";
-  if (subscription?.plan === "premium") return "premium";
-  if (subscription?.plan === "pro") return "pro";
-
-  return "free";
+  return normalizeOwnerPlan(subscription?.plan);
 }
 
 function compareByMarketplacePriority(a: any, b: any) {
@@ -117,8 +112,8 @@ function compareByMarketplacePriority(a: any, b: any) {
 
   if (aTrustScore !== bTrustScore) return bTrustScore - aTrustScore;
 
-  const aTier = PLAN_TIER[a.owner_plan || "free"] || 1;
-  const bTier = PLAN_TIER[b.owner_plan || "free"] || 1;
+  const aTier = getPlanEntitlements(a.owner_plan || "free").searchWeight;
+  const bTier = getPlanEntitlements(b.owner_plan || "free").searchWeight;
 
   if (aTier !== bTier) return bTier - aTier;
 
@@ -412,12 +407,7 @@ export async function searchListings(params: ListingSearchParams) {
       boost_rank: listing.boost_rank ?? 0,
 
       owner_plan: ownerPlan,
-      owner_badge:
-        ownerPlan === "premium"
-          ? "Premium Owner"
-          : ownerPlan === "pro"
-          ? "Pro Owner"
-          : null,
+      owner_badge: getOwnerBadgeLabel(ownerPlan),
 
       is_verified: ownerVerified,
       identity_verified: ownerVerified,

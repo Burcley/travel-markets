@@ -3,30 +3,34 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { createClient } from "@/lib/supabase/client";
 
 export default function ListingStatusControls({
   listingId,
-  currentStatus,
 }: {
   listingId: string;
   currentStatus: string | null;
 }) {
   const t = useTranslations("finalBatchD.listingStatus");
   const router = useRouter();
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
 
   async function updateStatus(status: string) {
     setLoading(true);
 
-    const { error } = await supabase
-      .from("listings")
-      .update({ status })
-      .eq("id", listingId);
+    const response = await fetch("/api/listings/status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        listingId,
+        status,
+      }),
+    });
+    const data = await response.json().catch(() => null);
 
-    if (error) {
-      alert(error.message);
+    if (!response.ok) {
+      alert(data?.error || "We could not update this listing status.");
     }
 
     setLoading(false);

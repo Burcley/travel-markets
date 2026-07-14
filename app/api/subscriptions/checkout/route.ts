@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { OWNER_PLANS, OwnerPlan } from "@/lib/subscriptions/plans";
+import {
+  getStripePriceIdForPlan,
+  isCheckoutOwnerPlan,
+  type CheckoutOwnerPlan,
+} from "@/lib/subscriptions/plans";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -46,22 +51,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    const plan = body?.plan as OwnerPlan | undefined;
+    const plan = body?.plan as CheckoutOwnerPlan | undefined;
 
-    if (!plan || !["pro", "premium"].includes(plan)) {
+    if (!isCheckoutOwnerPlan(plan)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
-    const selectedPlan = OWNER_PLANS[plan];
+    const selectedPriceId = getStripePriceIdForPlan(plan);
 
-    if (!selectedPlan?.priceId) {
+    if (!selectedPriceId) {
       return NextResponse.json(
         { error: `Missing Stripe price ID for ${plan}` },
         { status: 400 }
       );
     }
 
-    if (!selectedPlan.priceId.startsWith("price_")) {
+    if (!selectedPriceId.startsWith("price_")) {
       return NextResponse.json(
         {
           error: `Invalid Stripe Price ID for ${plan}. It must start with price_, not prod_.`,
@@ -85,7 +90,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: existingSub, error: subError } = await supabase
+    const admin = createAdminClient();
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role, is_admin, account_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = String(profile?.role || "").toLowerCase();
+    const isOwner =
+      profile?.is_admin || ["owner", "landlord", "host", "admin"].includes(role);
+
+    if (!isOwner || role === "student") {
+      return NextResponse.json(
+        { error: "Only landlord accounts can purchase owner plans." },
+        { status: 403 }
+      );
+    }
+
+    if (["banned", "suspended", "disabled"].includes(String(profile?.account_status || "").toLowerCase())) {
+      return NextResponse.json(
+        { error: "This account cannot start a subscription." },
+        { status: 403 }
+      );
+    }
+
+    const { data: existingSub, error: subError } = await admin
       .from("owner_subscriptions")
       .select("*")
       .eq("user_id", user.id)
@@ -115,7 +146,7 @@ export async function POST(request: NextRequest) {
 
       customerId = customer.id;
 
-      const { error: upsertError } = await supabase
+      const { error: upsertError } = await admin
         .from("owner_subscriptions")
         .upsert(
           {
@@ -147,7 +178,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       line_items: [
         {
-          price: selectedPlan.priceId,
+          price: selectedPriceId,
           quantity: 1,
         },
       ],

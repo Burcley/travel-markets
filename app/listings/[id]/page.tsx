@@ -1256,7 +1256,7 @@ export default function ListingDetailsPage() {
                       {t("editListing")}
                     </button>
                     <button
-                      onClick={() => router.push(`/listings/${listing.id}/boost`)}
+                      onClick={() => router.push(`/dashboard/boosts?listing=${listing.id}`)}
                       className="w-full rounded-xl bg-yellow-400 px-5 py-4 font-black text-black hover:bg-yellow-300"
                     >
                       {t("boostListing")}

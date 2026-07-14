@@ -1,96 +1,122 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import type { ReactNode } from "react";
 import {
   AlertTriangle,
+  BarChart3,
   Check,
   Crown,
   CreditCard,
-  FileText,
+  Home,
   Sparkles,
   Zap,
 } from "lucide-react";
-import { getCurrentUserSubscription } from "@/lib/subscriptions/server";
-import { OWNER_PLANS } from "@/lib/subscriptions/plans";
-import { createClient } from "@/lib/supabase/server";
 import BillingActions from "./BillingActions";
+import { createClient } from "@/lib/supabase/server";
+import {
+  CHECKOUT_OWNER_PLANS,
+  OWNER_PLAN_ENTITLEMENTS,
+  getOwnerPlanLabel,
+  getPublicPlan,
+  subscriptionStatusHasPaidAccess,
+  type CheckoutOwnerPlan,
+} from "@/lib/subscriptions/plans";
+import { getCurrentUserSubscription } from "@/lib/subscriptions/server";
 
-const PLAN_LIMITS = {
-  free: {
-    listings: 1,
-    boosts: 0,
+const comparisonRows = [
+  {
+    label: "Active listing limit",
+    free: "1",
+    premium: "5",
+    elite: "Unlimited",
   },
-  pro: {
-    listings: 5,
-    boosts: 2,
+  {
+    label: "Search visibility",
+    free: "Basic",
+    premium: "Ahead of Free",
+    elite: "Highest priority",
   },
-  premium: {
-    listings: 25,
-    boosts: 10,
+  {
+    label: "Monthly boosts",
+    free: "0",
+    premium: "2",
+    elite: "10",
   },
-};
+  {
+    label: "Landlord badge",
+    free: "None",
+    premium: "Premium Landlord",
+    elite: "Elite Property Manager",
+  },
+  {
+    label: "Listing analytics",
+    free: "Basic totals",
+    premium: "Listing insights",
+    elite: "Portfolio insights",
+  },
+  {
+    label: "Homepage eligibility",
+    free: "No",
+    premium: "Recommendations",
+    elite: "Featured eligibility",
+  },
+  {
+    label: "Priority support",
+    free: "Standard",
+    premium: "Included",
+    elite: "Included",
+  },
+];
 
-function formatDate(date: string | null | undefined, notAvailableLabel: string) {
-  if (!date) return notAvailableLabel;
+function formatDate(date: string | null | undefined) {
+  if (!date) return "Not available";
 
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString("en-CA", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function getPlanStatusLabel(
-  status: string | null | undefined,
-  labels: Record<string, string>
-) {
-  if (!status) return labels.free;
-  if (status === "active") return labels.active;
-  if (status === "trialing") return labels.trialing;
-  if (status === "past_due") return labels.pastDue;
-  if (status === "canceled") return labels.canceled;
-  return status.replaceAll("_", " ");
-}
-
-function getPlanStatusClass(status?: string | null) {
+function statusClass(status?: string | null) {
   if (status === "active" || status === "trialing") {
-    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-300";
+    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-200";
   }
 
   if (status === "past_due") {
-    return "border-yellow-400/30 bg-yellow-500/10 text-yellow-300";
+    return "border-yellow-400/30 bg-yellow-500/10 text-yellow-200";
   }
 
   if (status === "canceled") {
-    return "border-red-400/30 bg-red-500/10 text-red-300";
+    return "border-red-400/30 bg-red-500/10 text-red-200";
   }
 
   return "border-white/10 bg-white/5 text-white/60";
 }
 
 export default async function BillingPage() {
-  const t = await getTranslations("billing");
-  const { user, subscription, plan } = await getCurrentUserSubscription();
+  const {
+    user,
+    subscription,
+    plan,
+    entitlements,
+    remainingMonthlyBoosts,
+  } = await getCurrentUserSubscription();
   const supabase = await createClient();
-
-  const currentPlanKey = (plan || "free") as keyof typeof OWNER_PLANS;
-  const currentPlan = OWNER_PLANS[currentPlanKey];
-  const limits = PLAN_LIMITS[currentPlanKey] || PLAN_LIMITS.free;
 
   if (!user) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
         <div className="max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 text-center">
-          <h1 className="text-2xl font-bold">{t("signInRequired")}</h1>
+          <h1 className="text-2xl font-bold">Sign in required</h1>
           <p className="mt-3 text-white/60">
-            {t("signInText")}
+            Sign in with your landlord account to manage billing.
           </p>
-
           <Link
             href="/auth"
             className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 font-semibold text-black"
           >
-            {t("signIn")}
+            Sign in
           </Link>
         </div>
       </main>
@@ -103,7 +129,7 @@ export default async function BillingPage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = (profile?.role || "").toLowerCase();
+  const role = String(profile?.role || "").toLowerCase();
   const isOwner =
     profile?.is_admin ||
     role === "admin" ||
@@ -111,261 +137,264 @@ export default async function BillingPage() {
     role === "landlord" ||
     role === "host";
 
-  if (!isOwner) {
+  if (!isOwner || role === "student") {
     redirect("/search");
   }
+
+  const publicPlan = getPublicPlan(plan);
+  const paidAccessActive = subscriptionStatusHasPaidAccess(
+    subscription?.status,
+    subscription?.current_period_end
+  );
 
   return (
     <main className="min-h-screen bg-black px-4 py-10 text-white">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 rounded-3xl border border-purple-500/20 bg-gradient-to-br from-purple-500/15 via-white/5 to-yellow-500/10 p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <section className="overflow-hidden rounded-[2rem] border border-pink-500/20 bg-[radial-gradient(circle_at_top,#3b1028_0%,#0f172a_42%,#020617_100%)] p-6 shadow-2xl md:p-8">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-purple-400/30 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200">
+              <p className="inline-flex items-center gap-2 rounded-full border border-pink-400/30 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-100">
                 <Crown size={16} />
-                {t("ownerBillingCenter")}
+                Owner billing
               </p>
-
-              <h1 className="text-4xl font-black tracking-tight">
-                {t("planTitle", { plan: currentPlan?.name || t("freePlanName") })}
+              <h1 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
+                Grow Your Rentals
               </h1>
-
-              <p className="mt-3 max-w-2xl text-white/60">
-                {t("heroText")}
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
+                Choose the visibility and tools you need to reach more students
+                and fill vacancies faster.
               </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               {subscription?.stripe_customer_id && (
-                <BillingActions action="portal" label={t("manageBilling")} />
+                <BillingActions action="portal" label="Manage billing" />
               )}
-
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-5 py-3 font-bold text-white hover:bg-white/15"
               >
-                {t("backToDashboard")}
+                Back to dashboard
               </Link>
             </div>
           </div>
-        </div>
+        </section>
 
         {subscription?.status === "past_due" && (
-          <div className="mb-8 rounded-3xl border border-yellow-500/30 bg-yellow-500/10 p-5">
+          <section className="mt-6 rounded-3xl border border-yellow-500/30 bg-yellow-500/10 p-5">
             <div className="flex gap-3">
               <AlertTriangle className="mt-1 text-yellow-300" />
               <div>
-                <h2 className="font-bold text-yellow-200">
-                  {t("paymentAttentionTitle")}
-                </h2>
-                <p className="mt-1 text-sm text-yellow-100/70">
-                  {t("paymentAttentionText")}
+                <h2 className="font-bold text-yellow-100">Payment attention needed</h2>
+                <p className="mt-1 text-sm text-yellow-100/75">
+                  Update your payment method in Stripe to keep paid owner
+                  benefits active.
                 </p>
               </div>
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="grid gap-5 lg:grid-cols-4">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">{t("currentPlan")}</p>
-            <h2 className="mt-2 text-3xl font-black capitalize">
-              {currentPlan?.name || t("freePlanName")}
-            </h2>
-          </div>
+        <section className="mt-6 grid gap-4 md:grid-cols-4">
+          <SummaryCard
+            icon={<Sparkles />}
+            label="Current plan"
+            value={getOwnerPlanLabel(plan)}
+          />
+          <SummaryCard
+            icon={<CreditCard />}
+            label="Status"
+            value={subscription?.status || "free"}
+            className={statusClass(subscription?.status)}
+          />
+          <SummaryCard
+            icon={<Zap />}
+            label="Monthly Boosts"
+            value={
+              entitlements.monthlyBoosts > 0
+                ? `${remainingMonthlyBoosts} available`
+                : "No monthly boosts included"
+            }
+            helper="Promote your listings and increase visibility."
+            actionHref={
+              entitlements.monthlyBoosts > 0 ? "/dashboard/boosts" : "/billing"
+            }
+            actionLabel={
+              entitlements.monthlyBoosts > 0 ? "Boost a Listing" : "Upgrade"
+            }
+          />
+          <SummaryCard
+            icon={<Home />}
+            label="Next reset"
+            value={formatDate(subscription?.current_period_end)}
+          />
+        </section>
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">{t("planStatus")}</p>
-            <span
-              className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-bold capitalize ${getPlanStatusClass(
-                subscription?.status
-              )}`}
-            >
-              {getPlanStatusLabel(subscription?.status, {
-                free: t("status.free"),
-                active: t("status.active"),
-                trialing: t("status.trialing"),
-                pastDue: t("status.pastDue"),
-                canceled: t("status.canceled"),
-              })}
-            </span>
-          </div>
+        <section className="mt-10 grid gap-5 lg:grid-cols-3">
+          {(["free", ...CHECKOUT_OWNER_PLANS] as Array<"free" | CheckoutOwnerPlan>).map((key) => {
+            const item = OWNER_PLAN_ENTITLEMENTS[key];
+            const isCurrent = publicPlan === key;
+            const emphasized = key === "premium";
+            const isElite = key === "elite";
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">{t("nextBillingDate")}</p>
-            <h2 className="mt-2 text-2xl font-black">
-              {formatDate(subscription?.current_period_end, t("notAvailable"))}
-            </h2>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">{t("cancelAtPeriodEnd")}</p>
-            <h2 className="mt-2 text-2xl font-black">
-              {subscription?.cancel_at_period_end ? t("yes") : t("no")}
-            </h2>
-          </div>
-        </div>
-
-        <div className="mt-8 grid gap-5 md:grid-cols-2">
-          <div className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-blue-500/10 p-3 text-blue-300">
-                <FileText />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">{t("listingUsageTitle")}</h2>
-                <p className="text-sm text-white/50">
-                  {t("listingUsageText")}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">{t("availableSlots")}</span>
-                <span className="font-bold">{limits.listings}</span>
-              </div>
-
-              <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/50">
-                <div className="h-full w-full rounded-full bg-blue-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-yellow-500/10 p-3 text-yellow-300">
-                <Zap />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">{t("monthlyBoostsTitle")}</h2>
-                <p className="text-sm text-white/50">
-                  {t("monthlyBoostsText")}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">{t("includedBoosts")}</span>
-                <span className="font-bold">{limits.boosts}</span>
-              </div>
-
-              <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/50">
-                <div
-                  className="h-full rounded-full bg-yellow-400"
-                  style={{ width: limits.boosts > 0 ? "100%" : "0%" }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <CreditCard className="text-white/60" />
-                <h2 className="text-2xl font-bold">{t("paymentInvoicesTitle")}</h2>
-              </div>
-
-              <p className="mt-2 text-sm text-white/50">
-                {t("paymentInvoicesText")}
-              </p>
-            </div>
-
-            {subscription?.stripe_customer_id ? (
-              <BillingActions action="portal" label={t("openStripePortal")} />
-            ) : (
-              <p className="rounded-2xl border border-white/10 bg-black px-5 py-3 text-sm text-white/50">
-                {t("noPaidBilling")}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-10">
-          <div className="mb-5">
-            <h2 className="text-3xl font-black">{t("choosePlanTitle")}</h2>
-            <p className="mt-2 text-white/50">
-              {t("choosePlanText")}
-            </p>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-3">
-            {(Object.keys(OWNER_PLANS) as Array<keyof typeof OWNER_PLANS>).map(
-              (key) => {
-                const item = OWNER_PLANS[key];
-                const isCurrent = currentPlanKey === key;
-                const isPremium = key === "premium";
-                const isPro = key === "pro";
-
-                return (
-                  <div
-                    key={key}
-                    className={`relative rounded-3xl border p-6 shadow-2xl ${
-                      isPremium
-                        ? "border-yellow-400/40 bg-gradient-to-b from-yellow-500/15 to-white/5"
-                        : isPro
-                        ? "border-purple-400/40 bg-gradient-to-b from-purple-500/15 to-white/5"
-                        : "border-white/10 bg-white/5"
-                    }`}
-                  >
-                    {isCurrent && (
-                      <div className="absolute right-4 top-4 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300">
-                        {t("current")}
-                      </div>
+            return (
+              <article
+                key={key}
+                className={`relative flex min-h-[560px] flex-col rounded-[2rem] border p-6 shadow-2xl ${
+                  emphasized
+                    ? "border-pink-400/50 bg-gradient-to-b from-pink-500/20 via-white/[0.07] to-white/[0.03]"
+                    : isElite
+                      ? "border-violet-400/30 bg-gradient-to-b from-violet-500/15 via-white/[0.06] to-white/[0.03]"
+                      : "border-white/10 bg-white/[0.04]"
+                }`}
+              >
+                {(item.cardBadge || isCurrent) && (
+                  <div className="mb-5 flex flex-wrap gap-2">
+                    {item.cardBadge && (
+                      <span className="rounded-full border border-pink-300/30 bg-pink-500/15 px-3 py-1 text-xs font-bold text-pink-100">
+                        {item.cardBadge}
+                      </span>
                     )}
-
-                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
-                      {isPremium ? <Crown /> : isPro ? <Zap /> : <Sparkles />}
-                    </div>
-
-                    <h2 className="text-2xl font-bold">{item.name}</h2>
-                    <p className="mt-2 text-3xl font-black">{item.price}</p>
-
-                    <ul className="mt-6 space-y-3">
-                      {item.features.map((feature) => (
-                        <li
-                          key={feature}
-                          className="flex gap-3 text-sm text-white/75"
-                        >
-                          <Check className="mt-0.5 h-4 w-4 text-emerald-300" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="mt-8">
-                      {key === "free" ? (
-                        <button
-                          disabled
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-white/40"
-                        >
-                          {t("freePlan")}
-                        </button>
-                      ) : isCurrent ? (
-                        <BillingActions
-                          action="portal"
-                          label={t("managePlan")}
-                          fullWidth
-                        />
-                      ) : (
-                        <BillingActions
-                          action="checkout"
-                          plan={key}
-                          label={t("upgradeToPlan", { plan: item.name })}
-                          fullWidth
-                        />
-                      )}
-                    </div>
+                    {isCurrent && (
+                      <span className="rounded-full border border-emerald-300/30 bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-100">
+                        Your current plan
+                      </span>
+                    )}
                   </div>
-                );
-              }
-            )}
+                )}
+
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
+                  {isElite ? <Crown /> : emphasized ? <Zap /> : <Sparkles />}
+                </div>
+
+                <h2 className="mt-5 text-2xl font-black">{item.publicName}</h2>
+                <p className="mt-2 min-h-12 text-sm leading-6 text-slate-300">
+                  {item.tagline}
+                </p>
+                <p className="mt-5 text-4xl font-black">{item.price}</p>
+
+                <ul className="mt-7 flex-1 space-y-3">
+                  {item.features.map((feature) => (
+                    <li key={feature} className="flex gap-3 text-sm text-slate-200">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-8">
+                  {isCurrent ? (
+                    subscription?.stripe_customer_id && paidAccessActive ? (
+                      <BillingActions action="portal" label="Manage billing" fullWidth />
+                    ) : (
+                      <button
+                        disabled
+                        className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 font-bold text-white/55"
+                      >
+                        Your current plan
+                      </button>
+                    )
+                  ) : key === "free" ? (
+                    <button
+                      disabled
+                      className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 font-bold text-white/50"
+                    >
+                      Switch to Free in Stripe
+                    </button>
+                  ) : (
+                    <BillingActions
+                      action="checkout"
+                      plan={key}
+                      label={item.cta}
+                      fullWidth
+                    />
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+
+        <p className="mt-5 text-center text-sm text-slate-400">
+          Cancel or change your plan anytime. Paid subscriptions are managed
+          securely through Stripe.
+        </p>
+
+        <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 md:p-6">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="text-pink-200" />
+            <div>
+              <h2 className="text-2xl font-black">Compare plans</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Visibility, trust signals and analytics by plan.
+              </p>
+            </div>
           </div>
-        </div>
+
+          <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
+            <div className="grid grid-cols-4 bg-white/10 px-4 py-3 text-sm font-bold text-slate-200">
+              <span>Feature</span>
+              <span>Free</span>
+              <span>Premium</span>
+              <span>Elite</span>
+            </div>
+            {comparisonRows.map((row) => (
+              <div
+                key={row.label}
+                className="grid grid-cols-4 gap-3 border-t border-white/10 px-4 py-4 text-sm text-slate-300"
+              >
+                <span className="font-semibold text-white">{row.label}</span>
+                <span>{row.free}</span>
+                <span>{row.premium}</span>
+                <span>{row.elite}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </main>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  helper,
+  actionHref,
+  actionLabel,
+  className,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  helper?: string;
+  actionHref?: string;
+  actionLabel?: string;
+  className?: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+      <div className="flex items-center gap-3 text-slate-400">
+        <span className="text-pink-200">{icon}</span>
+        <span className="text-sm">{label}</span>
+      </div>
+      <div
+        className={`mt-4 inline-flex rounded-full border px-3 py-1 text-sm font-bold capitalize ${
+          className || "border-white/10 bg-white/5 text-white"
+        }`}
+      >
+        {value}
+      </div>
+      {helper && <p className="mt-3 text-sm text-slate-400">{helper}</p>}
+      {actionHref && actionLabel && (
+        <Link
+          href={actionHref}
+          className="mt-4 inline-flex rounded-xl bg-white px-4 py-2 text-sm font-bold text-black"
+        >
+          {actionLabel}
+        </Link>
+      )}
+    </div>
   );
 }

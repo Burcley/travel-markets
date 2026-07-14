@@ -340,8 +340,10 @@ export default function TravelMarketsHome({
 
   function getOwnerBadge(listing: any) {
     if (listing.owner_badge) return listing.owner_badge;
-    if (listing.owner_plan === "premium") return t("badges.premiumOwner");
-    if (listing.owner_plan === "pro") return t("badges.proOwner");
+    if (listing.owner_plan === "elite" || listing.owner_plan === "legacy_premium") {
+      return "Elite Property Manager";
+    }
+    if (listing.owner_plan === "premium") return "Premium Landlord";
     return null;
   }
 
@@ -1084,10 +1086,10 @@ function DesktopListingCard({
           ? "border-white/35"
           : isFeatured
           ? "border-yellow-400/40"
+          : ownerPlan === "elite" || ownerPlan === "legacy_premium"
+          ? "border-violet-400/30"
           : ownerPlan === "premium"
           ? "border-yellow-400/30"
-          : ownerPlan === "pro"
-          ? "border-purple-400/30"
           : "border-white/10"
       }`}
     >

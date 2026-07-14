@@ -61,14 +61,16 @@ type ProfileCompletion = {
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 1,
-  pro: 5,
-  premium: 25,
+  premium: 5,
+  elite: Infinity,
+  legacy_premium: Infinity,
 };
 
 const BOOST_LIMITS: Record<string, number> = {
   free: 0,
-  pro: 2,
-  premium: 10,
+  premium: 2,
+  elite: 10,
+  legacy_premium: 10,
 };
 
 function formatDate(date: string | null, notAvailableLabel: string) {
@@ -130,8 +132,13 @@ export default function DashboardPage() {
   const listingLimit = PLAN_LIMITS[plan] || 1;
   const boostLimit = BOOST_LIMITS[plan] || 0;
   const boostsUsed = subscription.monthly_boosts_used || 0;
+  const listingLimitLabel =
+    listingLimit === Infinity ? "Unlimited" : String(listingLimit);
 
-  const listingUsagePercent = Math.min((stats.listings / listingLimit) * 100, 100);
+  const listingUsagePercent =
+    listingLimit === Infinity
+      ? 0
+      : Math.min((stats.listings / listingLimit) * 100, 100);
   const boostUsagePercent =
     boostLimit > 0 ? Math.min((boostsUsed / boostLimit) * 100, 100) : 0;
 
@@ -180,7 +187,7 @@ export default function DashboardPage() {
     const { data: ownerSubscription } = await supabase
       .from("owner_subscriptions")
       .select(
-        "plan, status, current_period_end, cancel_at_period_end, monthly_boosts_used"
+        "plan, status, current_period_end, cancel_at_period_end, included_monthly_boosts_used, monthly_boosts_used"
       )
       .eq("user_id", user.id)
       .maybeSingle();
@@ -200,7 +207,7 @@ export default function DashboardPage() {
         const { data: syncedSub } = await supabase
           .from("owner_subscriptions")
           .select(
-            "plan, status, current_period_end, cancel_at_period_end, monthly_boosts_used"
+            "plan, status, current_period_end, cancel_at_period_end, included_monthly_boosts_used, monthly_boosts_used"
           )
           .eq("user_id", user.id)
           .maybeSingle();
@@ -219,7 +226,10 @@ export default function DashboardPage() {
         status: freshSubscription.status || "inactive",
         current_period_end: freshSubscription.current_period_end,
         cancel_at_period_end: freshSubscription.cancel_at_period_end,
-        monthly_boosts_used: freshSubscription.monthly_boosts_used || 0,
+        monthly_boosts_used:
+          freshSubscription.included_monthly_boosts_used ??
+          freshSubscription.monthly_boosts_used ??
+          0,
       });
     }
 
@@ -500,7 +510,7 @@ export default function DashboardPage() {
                 <p className="mt-2 text-sm leading-6 text-zinc-300">
                   {t("listingSlotsUsed", {
                     used: stats.listings,
-                    limit: listingLimit,
+                    limit: listingLimitLabel,
                   })}
                   {subscription.current_period_end &&
                     ` ${t("renewsOn", {
@@ -514,7 +524,7 @@ export default function DashboardPage() {
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <UsageBar
                     label={t("listingSlots")}
-                    value={`${stats.listings}/${listingLimit}`}
+                    value={`${stats.listings}/${listingLimitLabel}`}
                     percent={listingUsagePercent}
                   />
                   <UsageBar
@@ -631,7 +641,7 @@ export default function DashboardPage() {
                 <InfoBox label={t("accountStatus.role")} value={role} />
                 <InfoBox label={t("accountStatus.ownerPlan")} value={plan} />
                 <InfoBox label={t("accountStatus.planStatus")} value={subscription.status || "inactive"} />
-                <InfoBox label={t("listingSlots")} value={`${stats.listings}/${listingLimit}`} />
+                <InfoBox label={t("listingSlots")} value={`${stats.listings}/${listingLimitLabel}`} />
                 <InfoBox label={t("accountStatus.boostsUsed")} value={`${boostsUsed}/${boostLimit}`} />
                 <InfoBox label={t("accountStatus.nextBillingDate")} value={formatDate(subscription.current_period_end, t("notAvailable"))} />
               </div>
