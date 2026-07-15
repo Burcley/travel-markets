@@ -117,6 +117,15 @@ type ListingDocumentRequirement = {
   alternative_documents: string[] | null;
 };
 
+type StudentInquiryStatus = "none" | "pending" | "accepted" | "declined";
+
+type StudentViewingStatus = {
+  id: string;
+  status: "pending" | "accepted" | "suggested";
+  requested_date: string | null;
+  requested_time: string | null;
+} | null;
+
 export default function ListingDetailsPage() {
   const t = useTranslations("listingDetail");
   const router = useRouter();
@@ -137,8 +146,13 @@ export default function ListingDetailsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [addressUnlocked, setAddressUnlocked] = useState(false);
-  const [hasAcceptedInquiry, setHasAcceptedInquiry] = useState(false);
   const [hasAcceptedViewing, setHasAcceptedViewing] = useState(false);
+  const [studentInquiryStatus, setStudentInquiryStatus] =
+    useState<StudentInquiryStatus>("none");
+  const [studentAcceptedInquiryId, setStudentAcceptedInquiryId] =
+    useState<string | null>(null);
+  const [studentViewingStatus, setStudentViewingStatus] =
+    useState<StudentViewingStatus>(null);
 
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -236,50 +250,66 @@ export default function ListingDetailsPage() {
       }
 
       let canSeeAddress = false;
-      let acceptedInquiryExists = false;
       let acceptedViewingExists = false;
+      let nextInquiryStatus: StudentInquiryStatus = "none";
+      let nextAcceptedInquiryId: string | null = null;
+      let nextViewingStatus: StudentViewingStatus = null;
 
       if (user?.id === safeListing.user_id) {
         canSeeAddress = true;
       }
 
       if (user && user.id !== safeListing.user_id) {
-        const { data: acceptedInquiry, error: inquiryError } = await supabase
+        const { data: latestInquiry, error: inquiryError } = await supabase
           .from("inquiries")
-          .select("id")
+          .select("id,status")
           .eq("listing_id", safeListing.id)
           .eq("requester_id", user.id)
-          .eq("status", "accepted")
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         if (inquiryError) {
           console.error("ACCEPTED INQUIRY CHECK ERROR:", inquiryError);
         }
 
-        if (acceptedInquiry) {
-          acceptedInquiryExists = true;
+        if (latestInquiry?.status === "accepted") {
+          nextInquiryStatus = "accepted";
+          nextAcceptedInquiryId = latestInquiry.id;
+        } else if (latestInquiry?.status === "pending") {
+          nextInquiryStatus = "pending";
+        } else if (latestInquiry?.status === "declined") {
+          nextInquiryStatus = "declined";
         }
 
-        const { data: acceptedViewing, error: viewingError } = await supabase
+        const { data: activeViewing, error: viewingError } = await supabase
           .from("viewings")
-          .select("id, viewing_type")
+          .select("id, status, requested_date, requested_time")
           .eq("listing_id", safeListing.id)
           .eq("requester_id", user.id)
-          .eq("status", "accepted")
+          .in("status", ["pending", "accepted", "suggested"])
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         if (viewingError) {
           console.error("ACCEPTED VIEWING CHECK ERROR:", viewingError);
         }
 
-        if (acceptedViewing) {
+        if (activeViewing) {
+          nextViewingStatus = activeViewing as StudentViewingStatus;
+        }
+
+        if (activeViewing?.status === "accepted") {
           acceptedViewingExists = true;
           canSeeAddress = true;
         }
       }
 
-      setHasAcceptedInquiry(acceptedInquiryExists);
       setHasAcceptedViewing(acceptedViewingExists);
+      setStudentInquiryStatus(nextInquiryStatus);
+      setStudentAcceptedInquiryId(nextAcceptedInquiryId);
+      setStudentViewingStatus(nextViewingStatus);
       setAddressUnlocked(canSeeAddress);
 
       const { data: ownerData, error: ownerError } = await supabase
@@ -512,6 +542,95 @@ export default function ListingDetailsPage() {
       <span className="rounded-full bg-green-500/20 px-3 py-1 text-xs font-semibold text-green-300">
         {t("status.available")}
       </span>
+    );
+  }
+
+  function formatViewingDateTime(viewing: StudentViewingStatus) {
+    if (!viewing?.requested_date) return "";
+
+    return `${viewing.requested_date}${
+      viewing.requested_time ? ` • ${viewing.requested_time.slice(0, 5)}` : ""
+    }`;
+  }
+
+  function StudentBookingAction() {
+    if (!listing) return null;
+
+    if (studentViewingStatus?.status === "pending" || studentViewingStatus?.status === "suggested") {
+      return (
+        <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4">
+          <p className="font-semibold text-yellow-200">
+            {t("viewingRequestPending")}
+          </p>
+          <Link
+            href="/viewings"
+            className="mt-3 inline-flex rounded-xl border border-yellow-400/30 px-4 py-2 text-sm font-semibold text-yellow-100 hover:bg-yellow-400/10"
+          >
+            {t("viewViewingPage")}
+          </Link>
+        </div>
+      );
+    }
+
+    if (studentViewingStatus?.status === "accepted") {
+      return (
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+          <p className="font-semibold text-emerald-200">
+            {t("viewingConfirmed")}
+          </p>
+          {formatViewingDateTime(studentViewingStatus) && (
+            <p className="mt-2 text-sm text-emerald-100/80">
+              {formatViewingDateTime(studentViewingStatus)}
+            </p>
+          )}
+          <Link
+            href="/viewings"
+            className="mt-3 inline-flex rounded-xl border border-emerald-400/30 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/10"
+          >
+            {t("viewViewingPage")}
+          </Link>
+        </div>
+      );
+    }
+
+    if (studentInquiryStatus === "accepted") {
+      const href = studentAcceptedInquiryId
+        ? `/listings/${listing.id}/book-viewing?inquiry=${studentAcceptedInquiryId}`
+        : `/listings/${listing.id}/book-viewing`;
+
+      return (
+        <Link
+          href={href}
+          className="flex w-full items-center justify-center rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 font-semibold text-blue-300 transition hover:bg-blue-500/20"
+        >
+          {t("bookViewing")}
+        </Link>
+      );
+    }
+
+    if (studentInquiryStatus === "pending") {
+      return (
+        <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm font-semibold text-yellow-200">
+          {t("inquiryAwaitingApproval")}
+        </div>
+      );
+    }
+
+    if (studentInquiryStatus === "declined") {
+      return (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-200">
+          {t("inquiryDeclined")}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        onClick={handleContactOwner}
+        className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-gray-200"
+      >
+        {t("contactOwner")}
+      </button>
     );
   }
 
@@ -865,12 +984,9 @@ export default function ListingDetailsPage() {
                     {t("addressProtectedText")}
                   </p>
 
-                  <Link
-                    href={`/listings/${listing.id}/book-viewing`}
-                    className="mt-4 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black hover:bg-gray-200"
-                  >
-                    {t("bookViewingUnlock")}
-                  </Link>
+                  <div className="mt-4">
+                    <StudentBookingAction />
+                  </div>
                 </div>
               )}
 
@@ -1178,12 +1294,7 @@ export default function ListingDetailsPage() {
                     </button>
                   ) : (
                     <>
-                      <button
-                        onClick={handleContactOwner}
-                        className="w-full rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-gray-200"
-                      >
-                        {t("contactOwner")}
-                      </button>
+                      <StudentBookingAction />
 
                       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                         <p className="text-sm font-bold text-emerald-200">
@@ -1196,13 +1307,6 @@ export default function ListingDetailsPage() {
                           <li>{t("nextSteps.bookViewing")}</li>
                         </ol>
                       </div>
-
-                      <Link
-                        href={`/listings/${listing.id}/book-viewing`}
-                        className="flex w-full items-center justify-center rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 font-semibold text-blue-300 transition hover:bg-blue-500/20"
-                      >
-                        {t("bookViewing")}
-                      </Link>
                     </>
                   )}
 

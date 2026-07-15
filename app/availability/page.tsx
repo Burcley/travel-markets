@@ -25,7 +25,10 @@ type Slot = {
   start_time: string;
   end_time: string;
   is_booked: boolean;
+  status?: string | null;
 };
+
+type SlotStatus = "available" | "requested" | "booked" | "disabled";
 
 function formatLocalDate(date: Date) {
   const year = date.getFullYear();
@@ -33,6 +36,19 @@ function formatLocalDate(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getSlotStatus(slot: Slot): SlotStatus {
+  if (
+    slot.status === "available" ||
+    slot.status === "requested" ||
+    slot.status === "booked" ||
+    slot.status === "disabled"
+  ) {
+    return slot.status;
+  }
+
+  return slot.is_booked ? "booked" : "available";
 }
 
 export default function AvailabilityPage() {
@@ -127,6 +143,7 @@ export default function AvailabilityPage() {
       slot_date: selectedDate,
       start_time: startTime,
       end_time: endTime,
+      status: "available",
       is_booked: false,
     });
 
@@ -141,7 +158,7 @@ export default function AvailabilityPage() {
   }
 
   async function deleteSlot(slot: Slot) {
-    if (slot.is_booked) {
+    if (getSlotStatus(slot) !== "available") {
       alert(t("bookedDeleteError"));
       return;
     }
@@ -209,8 +226,9 @@ export default function AvailabilityPage() {
     const daySlots = slots.filter((slot) => slot.slot_date === date);
 
     return {
-      available: daySlots.filter((slot) => !slot.is_booked).length,
-      booked: daySlots.filter((slot) => slot.is_booked).length,
+      available: daySlots.filter((slot) => getSlotStatus(slot) === "available").length,
+      booked: daySlots.filter((slot) => getSlotStatus(slot) === "booked").length,
+      requested: daySlots.filter((slot) => getSlotStatus(slot) === "requested").length,
     };
   }
 
@@ -334,6 +352,18 @@ export default function AvailabilityPage() {
                             {t("bookedCount", { count: count.booked })}
                           </div>
                         )}
+
+                        {count.requested > 0 && (
+                          <div
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              isSelected
+                                ? "bg-amber-200 text-amber-900"
+                                : "bg-amber-500/20 text-amber-300"
+                            }`}
+                          >
+                            {t("requestedCount", { count: count.requested })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -409,11 +439,14 @@ export default function AvailabilityPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {slotsForSelectedDate.map((slot) => (
-                    <div
-                      key={slot.id}
-                      className="rounded-2xl border border-zinc-800 bg-black p-5"
-                    >
+                  {slotsForSelectedDate.map((slot) => {
+                    const status = getSlotStatus(slot);
+
+                    return (
+                      <div
+                        key={slot.id}
+                        className="rounded-2xl border border-zinc-800 bg-black p-5"
+                      >
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 text-lg font-semibold">
@@ -423,13 +456,11 @@ export default function AvailabilityPage() {
                           </div>
 
                           <p className="mt-2 text-sm text-zinc-400">
-                            {slot.is_booked
-                              ? t("bookedByStudent")
-                              : t("available")}
+                            {t(status)}
                           </p>
                         </div>
 
-                        {!slot.is_booked && (
+                        {status === "available" && (
                           <button
                             type="button"
                             onClick={() => deleteSlot(slot)}
@@ -440,7 +471,8 @@ export default function AvailabilityPage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

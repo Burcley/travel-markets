@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   CalendarDays,
@@ -12,6 +13,7 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  Ban,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -27,8 +29,13 @@ type Slot = {
   start_time: string;
   end_time: string;
   is_booked: boolean;
+  status?: string | null;
+  viewing_type?: "in_person" | "video_call" | "both" | null;
+  timezone?: string | null;
   listings?: { title: string } | null;
 };
+
+type SlotStatus = "available" | "requested" | "booked" | "disabled";
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -43,9 +50,23 @@ function buildDate(year: number, monthIndex: number, day: number) {
   return `${year}-${pad(monthIndex + 1)}-${pad(day)}`;
 }
 
+function getSlotStatus(slot: Slot): SlotStatus {
+  if (
+    slot.status === "requested" ||
+    slot.status === "booked" ||
+    slot.status === "disabled" ||
+    slot.status === "available"
+  ) {
+    return slot.status;
+  }
+
+  return slot.is_booked ? "booked" : "available";
+}
+
 export default function AvailabilityCalendarPage() {
   const t = useTranslations("finalBatchD.availabilityCalendar");
   const supabase = createClient();
+  const router = useRouter();
   const today = localToday();
 
   const now = new Date();
@@ -60,14 +81,12 @@ export default function AvailabilityCalendarPage() {
   const [listingId, setListingId] = useState("");
   const [startTime, setStartTime] = useState("10:00");
   const [endTime, setEndTime] = useState("10:30");
+  const [viewingType, setViewingType] =
+    useState<"in_person" | "video_call" | "both">("in_person");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
 
     const {
@@ -75,7 +94,7 @@ export default function AvailabilityCalendarPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -89,7 +108,7 @@ export default function AvailabilityCalendarPage() {
 
     const { data: ownerSlots } = await supabase
       .from("viewing_slots")
-      .select("id,listing_id,slot_date,start_time,end_time,is_booked,listings(title)")
+      .select("id,listing_id,slot_date,start_time,end_time,is_booked,status,viewing_type,timezone,listings(title)")
       .eq("owner_id", user.id)
       .order("slot_date", { ascending: true })
       .order("start_time", { ascending: true });
@@ -102,7 +121,12 @@ export default function AvailabilityCalendarPage() {
     }
 
     setLoading(false);
-  }
+  }, [router, supabase]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, [loadData]);
 
   async function addSlot() {
     if (!userId || !listingId || !selectedDate || !startTime || !endTime) {
@@ -120,6 +144,23 @@ export default function AvailabilityCalendarPage() {
       return;
     }
 
+    const overlaps = slots.some((slot) => {
+      if (
+        slot.listing_id !== listingId ||
+        slot.slot_date !== selectedDate ||
+        getSlotStatus(slot) !== "available"
+      ) {
+        return false;
+      }
+
+      return startTime < slot.end_time && endTime > slot.start_time;
+    });
+
+    if (overlaps) {
+      alert(t("overlapError"));
+      return;
+    }
+
     setSaving(true);
 
     const { error } = await supabase.from("viewing_slots").insert({
@@ -128,6 +169,9 @@ export default function AvailabilityCalendarPage() {
       slot_date: selectedDate,
       start_time: startTime,
       end_time: endTime,
+      viewing_type: viewingType,
+      timezone: "America/Toronto",
+      status: "available",
       is_booked: false,
     });
 
@@ -142,7 +186,7 @@ export default function AvailabilityCalendarPage() {
   }
 
   async function deleteSlot(slot: Slot) {
-    if (slot.is_booked) {
+    if (getSlotStatus(slot) !== "available") {
       alert(t("bookedDeleteError"));
       return;
     }
@@ -153,6 +197,31 @@ export default function AvailabilityCalendarPage() {
       .from("viewing_slots")
       .delete()
       .eq("id", slot.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadData();
+  }
+
+  async function disableSlot(slot: Slot) {
+    if (getSlotStatus(slot) !== "available") {
+      alert(t("bookedDeleteError"));
+      return;
+    }
+
+    if (!confirm(t("disableConfirm"))) return;
+
+    const { error } = await supabase
+      .from("viewing_slots")
+      .update({
+        status: "disabled",
+        is_booked: false,
+      })
+      .eq("id", slot.id)
+      .eq("owner_id", userId);
 
     if (error) {
       alert(error.message);
@@ -300,8 +369,15 @@ export default function AvailabilityCalendarPage() {
                 }
 
                 const daySlots = getSlotsForDate(item.date);
-                const booked = daySlots.filter((slot) => slot.is_booked).length;
-                const available = daySlots.filter((slot) => !slot.is_booked).length;
+                const booked = daySlots.filter(
+                  (slot) => getSlotStatus(slot) === "booked"
+                ).length;
+                const requested = daySlots.filter(
+                  (slot) => getSlotStatus(slot) === "requested"
+                ).length;
+                const available = daySlots.filter(
+                  (slot) => getSlotStatus(slot) === "available"
+                ).length;
                 const isSelected = selectedDate === item.date;
                 const isPast = item.date < today;
 
@@ -341,6 +417,18 @@ export default function AvailabilityCalendarPage() {
                           }`}
                         >
                           {t("bookedCount", { count: booked })}
+                        </p>
+                      )}
+
+                      {requested > 0 && (
+                        <p
+                          className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                            isSelected
+                              ? "bg-amber-200 text-amber-900"
+                              : "bg-amber-500/10 text-amber-300"
+                          }`}
+                        >
+                          {t("requestedCount", { count: requested })}
                         </p>
                       )}
                     </div>
@@ -396,6 +484,20 @@ export default function AvailabilityCalendarPage() {
                   />
                 </div>
 
+                <select
+                  value={viewingType}
+                  onChange={(event) =>
+                    setViewingType(
+                      event.target.value as "in_person" | "video_call" | "both"
+                    )
+                  }
+                  className="w-full rounded-2xl border border-white/10 bg-black px-4 py-3 outline-none"
+                >
+                  <option value="in_person">{t("inPerson")}</option>
+                  <option value="video_call">{t("videoCall")}</option>
+                  <option value="both">{t("inPersonOrVideo")}</option>
+                </select>
+
                 <button
                   onClick={addSlot}
                   disabled={saving || listings.length === 0}
@@ -416,11 +518,22 @@ export default function AvailabilityCalendarPage() {
                 </div>
               ) : (
                 <div className="mt-5 space-y-3">
-                  {selectedSlots.map((slot) => (
-                    <div
-                      key={slot.id}
-                      className="rounded-2xl border border-white/10 bg-black p-4"
-                    >
+                  {selectedSlots.map((slot) => {
+                    const status = getSlotStatus(slot);
+                    const statusClasses =
+                      status === "booked"
+                        ? "bg-blue-500/10 text-blue-300"
+                        : status === "requested"
+                          ? "bg-amber-500/10 text-amber-300"
+                          : status === "disabled"
+                            ? "bg-zinc-500/10 text-zinc-300"
+                            : "bg-emerald-500/10 text-emerald-300";
+
+                    return (
+                      <div
+                        key={slot.id}
+                        className="rounded-2xl border border-white/10 bg-black p-4"
+                      >
                       <p className="flex items-center gap-2 text-sm text-zinc-400">
                         <Home className="h-4 w-4" />
                         {slot.listings?.title || t("listingFallback")}
@@ -432,19 +545,34 @@ export default function AvailabilityCalendarPage() {
                         {slot.end_time.slice(0, 5)}
                       </p>
 
+                      <p className="mt-2 text-sm text-zinc-500">
+                        {slot.viewing_type === "video_call"
+                          ? t("videoCall")
+                          : slot.viewing_type === "both"
+                            ? t("inPersonOrVideo")
+                            : t("inPerson")}{" "}
+                        • {slot.timezone || "America/Toronto"}
+                      </p>
+
                       <div className="mt-4 flex items-center justify-between gap-3">
                         <span
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-                            slot.is_booked
-                              ? "bg-blue-500/10 text-blue-300"
-                              : "bg-emerald-500/10 text-emerald-300"
-                          }`}
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${statusClasses}`}
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          {slot.is_booked ? t("booked") : t("available")}
+                          {t(status)}
                         </span>
 
-                        {!slot.is_booked && (
+                        {status === "available" && (
+                          <button
+                            onClick={() => disableSlot(slot)}
+                            className="rounded-xl border border-zinc-500/30 bg-zinc-500/10 p-2 text-zinc-300 hover:bg-zinc-500/20"
+                            title={t("disableSlot")}
+                          >
+                            <Ban className="h-4 w-4" />
+                          </button>
+                        )}
+
+                        {status === "available" && (
                           <button
                             onClick={() => deleteSlot(slot)}
                             className="rounded-xl border border-red-500/30 bg-red-500/10 p-2 text-red-300 hover:bg-red-500/20"
@@ -454,7 +582,8 @@ export default function AvailabilityCalendarPage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

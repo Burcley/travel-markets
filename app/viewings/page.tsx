@@ -42,6 +42,9 @@ type Viewing = {
     slot_date: string;
     start_time: string;
     end_time: string;
+    status?: "available" | "requested" | "booked" | "disabled" | null;
+    viewing_type?: "in_person" | "video_call" | "both" | null;
+    timezone?: string | null;
   } | null;
   listing?: {
     id: string;
@@ -57,6 +60,9 @@ type ViewingSlotRow = {
   slot_date: string;
   start_time: string;
   end_time: string;
+  status?: "available" | "requested" | "booked" | "disabled" | null;
+  viewing_type?: "in_person" | "video_call" | "both" | null;
+  timezone?: string | null;
 };
 
 type ListingRow = {
@@ -161,7 +167,7 @@ export default function ViewingsPage() {
     if (slotIds.length > 0) {
       const { data: slotData } = await supabase
         .from("viewing_slots")
-        .select("id, slot_date, start_time, end_time")
+        .select("id, slot_date, start_time, end_time, status, viewing_type, timezone")
         .in("id", slotIds);
 
       slots = slotData || [];
@@ -350,16 +356,29 @@ export default function ViewingsPage() {
       return;
     }
 
-    const { error } = await supabase
-      .from("viewings")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", viewing.id);
+    const { data: statusResult, error } =
+      status === "accepted" && viewing.slot_id
+        ? await supabase.rpc("accept_viewing_and_book_slot", {
+            p_viewing_id: viewing.id,
+          })
+        : await supabase
+            .from("viewings")
+            .update({
+              status,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", viewing.id);
 
     if (error) {
       alert(error.message);
+      setUpdatingId("");
+      return;
+    }
+
+    const rpcResult = statusResult as { ok?: boolean; code?: string } | null;
+
+    if (status === "accepted" && viewing.slot_id && rpcResult?.ok === false) {
+      alert(rpcResult.code || "Unable to accept this viewing.");
       setUpdatingId("");
       return;
     }
