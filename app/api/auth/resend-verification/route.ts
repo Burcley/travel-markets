@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       type: "signup",
       email,
       options: {
-        emailRedirectTo: `${siteUrl}/onboarding`,
+        emailRedirectTo: `${siteUrl}/auth/callback`,
       },
     });
 

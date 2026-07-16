@@ -1,1243 +1,487 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  getPropertyVerificationDocumentTypeLabel,
-  propertyVerificationDocumentTypes,
-  relationshipClaimDescriptions,
-  relationshipTypes,
-} from "@/lib/trust/document-types";
+  BadgeCheck,
+  Clock3,
+  Filter,
+  Loader2,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
+import {
+  groupVerificationRecords,
+  statusLabel,
+  type OverallVerificationStatus,
+  type UnifiedVerificationRecord,
+  type UserVerificationProfile,
+  type VerificationStatus,
+  type VerificationType,
+  verificationTypeLabel,
+} from "@/lib/admin-verification-profiles";
 
-type Verification = {
-  id: string;
-  user_id: string;
-  full_legal_name: string | null;
-  document_type: string | null;
-  document_url: string | null;
-  selfie_url: string | null;
-  proof_url: string | null;
-  status: "pending" | "approved" | "rejected";
-  rejection_reason: string | null;
-  created_at: string;
-};
+type UserFilter =
+  | "needs_review"
+  | "fully_verified"
+  | "all"
+  | "pending_identity"
+  | "pending_student_status"
+  | "pending_property_relationship";
 
-type PropertyVerification = {
-  id: string;
-  listing_id: string;
-  owner_id: string;
-  status: string;
-  relationship_type: string | null;
-  submitted_at: string | null;
-  expires_at: string | null;
-  admin_notes: string | null;
-  owner_visible_reason: string | null;
-  other_relationship_explanation?: string | null;
-  reviewed_at?: string | null;
-  listings?: {
-    title: string | null;
-    city: string | null;
-    campus: string | null;
-    address?: string | null;
-    address_line?: string | null;
-    location?: string | null;
-  } | null;
-  reviewer?: {
-    full_name: string | null;
-  } | null;
-  owner_profile?: {
-    full_name: string | null;
-    is_verified: boolean | null;
-    identity_verification_status?: string | null;
-  } | null;
-  listing_verification_documents?: {
-    id: string;
-    original_filename: string | null;
-    document_type: string | null;
-    file_size: number | null;
-    mime_type: string | null;
-    review_status: string;
-    rejection_reason?: string | null;
-    reviewed_at?: string | null;
-    uploader?: {
-      full_name: string | null;
-    } | null;
-    reviewer?: {
-      full_name: string | null;
-    } | null;
-    created_at: string;
-  }[];
-  listing_verification_audit_events?: {
-    id: string;
-    event_type: string;
-    metadata: Record<string, unknown>;
-    created_at: string;
-  }[];
-};
+type SortMode =
+  | "newest_pending"
+  | "oldest_pending"
+  | "name_asc"
+  | "most_pending"
+  | "recently_verified";
+
+const typeOptions: Array<{ value: "all" | VerificationType; label: string }> = [
+  { value: "all", label: "All types" },
+  { value: "identity", label: "Identity" },
+  { value: "student_status", label: "Student status" },
+  { value: "property_relationship", label: "Property relationship" },
+  { value: "phone", label: "Phone" },
+  { value: "email", label: "Email" },
+];
+
+const statusOptions: Array<{ value: "all" | VerificationStatus; label: string }> = [
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Verified" },
+  { value: "rejected", label: "Rejected" },
+  { value: "resubmission_required", label: "More info required" },
+  { value: "expired", label: "Expired" },
+  { value: "not_started", label: "Not started" },
+];
+
+function statusClass(status: VerificationStatus | OverallVerificationStatus) {
+  if (status === "approved" || status === "verified" || status === "fully_verified") {
+    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
+  }
+  if (status === "pending" || status === "needs_review") {
+    return "border-amber-500/25 bg-amber-500/10 text-amber-200";
+  }
+  if (status === "rejected") {
+    return "border-red-500/25 bg-red-500/10 text-red-200";
+  }
+  if (status === "resubmission_required" || status === "more_information_required") {
+    return "border-blue-500/25 bg-blue-500/10 text-blue-200";
+  }
+  if (status === "expired") {
+    return "border-red-900/40 bg-red-950/40 text-red-200";
+  }
+  if (status === "partially_verified") {
+    return "border-pink-500/25 bg-pink-500/10 text-pink-100";
+  }
+  return "border-white/10 bg-white/5 text-zinc-400";
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "No activity yet";
+  return new Date(value).toLocaleString("en-CA", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function sortDate(profile: UserVerificationProfile) {
+  return profile.lastActivityAt ? new Date(profile.lastActivityAt).getTime() : 0;
+}
 
 export default function AdminVerificationsPage() {
-  const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
-
-  const [items, setItems] = useState<Verification[]>([]);
-  const [propertyItems, setPropertyItems] = useState<PropertyVerification[]>([]);
-  const [propertyFilter, setPropertyFilter] = useState("pending");
-  const [propertyError, setPropertyError] = useState("");
-  const [propertyActionError, setPropertyActionError] = useState("");
-  const [propertySuccessMessage, setPropertySuccessMessage] = useState("");
-  const [previewingDocumentId, setPreviewingDocumentId] = useState<string | null>(
-    null
-  );
-  const [documentAction, setDocumentAction] = useState<{
-    id: string;
-    action: "accepted" | "rejected" | "pending";
-  } | null>(null);
-  const [rejectingDocumentId, setRejectingDocumentId] = useState<string | null>(
-    null
-  );
-  const [rejectionReasons, setRejectionReasons] = useState<
-    Record<string, string>
-  >({});
-  const [approvalAcknowledgements, setApprovalAcknowledgements] = useState<
-    Record<string, boolean>
-  >({});
+  const [profiles, setProfiles] = useState<UserVerificationProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [workingId, setWorkingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<UserFilter>("needs_review");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | VerificationType>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | VerificationStatus>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("newest_pending");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  useEffect(() => {
-    loadVerifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function loadVerifications() {
+  const loadProfiles = useCallback(async () => {
     setLoading(true);
+    setError("");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.push("/auth");
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, is_admin")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile?.role !== "admin" && !profile?.is_admin) {
-      router.push("/dashboard");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("identity_verifications")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      alert(error.message);
-      setItems([]);
-    } else {
-      setItems((data || []) as Verification[]);
-    }
-
-    await loadPropertyVerifications(propertyFilter);
+    const response = await fetch("/api/admin/verifications", {
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => null);
 
     setLoading(false);
-  }
 
-  async function loadPropertyVerifications(statusFilter = propertyFilter) {
-    setPropertyError("");
-
-    let query = supabase
-      .from("listing_verifications")
-      .select(
-        `
-        id,
-        listing_id,
-        owner_id,
-        status,
-        relationship_type,
-        submitted_at,
-        expires_at,
-        admin_notes,
-        owner_visible_reason,
-        other_relationship_explanation,
-        reviewed_at,
-        listings (
-          title,
-          city,
-          campus,
-          address,
-          address_line,
-          location
-        ),
-        reviewer:profiles!listing_verifications_reviewed_by_fkey (
-          full_name
-        ),
-        owner_profile:profiles!listing_verifications_owner_id_fkey (
-          full_name,
-          is_verified,
-          identity_verification_status
-        ),
-        listing_verification_documents (
-          id,
-          original_filename,
-          document_type,
-          file_size,
-          mime_type,
-          review_status,
-          rejection_reason,
-          reviewed_at,
-          uploader:profiles!listing_verification_documents_uploader_id_fkey (
-            full_name
-          ),
-          reviewer:profiles!listing_verification_documents_reviewed_by_fkey (
-            full_name
-          ),
-          created_at
-        ),
-        listing_verification_audit_events (
-          id,
-          event_type,
-          metadata,
-          created_at
-        )
-      `
-      )
-      .order("submitted_at", { ascending: false });
-
-    if (statusFilter !== "all") {
-      query = query.eq("status", statusFilter);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("PROPERTY VERIFICATIONS ERROR:", error);
-      setPropertyError("We could not load property-verification submissions.");
-      setPropertyItems([]);
+    if (!response.ok) {
+      setError(data?.error || "We could not load verification profiles.");
       return;
     }
 
-    setPropertyItems((data || []) as unknown as PropertyVerification[]);
-  }
-
-  async function sendIdentityApprovedEmail(userId: string) {
-    try {
-      await fetch("/api/emails/identity-approved", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
-      });
-    } catch (error) {
-      console.error("IDENTITY APPROVED EMAIL ERROR:", error);
-    }
-  }
-
-  async function sendIdentityRejectedEmail(userId: string, reason: string) {
-    try {
-      await fetch("/api/emails/identity-rejected", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId, reason }),
-      });
-    } catch (error) {
-      console.error("IDENTITY REJECTED EMAIL ERROR:", error);
-    }
-  }
-
-  async function approveVerification(item: Verification) {
-    try {
-      setWorkingId(item.id);
-
-      const { error: verificationError } = await supabase
-        .from("identity_verifications")
-        .update({
-          status: "approved",
-          rejection_reason: null,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", item.id);
-
-      if (verificationError) {
-        alert(verificationError.message);
-        return;
-      }
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          is_verified: true,
-          verified_at: new Date().toISOString(),
-        })
-        .eq("id", item.user_id);
-
-      if (profileError) {
-        alert(profileError.message);
-        return;
-      }
-
-      await supabase.from("notifications").insert({
-        user_id: item.user_id,
-        title: "Identity verification approved",
-        body: "Your Travel Markets identity verification has been approved.",
-        message: "Your Travel Markets identity verification has been approved.",
-        type: "identity_verification_approved",
-        is_read: false,
-        link: "/profile",
-      });
-
-      await sendIdentityApprovedEmail(item.user_id);
-
-      await loadVerifications();
-      router.refresh();
-    } finally {
-      setWorkingId(null);
-    }
-  }
-
-  async function rejectVerification(item: Verification) {
-    const reason = window.prompt(
-      "Enter rejection reason:",
-      "Your submitted information could not be verified."
+    setProfiles(
+      data?.profiles ||
+        groupVerificationRecords((data?.records || []) as UnifiedVerificationRecord[])
     );
+  }, []);
 
-    if (!reason) return;
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void loadProfiles();
+    }, 0);
 
-    try {
-      setWorkingId(item.id);
+    return () => window.clearTimeout(timeout);
+  }, [loadProfiles]);
 
-      const { error: verificationError } = await supabase
-        .from("identity_verifications")
-        .update({
-          status: "rejected",
-          rejection_reason: reason,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", item.id);
+  const counters = useMemo(() => {
+    const pendingType = (type: VerificationType) =>
+      profiles.filter((profile) => profile.records[type]?.status === "pending").length;
 
-      if (verificationError) {
-        alert(verificationError.message);
-        return;
-      }
+    return [
+      {
+        label: "Users requiring review",
+        value: "needs_review" as UserFilter,
+        count: profiles.filter((profile) => profile.overallStatus === "needs_review").length,
+        icon: ShieldAlert,
+      },
+      {
+        label: "Fully verified users",
+        value: "fully_verified" as UserFilter,
+        count: profiles.filter((profile) => profile.overallStatus === "fully_verified").length,
+        icon: BadgeCheck,
+      },
+      {
+        label: "Pending identity",
+        value: "pending_identity" as UserFilter,
+        count: pendingType("identity"),
+        icon: ShieldCheck,
+      },
+      {
+        label: "Pending student status",
+        value: "pending_student_status" as UserFilter,
+        count: pendingType("student_status"),
+        icon: Clock3,
+      },
+      {
+        label: "Pending property verification",
+        value: "pending_property_relationship" as UserFilter,
+        count: pendingType("property_relationship"),
+        icon: ShieldCheck,
+      },
+    ];
+  }, [profiles]);
 
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          is_verified: false,
-        })
-        .eq("id", item.user_id);
+  const roles = useMemo(
+    () =>
+      Array.from(new Set(profiles.map((profile) => profile.role).filter(Boolean)))
+        .sort() as string[],
+    [profiles]
+  );
 
-      if (profileError) {
-        alert(profileError.message);
-        return;
-      }
+  const filteredProfiles = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
 
-      await supabase.from("notifications").insert({
-        user_id: item.user_id,
-        title: "Identity verification rejected",
-        body: reason,
-        message: reason,
-        type: "identity_verification_rejected",
-        is_read: false,
-        link: "/verify-identity",
-      });
-
-      await sendIdentityRejectedEmail(item.user_id, reason);
-
-      await loadVerifications();
-      router.refresh();
-    } finally {
-      setWorkingId(null);
-    }
-  }
-
-  async function updatePropertyVerification(
-    item: PropertyVerification,
-    status: "verified" | "more_information_required" | "declined",
-    reason?: string
-  ) {
-    try {
-      setPropertyActionError("");
-      setPropertySuccessMessage("");
-      setWorkingId(item.id);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (
-        status === "verified" &&
-        !item.listing_verification_documents?.some(
-          (document) => document.review_status === "accepted"
-        )
-      ) {
-        setPropertyActionError(
-          "Accept at least one verification document before approving the listing verification."
-        );
-        return;
-      }
-
-      if (status === "verified" && !approvalAcknowledgements[item.id]) {
-        setPropertyActionError(
-          "Confirm that you reviewed the submitted documents and relationship claim before approving."
-        );
-        return;
-      }
-
-      const adminNotes = window.prompt("Private admin notes:", item.admin_notes || "");
-
-      const expiresAt =
-        status === "verified"
-          ? window.prompt("Expiration date (YYYY-MM-DD):", "")
-          : null;
-
-      if (status === "verified" && expiresAt === null) return;
-
-      const { error } = await supabase
-        .from("listing_verifications")
-        .update({
-          status,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id || null,
-          admin_notes: adminNotes || item.admin_notes || null,
-          owner_visible_reason: reason || null,
-          expires_at: expiresAt || null,
-        })
-        .eq("id", item.id);
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-
-      await supabase.from("listing_verification_audit_events").insert({
-        listing_id: item.listing_id,
-        verification_id: item.id,
-        actor_id: user?.id || null,
-        event_type:
-          status === "verified"
-            ? "verification_approved"
-            : status === "more_information_required"
-              ? "verification_more_information_requested"
-              : "verification_declined",
-        metadata: {
-          action: status,
-        },
-      });
-
-      await supabase.from("notifications").insert({
-        user_id: item.owner_id,
-        title:
-          status === "verified"
-            ? "Listing verification approved"
-            : status === "declined"
-              ? "Listing verification declined"
-              : "More information required",
-        body:
-          reason ||
-          "Your listing verification status was updated by Travel Markets.",
-        message:
-          reason ||
-          "Your listing verification status was updated by Travel Markets.",
-        type: `listing_verification_${status}`,
-        is_read: false,
-        link: `/listings/${item.listing_id}`,
-      });
-
-      await loadPropertyVerifications();
-      setPropertySuccessMessage(
-        status === "verified"
-          ? "Verification approved."
-          : "Verification status updated."
-      );
-      router.refresh();
-    } finally {
-      setWorkingId(null);
-    }
-  }
-
-  async function reviewPropertyDocument(
-    documentId: string,
-    reviewStatus: "accepted" | "rejected"
-  ) {
-    const rejectionReason =
-      reviewStatus === "rejected" ? rejectionReasons[documentId]?.trim() : "";
-
-    if (reviewStatus === "rejected" && !rejectionReason) return;
-
-    setPropertyActionError("");
-    setPropertySuccessMessage("");
-    setDocumentAction({ id: documentId, action: reviewStatus });
-
-    try {
-      const response = await fetch(
-        `/api/listing-verifications/documents/${documentId}/review`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reviewStatus,
-            rejectionReason,
-          }),
+    return profiles
+      .filter((profile) => {
+        if (activeFilter === "needs_review" && profile.overallStatus !== "needs_review") {
+          return false;
         }
-      );
-      const data = await response.json().catch(() => null);
+        if (activeFilter === "fully_verified" && profile.overallStatus !== "fully_verified") {
+          return false;
+        }
+        if (
+          activeFilter === "pending_identity" &&
+          profile.records.identity?.status !== "pending"
+        ) {
+          return false;
+        }
+        if (
+          activeFilter === "pending_student_status" &&
+          profile.records.student_status?.status !== "pending"
+        ) {
+          return false;
+        }
+        if (
+          activeFilter === "pending_property_relationship" &&
+          profile.records.property_relationship?.status !== "pending"
+        ) {
+          return false;
+        }
+        if (roleFilter !== "all" && profile.role !== roleFilter) return false;
+        if (typeFilter !== "all" && !profile.records[typeFilter]) return false;
+        if (
+          statusFilter !== "all" &&
+          !profile.allRecords.some((record) => record.status === statusFilter)
+        ) {
+          return false;
+        }
 
-      if (!response.ok || !data?.success) {
-        setPropertyActionError(
-          reviewStatus === "accepted"
-            ? "We could not accept this document."
-            : "We could not reject this document."
-        );
-        return;
-      }
+        if (!normalizedQuery) return true;
 
-      if (reviewStatus === "rejected") {
-        setRejectingDocumentId(null);
-        setRejectionReasons((current) => ({ ...current, [documentId]: "" }));
-      }
-
-      setPropertySuccessMessage(
-        reviewStatus === "accepted"
-          ? "Document accepted."
-          : "Document rejected."
-      );
-      await loadPropertyVerifications();
-      router.refresh();
-    } catch (error) {
-      console.error("PROPERTY VERIFICATION DOCUMENT REVIEW ERROR:", error);
-      setPropertyActionError(
-        reviewStatus === "accepted"
-          ? "We could not accept this document."
-          : "We could not reject this document."
-      );
-    } finally {
-      setDocumentAction(null);
-    }
-  }
-
-  async function previewPropertyDocument(documentId: string) {
-    setPropertyActionError("");
-    setPreviewingDocumentId(documentId);
-
-    const previewWindow = window.open("", "_blank");
-
-    try {
-      const response = await fetch(
-        `/api/listing-verifications/documents/${documentId}/signed-url`,
-        { method: "POST" }
-      );
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data?.success || !data?.signedUrl) {
-        previewWindow?.close();
-        setPropertyActionError(
-          data?.error || "We could not open this verification document."
-        );
-        return;
-      }
-
-      if (previewWindow) {
-        previewWindow.opener = null;
-        previewWindow.location.href = data.signedUrl;
-      } else {
-        window.location.href = data.signedUrl;
-      }
-    } catch (error) {
-      console.error("PROPERTY VERIFICATION PREVIEW ERROR:", error);
-      previewWindow?.close();
-      setPropertyActionError("We could not open this verification document.");
-    } finally {
-      setPreviewingDocumentId(null);
-    }
-  }
-
-  function formatFileSize(size: number | null) {
-    if (!size) return "Unknown size";
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-    return `${(size / 1024 / 1024).toFixed(2)} MB`;
-  }
-
-  function formatDateTime(date: string | null | undefined) {
-    if (!date) return "Not recorded";
-
-    return new Date(date).toLocaleString("en-CA", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  function getRelationshipLabel(value: string | null) {
-    return (
-      relationshipTypes.find((item) => item.value === value)?.label ||
-      "Relationship not set"
-    );
-  }
-
-  function getDocumentCounts(item: PropertyVerification) {
-    const documents = item.listing_verification_documents || [];
-
-    return {
-      total: documents.length,
-      accepted: documents.filter((document) => document.review_status === "accepted")
-        .length,
-      rejected: documents.filter((document) => document.review_status === "rejected")
-        .length,
-      pending: documents.filter((document) => document.review_status === "pending")
-        .length,
-    };
-  }
-
-  function getStatusBadgeClass(status: string) {
-    if (status === "accepted" || status === "verified") {
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-200";
-    }
-
-    if (status === "rejected" || status === "declined") {
-      return "border-red-500/20 bg-red-500/10 text-red-200";
-    }
-
-    if (status === "more_information_required") {
-      return "border-blue-500/20 bg-blue-500/10 text-blue-200";
-    }
-
-    return "border-yellow-500/20 bg-yellow-500/10 text-yellow-200";
-  }
-
-  function getFileFormat(mimeType: string | null) {
-    if (!mimeType) return "Unknown format";
-    if (mimeType === "application/pdf") return "PDF";
-    if (mimeType.includes("jpeg")) return "JPG image";
-    if (mimeType.includes("png")) return "PNG image";
-    if (mimeType.includes("webp")) return "WEBP image";
-    return mimeType;
-  }
-
-  function getAdminDocumentTypeLabel(
-    documentType: string | null,
-    relationshipType: string | null
-  ) {
-    if (
-      propertyVerificationDocumentTypes.some(
-        (item) => item.value === documentType
-      )
-    ) {
-      return getPropertyVerificationDocumentTypeLabel(documentType);
-    }
-
-    if (relationshipTypes.some((item) => item.value === documentType)) {
-      return `Legacy supporting document for ${getRelationshipLabel(documentType)}`;
-    }
-
-    return `Supporting document for ${getRelationshipLabel(relationshipType)}`;
-  }
+        return [
+          profile.fullName,
+          profile.email,
+          profile.role,
+          profile.institution,
+          profile.hostInfo,
+          profile.userId,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      })
+      .sort((a, b) => {
+        if (sortMode === "oldest_pending") return sortDate(a) - sortDate(b);
+        if (sortMode === "name_asc") {
+          return String(a.fullName || a.email || "").localeCompare(
+            String(b.fullName || b.email || "")
+          );
+        }
+        if (sortMode === "most_pending") return b.pendingCount - a.pendingCount;
+        if (sortMode === "recently_verified") {
+          const aVerified = Math.max(
+            ...a.allRecords
+              .filter((record) => record.status === "approved")
+              .map((record) => new Date(record.reviewedAt || record.verifiedAt || 0).getTime()),
+            0
+          );
+          const bVerified = Math.max(
+            ...b.allRecords
+              .filter((record) => record.status === "approved")
+              .map((record) => new Date(record.reviewedAt || record.verifiedAt || 0).getTime()),
+            0
+          );
+          return bVerified - aVerified;
+        }
+        return sortDate(b) - sortDate(a);
+      });
+  }, [activeFilter, profiles, query, roleFilter, sortMode, statusFilter, typeFilter]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Loading verification requests...
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+        <Loader2 className="h-8 w-8 animate-spin text-pink-300" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-center justify-between">
+    <main className="min-h-screen bg-black px-4 py-10 text-white sm:px-6">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm text-white/50">Travel Markets Admin</p>
-            <h1 className="text-3xl font-bold">Verifications</h1>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-300">
+              Travel Markets Admin
+            </p>
+            <h1 className="mt-2 text-4xl font-black tracking-tight">
+              Verification Profiles
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+              Review users once, with all email, phone, identity, student, and
+              property verification context grouped into one profile.
+            </p>
           </div>
-
           <Link
             href="/admin"
-            className="rounded-full border border-white/10 px-5 py-2 text-sm text-white/70 hover:bg-white/10"
+            className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white hover:bg-white/10"
           >
             Back to Admin
           </Link>
-        </div>
+        </header>
 
-        <section className="mb-10 rounded-3xl border border-pink-500/20 bg-pink-500/5 p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
-                Property verification
-              </p>
-              <h2 className="mt-2 text-2xl font-black">
-                Listing relationship reviews
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">
-                Review documents connecting an account to a property or
-                authorized management. Approval does not imply property
-                inspection or legal compliance.
-              </p>
-            </div>
+        {error && (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-200">
+            {error}
+          </div>
+        )}
+
+        <section className="grid gap-3 md:grid-cols-5">
+          {counters.map((counter) => {
+            const Icon = counter.icon;
+            return (
+              <button
+                key={counter.value}
+                type="button"
+                onClick={() => setActiveFilter(counter.value)}
+                className={`rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 ${
+                  activeFilter === counter.value
+                    ? "border-pink-400 bg-pink-500/15"
+                    : "border-white/10 bg-zinc-950"
+                }`}
+              >
+                <Icon className="h-5 w-5 text-pink-200" />
+                <p className="mt-4 text-2xl font-black">{counter.count}</p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">
+                  {counter.label}
+                </p>
+              </button>
+            );
+          })}
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-zinc-950 p-4">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+            <label className="relative">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name, email, institution, property, company..."
+                className="w-full rounded-2xl border border-white/10 bg-black py-3 pl-11 pr-4 text-white outline-none placeholder:text-zinc-600 focus:border-pink-400"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((value) => !value)}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm font-bold text-white hover:bg-white/10 lg:hidden"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter("all")}
+              className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm font-bold text-zinc-300 hover:bg-white/10"
+            >
+              Show all users
+            </button>
+          </div>
+
+          <div
+            className={`mt-4 grid gap-3 lg:grid-cols-4 ${
+              filtersOpen ? "grid" : "hidden lg:grid"
+            }`}
+          >
             <select
-              value={propertyFilter}
-              onChange={async (event) => {
-                setPropertyFilter(event.target.value);
-                await loadPropertyVerifications(event.target.value);
-              }}
+              value={roleFilter}
+              onChange={(event) => setRoleFilter(event.target.value)}
               className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-white"
             >
-              {[
-                "pending",
-                "verified",
-                "more_information_required",
-                "declined",
-                "expired",
-                "all",
-              ].map((status) => (
-                <option key={status} value={status}>
-                  {status.replaceAll("_", " ")}
+              <option value="all">All roles</option>
+              {roles.map((role) => (
+                <option key={role} value={role}>
+                  {role}
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            {propertyActionError && (
-              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm font-semibold text-yellow-100">
-                {propertyActionError}
-              </div>
-            )}
-            {propertySuccessMessage && (
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-100">
-                {propertySuccessMessage}
-              </div>
-            )}
-
-            {propertyError ? (
-              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center text-red-200">
-                {propertyError}
-              </div>
-            ) : propertyItems.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-zinc-500">
-                {propertyFilter === "pending"
-                  ? "No property-verification submissions are waiting for review."
-                  : "No property verification submissions found."}
-              </div>
-            ) : (
-              propertyItems.map((item) => {
-                const counts = getDocumentCounts(item);
-                const isVerified = item.status === "verified";
-                const approvalReady =
-                  counts.accepted > 0 && approvalAcknowledgements[item.id];
-                const publicAddress =
-                  item.listings?.address_line ||
-                  item.listings?.address ||
-                  item.listings?.location ||
-                  "No public address recorded";
-
-                return (
-                <div
-                  key={item.id}
-                  className="rounded-3xl border border-white/10 bg-zinc-950 p-5"
-                >
-                  <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
-                    <div className="space-y-5">
-                      <div>
-                        <div className="flex flex-wrap gap-2">
-                          <span
-                            className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${getStatusBadgeClass(
-                              item.status
-                            )}`}
-                          >
-                            {item.status.replaceAll("_", " ")}
-                          </span>
-                          <span className="rounded-full border border-pink-400/20 bg-pink-500/10 px-3 py-1 text-xs font-bold uppercase text-pink-200">
-                            {getRelationshipLabel(item.relationship_type)}
-                          </span>
-                        </div>
-                        <h3 className="mt-4 text-xl font-bold">
-                          {item.listings?.title || "Untitled listing"}
-                        </h3>
-                        <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/40 p-4 text-sm md:grid-cols-2">
-                          <SummaryField label="City / campus">
-                            {item.listings?.city || "Unknown city"}
-                            {item.listings?.campus
-                              ? ` • ${item.listings.campus}`
-                              : ""}
-                          </SummaryField>
-                          <SummaryField label="Public address">
-                            {publicAddress}
-                          </SummaryField>
-                          <SummaryField label="Landlord">
-                            {item.owner_profile?.full_name || item.owner_id}
-                          </SummaryField>
-                          <SummaryField label="Identity status">
-                            {item.owner_profile?.identity_verification_status ||
-                              (item.owner_profile?.is_verified
-                                ? "Identity verified"
-                                : "Not verified")}
-                          </SummaryField>
-                          <SummaryField label="Submitted">
-                            {formatDateTime(item.submitted_at)}
-                          </SummaryField>
-                          <SummaryField label="Documents">
-                            {counts.total} total • {counts.accepted} accepted •{" "}
-                            {counts.rejected} rejected • {counts.pending} pending
-                          </SummaryField>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-pink-500/20 bg-pink-500/10 p-4">
-                        <p className="text-sm font-bold text-pink-100">
-                          What the landlord is claiming
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-pink-50/80">
-                          {relationshipClaimDescriptions[
-                            item.relationship_type || ""
-                          ] || "The landlord has not selected a relationship type."}
-                        </p>
-                        {item.relationship_type === "other" &&
-                          item.other_relationship_explanation && (
-                            <p className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white">
-                              {item.other_relationship_explanation}
-                            </p>
-                          )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-3">
-                        <Link
-                          href={`/listings/${item.listing_id}`}
-                          className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
-                        >
-                          View listing
-                        </Link>
-                        <Link
-                          href={`/users/${item.owner_id}`}
-                          className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
-                        >
-                          View landlord profile
-                        </Link>
-                      </div>
-
-                      <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-300">
-                        Preview the document and confirm that it reasonably
-                        supports the selected property relationship before
-                        accepting it.
-                      </div>
-
-                      <div className="grid gap-3">
-                        {item.listing_verification_documents?.map((document) => {
-                          const isAccepted =
-                            document.review_status === "accepted";
-                          const isRejected =
-                            document.review_status === "rejected";
-                          const isWorking =
-                            documentAction?.id === document.id ||
-                            previewingDocumentId === document.id;
-
-                          return (
-                            <div
-                              key={document.id}
-                              className="rounded-2xl border border-white/10 bg-black p-4"
-                            >
-                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-semibold text-white">
-                                    {document.original_filename ||
-                                      "Uploaded verification document"}
-                                  </p>
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    <span
-                                      className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${getStatusBadgeClass(
-                                        document.review_status
-                                      )}`}
-                                    >
-                                      {document.review_status}
-                                    </span>
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
-                                      {getAdminDocumentTypeLabel(
-                                        document.document_type,
-                                        item.relationship_type
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="mt-4 grid gap-3 text-xs text-zinc-400 md:grid-cols-2">
-                                <SummaryField label="File format">
-                                  {getFileFormat(document.mime_type)}
-                                </SummaryField>
-                                <SummaryField label="File size">
-                                  {formatFileSize(document.file_size)}
-                                </SummaryField>
-                                <SummaryField label="Uploaded">
-                                  {formatDateTime(document.created_at)}
-                                </SummaryField>
-                                <SummaryField label="Uploaded by">
-                                  {document.uploader?.full_name || item.owner_id}
-                                </SummaryField>
-                                <SummaryField label="Supports">
-                                  {getRelationshipLabel(item.relationship_type)}
-                                </SummaryField>
-                                <SummaryField label="Reviewed">
-                                  {document.reviewed_at
-                                    ? `${formatDateTime(document.reviewed_at)}${
-                                        document.reviewer?.full_name
-                                          ? ` by ${document.reviewer.full_name}`
-                                          : ""
-                                      }`
-                                    : "Not reviewed"}
-                                </SummaryField>
-                              </div>
-
-                              {document.rejection_reason && (
-                                <p className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
-                                  {document.rejection_reason}
-                                </p>
-                              )}
-
-                              {rejectingDocumentId === document.id && (
-                                <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3">
-                                  <label className="text-xs font-semibold text-red-100">
-                                    Rejection reason
-                                  </label>
-                                  <textarea
-                                    value={rejectionReasons[document.id] || ""}
-                                    onChange={(event) =>
-                                      setRejectionReasons((current) => ({
-                                        ...current,
-                                        [document.id]: event.target.value,
-                                      }))
-                                    }
-                                    rows={3}
-                                    className="mt-2 w-full rounded-xl border border-red-500/20 bg-black p-3 text-sm text-white outline-none focus:border-red-300"
-                                  />
-                                </div>
-                              )}
-
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                <button
-                                  onClick={() =>
-                                    previewPropertyDocument(document.id)
-                                  }
-                                  disabled={isWorking}
-                                  className="rounded-xl border border-white/10 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
-                                >
-                                  {previewingDocumentId === document.id
-                                    ? "Opening..."
-                                    : "Preview"}
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    reviewPropertyDocument(document.id, "accepted")
-                                  }
-                                  disabled={isWorking || isAccepted}
-                                  className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {documentAction?.id === document.id &&
-                                  documentAction.action === "accepted"
-                                    ? "Accepting..."
-                                    : isAccepted
-                                      ? "Accepted ✓"
-                                      : "Accept"}
-                                </button>
-                                {isRejected ? (
-                                  <button
-                                    disabled
-                                    className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200 opacity-60"
-                                  >
-                                    Rejected
-                                  </button>
-                                ) : rejectingDocumentId === document.id ? (
-                                  <button
-                                    onClick={() =>
-                                      reviewPropertyDocument(
-                                        document.id,
-                                        "rejected"
-                                      )
-                                    }
-                                    disabled={
-                                      isWorking ||
-                                      !rejectionReasons[document.id]?.trim()
-                                    }
-                                    className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200 disabled:opacity-50"
-                                  >
-                                    {documentAction?.id === document.id &&
-                                    documentAction.action === "rejected"
-                                      ? "Rejecting..."
-                                      : "Confirm reject"}
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() =>
-                                      setRejectingDocumentId(document.id)
-                                    }
-                                    disabled={isWorking}
-                                    className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200 disabled:opacity-50"
-                                  >
-                                    Reject
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {item.listing_verification_audit_events?.length ? (
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-black p-4">
-                          <p className="text-sm font-bold text-white">
-                            Audit history
-                          </p>
-                          <div className="mt-3 space-y-2 text-xs text-zinc-500">
-                            {item.listing_verification_audit_events.map((event) => (
-                              <p key={event.id}>
-                                {new Date(event.created_at).toLocaleString()} •{" "}
-                                {event.event_type.replaceAll("_", " ")}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="flex min-w-[230px] flex-col gap-3">
-                      <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm">
-                        <p className="font-bold text-white">Final review</p>
-                        <p className="mt-2 text-xs leading-5 text-zinc-400">
-                          Final approval should only happen after at least one
-                          document is accepted and the relationship claim has
-                          been reviewed.
-                        </p>
-                        {isVerified && (
-                          <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-                            <p className="font-bold">Verification approved</p>
-                            <p className="mt-1">
-                              Reviewed: {formatDateTime(item.reviewed_at)}
-                            </p>
-                            {item.reviewer?.full_name && (
-                              <p className="mt-1">
-                                Reviewed by: {item.reviewer.full_name}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        {!isVerified && (
-                          <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-zinc-300">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(
-                                approvalAcknowledgements[item.id]
-                              )}
-                              onChange={(event) =>
-                                setApprovalAcknowledgements((current) => ({
-                                  ...current,
-                                  [item.id]: event.target.checked,
-                                }))
-                              }
-                              className="mt-1 h-4 w-4 accent-pink-500"
-                            />
-                            <span>
-                              I reviewed the submitted documents and the
-                              landlord’s stated relationship to the property.
-                            </span>
-                          </label>
-                        )}
-                      </div>
-                      <button
-                        onClick={() =>
-                          updatePropertyVerification(item, "verified")
-                        }
-                        disabled={
-                          workingId === item.id || isVerified || !approvalReady
-                        }
-                        className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        {isVerified ? "Verification approved ✓" : "Approve verification"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          const reason = window.prompt(
-                            "Landlord-visible reason:",
-                            "Please provide additional information about your relationship to this property."
-                          );
-                          if (reason) {
-                            updatePropertyVerification(
-                              item,
-                              "more_information_required",
-                              reason
-                            );
-                          }
-                        }}
-                        disabled={workingId === item.id || isVerified}
-                        className="rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black hover:bg-yellow-400 disabled:opacity-50"
-                      >
-                        Request more info
-                      </button>
-                      <button
-                        onClick={() => {
-                          const reason = window.prompt(
-                            "Landlord-visible decline reason:",
-                            "Travel Markets could not verify the submitted property relationship documents."
-                          );
-                          if (reason) {
-                            updatePropertyVerification(item, "declined", reason);
-                          }
-                        }}
-                        disabled={workingId === item.id || isVerified}
-                        className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white hover:bg-red-500 disabled:opacity-50"
-                      >
-                        Decline verification
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                );
-              })
-            )}
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value as "all" | VerificationType)}
+              className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-white"
+            >
+              {typeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as "all" | VerificationStatus)}
+              className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-white"
+            >
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as SortMode)}
+              className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-white"
+            >
+              <option value="newest_pending">Newest pending activity first</option>
+              <option value="oldest_pending">Oldest pending first</option>
+              <option value="name_asc">Name A-Z</option>
+              <option value="most_pending">Most pending items</option>
+              <option value="recently_verified">Recently verified</option>
+            </select>
           </div>
         </section>
 
-        <h2 className="mb-5 text-2xl font-bold">Identity verifications</h2>
-
-        {items.length === 0 ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center text-white/50">
-            No verification requests found.
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-3xl border border-white/10 bg-zinc-950 p-6"
+        <section className="space-y-3">
+          {filteredProfiles.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-zinc-500">
+              No verification profiles match the current view.
+            </div>
+          ) : (
+            filteredProfiles.map((profile) => (
+              <article
+                key={profile.userId}
+                className="rounded-3xl border border-white/10 bg-zinc-950 p-5 shadow-xl"
               >
-                <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          item.status === "approved"
-                            ? "bg-emerald-500/10 text-emerald-300"
-                            : item.status === "rejected"
-                            ? "bg-red-500/10 text-red-300"
-                            : "bg-yellow-500/10 text-yellow-300"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-
-                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/60">
-                        {item.document_type || "document"}
-                      </span>
+                <div className="grid gap-5 xl:grid-cols-[minmax(260px,1fr)_minmax(320px,1.4fr)_220px] xl:items-center">
+                  <div className="flex gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black">
+                      {profile.avatarUrl ? (
+                        <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <UserRound className="h-6 w-6 text-zinc-500" />
+                      )}
                     </div>
-
-                    <h2 className="mt-4 text-2xl font-bold">
-                      {item.full_legal_name || "Unnamed user"}
-                    </h2>
-
-                    <p className="mt-2 text-sm text-zinc-500">
-                      User ID: {item.user_id}
-                    </p>
-
-                    <p className="mt-1 text-sm text-zinc-500">
-                      Submitted:{" "}
-                      {item.created_at
-                        ? new Date(item.created_at).toLocaleString()
-                        : "Unknown"}
-                    </p>
-
-                    {item.rejection_reason && (
-                      <p className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
-                        {item.rejection_reason}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-lg font-black">
+                          {profile.fullName || "Unnamed user"}
+                        </h2>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-black uppercase text-zinc-300">
+                          {profile.role || "No role"}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-sm text-zinc-500">
+                        {profile.email || "No email"}
                       </p>
-                    )}
-
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      {item.document_url && (
-                        <a
-                          href={item.document_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
-                        >
-                          View Document
-                        </a>
-                      )}
-
-                      {item.selfie_url && (
-                        <a
-                          href={item.selfie_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
-                        >
-                          View Selfie
-                        </a>
-                      )}
-
-                      {item.proof_url && (
-                        <a
-                          href={item.proof_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
-                        >
-                          View Proof
-                        </a>
-                      )}
+                      <p className="mt-2 text-sm font-semibold text-zinc-300">
+                        {profile.institution || profile.hostInfo || "No institution or host info"}
+                      </p>
                     </div>
                   </div>
 
-                  {item.status === "pending" && (
-                    <div className="flex min-w-[220px] flex-col gap-3">
-                      <button
-                        onClick={() => approveVerification(item)}
-                        disabled={workingId === item.id}
-                        className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        {workingId === item.id ? "Approving..." : "Approve"}
-                      </button>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.applicableTypes.map((type) => {
+                      const status = profile.records[type]?.status || "not_started";
+                      return (
+                        <span
+                          key={type}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-black uppercase ${statusClass(status)}`}
+                        >
+                          {verificationTypeLabel(type)}: {statusLabel(status)}
+                        </span>
+                      );
+                    })}
+                  </div>
 
-                      <button
-                        onClick={() => rejectVerification(item)}
-                        disabled={workingId === item.id}
-                        className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white hover:bg-red-500 disabled:opacity-50"
-                      >
-                        {workingId === item.id ? "Rejecting..." : "Reject"}
-                      </button>
-                    </div>
-                  )}
+                  <div className="space-y-3 xl:text-right">
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase ${statusClass(profile.overallStatus)}`}
+                    >
+                      {profile.pendingCount > 0
+                        ? `${profile.pendingCount} action${profile.pendingCount === 1 ? "" : "s"} required`
+                        : statusLabel(profile.overallStatus)}
+                    </span>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                      Last activity
+                    </p>
+                    <p className="text-sm text-zinc-300">
+                      {formatDate(profile.lastActivityAt)}
+                    </p>
+                    <Link
+                      href={`/admin/verifications/${profile.userId}`}
+                      className="inline-flex w-full justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-black hover:bg-zinc-200 xl:w-auto"
+                    >
+                      {profile.pendingCount > 0 ? "Review Profile" : "View Profile"}
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              </article>
+            ))
+          )}
+        </section>
       </div>
     </main>
-  );
-}
-
-function SummaryField({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
-        {label}
-      </p>
-      <div className="mt-1 text-sm text-zinc-200">{children}</div>
-    </div>
   );
 }

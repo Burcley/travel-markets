@@ -117,6 +117,11 @@ export default function BookViewingPage() {
       return;
     }
 
+    if (!user.email_confirmed_at) {
+      router.push("/verify-email");
+      return;
+    }
+
     const { data: listingData, error: listingError } = await supabase
       .from("listings")
       .select("id,title,user_id,status")

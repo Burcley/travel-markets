@@ -419,6 +419,7 @@ export default function DashboardPage() {
               <ActionCard href="/inquiries/sent" title={t("student.inquiriesTitle")} description={t("student.inquiriesText")} icon={<MessageCircle size={20} />} />
               <ActionCard href="/viewings" title={t("student.viewingsTitle")} description={t("student.viewingsText")} icon={<CalendarDays size={20} />} />
               <ActionCard href="/recently-viewed" title={t("student.recentTitle")} description={t("student.recentText")} icon={<Eye size={20} />} />
+              <ActionCard href="/dashboard/verification" title="Verification Center" description="Complete trust checks for email, phone, identity, and student status." icon={<ShieldCheck size={20} />} />
               <ActionCard href="/settings" title={t("student.settingsTitle")} description={t("student.settingsText")} icon={<User size={20} />} />
             </div>
           </section>
@@ -629,6 +630,7 @@ export default function DashboardPage() {
               <ActionCard href="/my-listings" title={t("quickActions.myListingsTitle")} description={t("quickActions.myListingsText")} icon={<Home size={20} />} />
               <ActionCard href="/viewings" title={t("quickActions.manageViewingsTitle")} description={t("quickActions.manageViewingsText")} icon={<CalendarDays size={20} />} />
               <ActionCard href="/messages" title={t("quickActions.messagesTitle")} description={t("quickActions.messagesText")} icon={<MessageCircle size={20} />} />
+              <ActionCard href="/dashboard/verification" title="Verification Center" description="Review identity and property relationship verification status." icon={<ShieldCheck size={20} />} />
               <ActionCard href="/billing" title={t("quickActions.visibilityBoostsTitle")} description={t("quickActions.visibilityBoostsText")} icon={<Zap size={20} />} />
             </div>
           </div>

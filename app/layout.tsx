@@ -91,10 +91,39 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
   },
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/favicon.ico?v=tm-logo-20260716" },
+      {
+        url: "/favicon-32x32.png?v=tm-logo-20260716",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "/favicon-16x16.png?v=tm-logo-20260716",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "/android-chrome-192x192.png?v=tm-logo-20260716",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/android-chrome-512x512.png?v=tm-logo-20260716",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+    shortcut: "/favicon.ico?v=tm-logo-20260716",
+    apple: [
+      {
+        url: "/apple-touch-icon.png?v=tm-logo-20260716",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
   },
+  manifest: "/site.webmanifest?v=tm-logo-20260716",
 };
 
 export const viewport: Viewport = {

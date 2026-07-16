@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ReportButton from "@/components/ReportButton";
+import { calculateProfileCompletion } from "@/lib/verification-center";
 
 type Profile = {
   id: string;
@@ -82,6 +83,16 @@ export default function PublicUserProfilePage() {
 
   const isElite = ownerPlan === "elite" || ownerPlan === "legacy_premium";
   const isPremium = ownerPlan === "premium";
+  const profileCompletion = profile
+    ? profile.profile_completion_percentage ??
+      calculateProfileCompletion({
+        profile,
+        emailVerified: true,
+        propertyVerification: hasVerifiedPropertyRelationship
+          ? { status: "verified" }
+          : null,
+      })
+    : 0;
 
   useEffect(() => {
     loadData();
@@ -349,12 +360,8 @@ export default function PublicUserProfilePage() {
                   />
                   <TrustIndicator
                     label="Profile completeness"
-                    active={(profile.profile_completion_percentage || 0) >= 70}
-                    value={
-                      profile.profile_completion_percentage == null
-                        ? "Not calculated"
-                        : `${profile.profile_completion_percentage}%`
-                    }
+                    active={profileCompletion >= 70}
+                    value={`${profileCompletion}%`}
                   />
                   <TrustIndicator
                     label="Member since"

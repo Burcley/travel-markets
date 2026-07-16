@@ -118,7 +118,7 @@ function AuthForm() {
         const { data: profile, error: profileError } = userId
           ? await supabase
               .from("profiles")
-              .select("role, is_admin, onboarding_completed")
+              .select("role, is_admin, onboarding_completed, onboarding_completed_at")
               .eq("id", userId)
               .maybeSingle()
           : { data: null, error: null };
@@ -150,7 +150,9 @@ function AuthForm() {
         }
 
         router.push(
-          profile?.onboarding_completed || localOnboardingComplete
+          profile?.onboarding_completed_at ||
+            profile?.onboarding_completed ||
+            localOnboardingComplete
             ? destination
             : "/onboarding"
         );
@@ -158,16 +160,33 @@ function AuthForm() {
         return;
       }
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
       if (error) {
         setErrorMessage(t(getAuthErrorKey(error.message)));
+        return;
+      }
+
+      if (data.session) {
+        router.push("/onboarding");
+        router.refresh();
+        return;
+      }
+
+      const signInAttempt = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (!signInAttempt.error && signInAttempt.data.session) {
+        router.push("/onboarding");
+        router.refresh();
         return;
       }
 

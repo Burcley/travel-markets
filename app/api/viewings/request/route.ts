@@ -79,6 +79,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!user.email_confirmed_at) {
+    return NextResponse.json(
+      {
+        error: "Please verify your email before booking a viewing.",
+        code: "EMAIL_VERIFICATION_REQUIRED",
+      },
+      { status: 403 }
+    );
+  }
+
   const body = await request.json().catch(() => null);
 
   if (!body || typeof body !== "object") {

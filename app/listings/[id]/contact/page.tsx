@@ -79,6 +79,11 @@ export default function ContactOwnerPage() {
       return;
     }
 
+    if (!user.email_confirmed_at) {
+      router.push("/verify-email");
+      return;
+    }
+
     setCurrentUserId(user.id);
 
     const { data: profile } = await supabase

@@ -329,6 +329,11 @@ export default function ChatPage() {
       return;
     }
 
+    if (!user.email_confirmed_at) {
+      router.push("/verify-email");
+      return;
+    }
+
     setUserId(user.id);
 
     const { data: profile, error: profileError } = await supabase

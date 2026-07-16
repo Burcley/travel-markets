@@ -133,6 +133,7 @@ export default function Navbar() {
 
   const [userId, setUserId] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -174,6 +175,7 @@ export default function Navbar() {
     if (!user) {
       setUserId("");
       setUserEmail("");
+      setEmailVerified(true);
       setProfile(null);
       setNotifications([]);
       setUnreadNotifications(0);
@@ -183,6 +185,7 @@ export default function Navbar() {
 
     setUserId(user.id);
     setUserEmail(user.email || "");
+    setEmailVerified(Boolean(user.email_confirmed_at));
 
     const { data: profileData } = await supabase
       .from("profiles")
@@ -227,6 +230,7 @@ export default function Navbar() {
 
       setUserId("");
       setUserEmail("");
+      setEmailVerified(true);
       setProfile(null);
       setNotifications([]);
       setUnreadNotifications(0);
@@ -423,6 +427,21 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-[9999] border-b border-white/10 bg-[#050505]/95 backdrop-blur-xl">
+      {isSignedIn && !emailVerified && (
+        <div className="border-b border-pink-500/20 bg-[linear-gradient(90deg,rgba(244,63,94,.18),rgba(0,0,0,.92),rgba(244,63,94,.12))] px-4 py-2 text-sm text-pink-100">
+          <div className="mx-auto flex max-w-[1500px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-center">
+            <span className="font-semibold">
+              Verify your email to unlock messaging and bookings.
+            </span>
+            <Link
+              href="/verify-email"
+              className="inline-flex justify-center rounded-full bg-white px-3 py-1 text-xs font-black text-black transition hover:bg-zinc-200"
+            >
+              Send verification
+            </Link>
+          </div>
+        </div>
+      )}
       <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-5">
           <Logo />

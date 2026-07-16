@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  type UserVerificationProfile,
+  type VerificationType,
+  verificationTypeLabel,
+} from "@/lib/admin-verification-profiles";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = {
@@ -50,28 +55,6 @@ type Report = {
   created_at: string;
 };
 
-type IdentityVerification = {
-  id: string;
-  user_id: string;
-  full_legal_name: string;
-  document_type: string;
-  status: "pending" | "approved" | "rejected";
-  created_at: string;
-};
-
-type PropertyVerificationStatus =
-  | "pending"
-  | "more_information_required"
-  | "verified"
-  | "declined"
-  | "expired"
-  | "not_submitted";
-
-type PropertyVerification = {
-  id: string;
-  status: PropertyVerificationStatus | string | null;
-};
-
 type SupportTicket = {
   id: string;
   user_id: string | null;
@@ -96,11 +79,9 @@ export default function AdminDashboardPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
-  const [verifications, setVerifications] = useState<IdentityVerification[]>([]);
-  const [propertyVerifications, setPropertyVerifications] = useState<
-    PropertyVerification[]
+  const [verificationProfiles, setVerificationProfiles] = useState<
+    UserVerificationProfile[]
   >([]);
-  const [propertyVerificationError, setPropertyVerificationError] = useState("");
   const [reportFilter, setReportFilter] = useState<"pending" | "resolved">(
     "pending"
   );
@@ -120,34 +101,17 @@ export default function AdminDashboardPage() {
     );
   }, [supportTickets, ticketFilter]);
 
-  const pendingVerifications = verifications.filter(
-    (item) => item.status === "pending"
+  const verificationPreview = useMemo(
+    () => verificationProfiles.filter((profile) => profile.pendingCount > 0).slice(0, 5),
+    [verificationProfiles]
   );
-  const approvedVerifications = verifications.filter(
-    (item) => item.status === "approved"
+  const pendingTypeCount = useCallback(
+    (type: VerificationType) =>
+      verificationProfiles.filter(
+        (profile) => profile.records[type]?.status === "pending"
+      ).length,
+    [verificationProfiles]
   );
-  const rejectedVerifications = verifications.filter(
-    (item) => item.status === "rejected"
-  );
-  const propertyVerificationCounts = useMemo(() => {
-    return propertyVerifications.reduce(
-      (counts, item) => {
-        const status = item.status || "not_submitted";
-        if (status in counts) {
-          counts[status as PropertyVerificationStatus] += 1;
-        }
-        return counts;
-      },
-      {
-        pending: 0,
-        more_information_required: 0,
-        verified: 0,
-        declined: 0,
-        expired: 0,
-        not_submitted: 0,
-      } satisfies Record<PropertyVerificationStatus, number>
-    );
-  }, [propertyVerifications]);
 
   useEffect(() => {
     loadAdminDashboard();
@@ -207,49 +171,21 @@ export default function AdminDashboardPage() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      const { data: verificationsData } = await supabase
-        .from("identity_verifications")
-        .select(
-          "id, user_id, full_legal_name, document_type, status, created_at"
-        )
-        .order("created_at", { ascending: false });
-
-      const {
-        data: propertyVerificationsData,
-        error: propertyVerificationsError,
-      } = await supabase
-        .from("listing_verifications")
-        .select("id, status")
-        .in("status", [
-          "pending",
-          "more_information_required",
-          "verified",
-          "declined",
-          "expired",
-          "not_submitted",
-        ]);
-
-      if (propertyVerificationsError) {
-        console.error(
-          "ADMIN PROPERTY VERIFICATION COUNTS ERROR:",
-          propertyVerificationsError
-        );
-        setPropertyVerificationError(
-          "Property verification counts could not be loaded."
-        );
-      } else {
-        setPropertyVerificationError("");
-        setPropertyVerifications(
-          (propertyVerificationsData || []) as PropertyVerification[]
-        );
-      }
-
       setProfiles((profilesData || []) as Profile[]);
       setListings((listingsData || []) as Listing[]);
       setReviews((reviewsData || []) as Review[]);
       setReports((reportsData || []) as Report[]);
       setSupportTickets((ticketsData || []) as SupportTicket[]);
-      setVerifications((verificationsData || []) as IdentityVerification[]);
+
+      const verificationResponse = await fetch("/api/admin/verifications", {
+        cache: "no-store",
+      });
+      const verificationData = await verificationResponse.json().catch(() => null);
+      if (verificationResponse.ok) {
+        setVerificationProfiles(
+          (verificationData?.profiles || []) as UserVerificationProfile[]
+        );
+      }
     } catch (error) {
       console.error("Admin dashboard error:", error);
       router.push("/");
@@ -534,10 +470,12 @@ export default function AdminDashboardPage() {
             <Stat label="Reviews" value={reviews.length} />
             <Stat label="Reports" value={reports.length} />
             <Stat label="Support" value={supportTickets.length} />
-            <Stat label="Pending IDs" value={pendingVerifications.length} />
             <Stat
-              label="Pending Properties"
-              value={propertyVerificationCounts.pending}
+              label="Verification Reviews"
+              value={
+                verificationProfiles.filter((profile) => profile.pendingCount > 0)
+                  .length
+              }
             />
           </div>
         </section>
@@ -667,113 +605,38 @@ export default function AdminDashboardPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="mb-3 inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                TRUST & SAFETY
-              </div>
-              <h2 className="text-2xl font-bold">Identity Verifications</h2>
-              <p className="mt-1 text-sm text-gray-400">
-                Review submitted IDs, approve verified users, and reject
-                suspicious submissions.
-              </p>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300">
-                  Pending: {pendingVerifications.length}
-                </span>
-                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                  Approved: {approvedVerifications.length}
-                </span>
-                <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
-                  Rejected: {rejectedVerifications.length}
-                </span>
-              </div>
-            </div>
-
-            <Link
-              href="/admin/verifications"
-              className="rounded-xl bg-emerald-500 px-5 py-3 font-bold text-black hover:bg-emerald-400"
-            >
-              Review Verifications
-            </Link>
-          </div>
-
-          <div className="mt-5 rounded-2xl border border-white/10 bg-black p-5">
-            {pendingVerifications.length === 0 ? (
-              <p className="text-sm text-gray-400">
-                No pending identity verification requests.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {pendingVerifications.slice(0, 3).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between"
-                  >
-                    <div>
-                      <p className="font-semibold">{item.full_legal_name}</p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {item.document_type} · {formatDate(item.created_at)}
-                      </p>
-                    </div>
-
-                    <Link
-                      href="/admin/verifications"
-                      className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/10"
-                    >
-                      Review
-                    </Link>
-                  </div>
-                ))}
-
-                {pendingVerifications.length > 3 && (
-                  <p className="text-xs text-gray-500">
-                    +{pendingVerifications.length - 3} more pending request(s).
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
         <section className="rounded-3xl border border-pink-500/20 bg-pink-500/5 p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="mb-3 inline-flex rounded-full bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-300">
-                PROPERTY VERIFICATION
+                TRUST & VERIFICATION
               </div>
-              <h2 className="text-2xl font-bold">
-                Property / Listing Verifications
-              </h2>
+              <h2 className="text-2xl font-bold">Trust & Verification</h2>
               <p className="mt-1 text-sm text-gray-400">
-                Review landlord property relationship documents separately from
-                identity verification.
+                Review users with pending identity, student status, and property
+                relationship checks from one central queue.
               </p>
-
-              {propertyVerificationError && (
-                <p className="mt-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-sm text-yellow-100">
-                  {propertyVerificationError}
-                </p>
-              )}
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300">
-                  Pending: {propertyVerificationCounts.pending}
-                </span>
-                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                  More info required:{" "}
-                  {propertyVerificationCounts.more_information_required}
+                  Users requiring review: {verificationPreview.length}
                 </span>
                 <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                  Verified: {propertyVerificationCounts.verified}
+                  Recently approved:{" "}
+                  {
+                    verificationProfiles.filter(
+                      (profile) => profile.overallStatus === "fully_verified"
+                    ).length
+                  }
+                </span>
+                <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+                  Pending identity: {pendingTypeCount("identity")}
+                </span>
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
+                  Pending student: {pendingTypeCount("student_status")}
                 </span>
                 <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
-                  Declined: {propertyVerificationCounts.declined}
-                </span>
-                <span className="rounded-full bg-zinc-500/10 px-3 py-1 text-xs font-semibold text-zinc-300">
-                  Expired: {propertyVerificationCounts.expired}
+                  Pending property: {pendingTypeCount("property_relationship")}
                 </span>
               </div>
             </div>
@@ -782,8 +645,74 @@ export default function AdminDashboardPage() {
               href="/admin/verifications"
               className="rounded-xl bg-pink-500 px-5 py-3 font-bold text-white hover:bg-pink-400"
             >
-              Review Property Verifications
+              Open Verification Center
             </Link>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-black p-5">
+            {verificationPreview.length === 0 ? (
+              <p className="text-sm text-gray-400">
+                No users currently require verification review.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {verificationPreview.map((profile) => {
+                  const pendingTypes = profile.applicableTypes.filter(
+                    (type) => profile.records[type]?.status === "pending"
+                  );
+
+                  return (
+                  <div
+                    key={profile.userId}
+                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div className="flex gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black">
+                        {profile.avatarUrl ? (
+                          <img
+                            src={profile.avatarUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs font-black text-zinc-500">
+                            {(profile.fullName || profile.email || "?").slice(0, 1)}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold">
+                          {profile.fullName || profile.email || "Unnamed user"}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {profile.role || "No role"} ·{" "}
+                          {pendingTypes.map(verificationTypeLabel).join(", ")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 md:items-end">
+                      <p className="mt-1 text-xs text-gray-500">
+                        Submitted {formatDate(profile.lastActivityAt || "")}
+                      </p>
+                      <Link
+                        href={`/admin/verifications/${profile.userId}`}
+                        className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/10"
+                      >
+                        Review
+                      </Link>
+                    </div>
+                  </div>
+                  );
+                })}
+
+                <Link
+                  href="/admin/verifications"
+                  className="inline-flex text-sm font-bold text-pink-200 hover:text-pink-100"
+                >
+                  View all verification profiles
+                </Link>
+              </div>
+            )}
           </div>
         </section>
 

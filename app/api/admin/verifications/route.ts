@@ -1,0 +1,380 @@
+import { NextResponse } from "next/server";
+import {
+  groupVerificationRecords,
+  type UnifiedVerificationRecord,
+  type VerificationStatus,
+} from "@/lib/admin-verification-profiles";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+
+function normalizeStatus(status?: string | null): VerificationStatus {
+  const value = String(status || "").toLowerCase();
+  if (["approved", "verified", "accepted"].includes(value)) return "approved";
+  if (["rejected", "declined", "denied"].includes(value)) return "rejected";
+  if (["resubmission_required", "more_information_required"].includes(value)) {
+    return "resubmission_required";
+  }
+  if (value === "expired") return "expired";
+  if (value === "pending" || value === "submitted") return "pending";
+  return "not_started";
+}
+
+function maskPhone(value?: string | null) {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, "");
+  const last = digits.slice(-4);
+  const prefix = value.trim().startsWith("+")
+    ? `+${digits.slice(0, Math.max(1, digits.length - 10)) || digits.slice(0, 1)}`
+    : "";
+
+  return `${prefix} ••• ••• ${last}`;
+}
+
+async function requireAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { user: null, admin: null, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, role, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.is_admin && profile?.role !== "admin") {
+    return { user, admin, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  return { user, admin, response: null };
+}
+
+export async function GET() {
+  const { admin, response } = await requireAdmin();
+  if (response) return response;
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const [
+    profilesResult,
+    submissionsResult,
+    identityResult,
+    propertyResult,
+  ] = await Promise.all([
+    admin
+      .from("profiles")
+      .select(
+        "id, email, full_name, avatar_url, role, institution_name, school, phone, phone_number_e164, phone_country_code, phone_country_iso, phone_verified, phone_verified_at, phone_verification_status, email_verified_at"
+      ),
+    admin
+      .from("verification_submissions")
+      .select("id, user_id, verification_type, role, status, submitted_at, reviewed_at, reviewed_by, rejection_reason, request_more_information_message, document_paths, document_metadata, created_at, updated_at")
+      .order("updated_at", { ascending: false }),
+    admin
+      .from("identity_verifications")
+      .select("id, user_id, status, rejection_reason, document_url, selfie_url, proof_url, document_type, created_at, reviewed_at, full_legal_name")
+      .order("created_at", { ascending: false }),
+    admin
+      .from("listing_verifications")
+      .select("id, owner_id, listing_id, status, relationship_type, submitted_at, reviewed_at, reviewed_by, owner_visible_reason, listing_verification_documents(id, original_filename), listings(title, city, campus)")
+      .order("submitted_at", { ascending: false }),
+  ]);
+
+  if (profilesResult.error) {
+    return NextResponse.json({ error: profilesResult.error.message }, { status: 500 });
+  }
+
+  const profiles = new Map(
+    (profilesResult.data || []).map((profile) => [profile.id, profile])
+  );
+  const reviewerIds = new Set<string>();
+
+  (submissionsResult.data || []).forEach((submission) => {
+    if (submission.reviewed_by) reviewerIds.add(submission.reviewed_by);
+  });
+  (propertyResult.data || []).forEach((item) => {
+    if (item.reviewed_by) reviewerIds.add(item.reviewed_by);
+  });
+
+  const { data: reviewers } = reviewerIds.size
+    ? await admin
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", Array.from(reviewerIds))
+    : { data: [] };
+  const reviewerMap = new Map((reviewers || []).map((item) => [item.id, item]));
+
+  const records: UnifiedVerificationRecord[] = [];
+
+  for (const submission of submissionsResult.data || []) {
+    const profile = profiles.get(submission.user_id);
+    const metadata = (submission.document_metadata || {}) as Record<string, unknown>;
+    records.push({
+      id: submission.id,
+      source: "verification_submissions",
+      userId: submission.user_id,
+      fullName: profile?.full_name || null,
+      email: profile?.email || null,
+      avatarUrl: profile?.avatar_url || null,
+      role: profile?.role || submission.role || null,
+      verificationType: submission.verification_type as UnifiedVerificationRecord["verificationType"],
+      status: normalizeStatus(submission.status),
+      submittedAt: submission.submitted_at || submission.created_at,
+      reviewedAt: submission.reviewed_at,
+      reviewerName: submission.reviewed_by
+        ? reviewerMap.get(submission.reviewed_by)?.full_name || reviewerMap.get(submission.reviewed_by)?.email || null
+        : null,
+      rejectionReason:
+        submission.rejection_reason ||
+        submission.request_more_information_message ||
+        null,
+      institution:
+        String(metadata.institutionName || "") ||
+        profile?.institution_name ||
+        profile?.school ||
+        null,
+      property: String(metadata.listingId || "") || null,
+      documentPaths: submission.document_paths || [],
+      metadata,
+    });
+  }
+
+  for (const item of identityResult.data || []) {
+    const profile = profiles.get(item.user_id);
+    records.push({
+      id: item.id,
+      source: "identity_verifications",
+      userId: item.user_id,
+      fullName: profile?.full_name || item.full_legal_name || null,
+      email: profile?.email || null,
+      avatarUrl: profile?.avatar_url || null,
+      role: profile?.role || null,
+      verificationType: "identity",
+      status: normalizeStatus(item.status),
+      submittedAt: item.created_at,
+      reviewedAt: item.reviewed_at || null,
+      reviewerName: null,
+      rejectionReason: item.rejection_reason,
+      institution: profile?.institution_name || profile?.school || null,
+      property: null,
+      documentPaths: [item.document_url, item.selfie_url, item.proof_url]
+        .filter(Boolean)
+        .map((path) => `identity-document:${path}`) as string[],
+      metadata: { documentType: item.document_type, legacy: true },
+    });
+  }
+
+  for (const item of propertyResult.data || []) {
+    const profile = profiles.get(item.owner_id);
+    const listing = Array.isArray(item.listings) ? item.listings[0] : item.listings;
+    const documents = Array.isArray(item.listing_verification_documents)
+      ? item.listing_verification_documents
+      : [];
+
+    records.push({
+      id: item.id,
+      source: "listing_verifications",
+      userId: item.owner_id,
+      fullName: profile?.full_name || null,
+      email: profile?.email || null,
+      avatarUrl: profile?.avatar_url || null,
+      role: profile?.role || "owner",
+      verificationType: "property_relationship",
+      status: normalizeStatus(item.status),
+      submittedAt: item.submitted_at,
+      reviewedAt: item.reviewed_at || null,
+      reviewerName: item.reviewed_by
+        ? reviewerMap.get(item.reviewed_by)?.full_name || reviewerMap.get(item.reviewed_by)?.email || null
+        : null,
+      rejectionReason: item.owner_visible_reason,
+      institution: null,
+      property: listing
+        ? [listing.title, listing.city, listing.campus].filter(Boolean).join(" · ")
+        : item.listing_id,
+      documentPaths: documents
+        .filter((document) => document?.id)
+        .map((document) =>
+          `listing-document:${document.id}:${document.original_filename || "Property document"}`
+        ),
+      metadata: {
+        relationshipType: item.relationship_type,
+        legacy: true,
+        listingId: item.listing_id,
+        documentCount: documents.length,
+      },
+    });
+  }
+
+  for (const profile of profilesResult.data || []) {
+    records.push({
+      id: `${profile.id}:email`,
+      source: "profile",
+      userId: profile.id,
+      fullName: profile.full_name || null,
+      email: profile.email || null,
+      avatarUrl: profile.avatar_url || null,
+      role: profile.role || null,
+      verificationType: "email",
+      status: profile.email_verified_at ? "approved" : "not_started",
+      submittedAt: null,
+      reviewedAt: profile.email_verified_at || null,
+      reviewerName: "Supabase Auth",
+      rejectionReason: null,
+      institution: profile.institution_name || profile.school || null,
+      property: null,
+      documentPaths: [],
+      metadata: {},
+      verifiedAt: profile.email_verified_at || null,
+    });
+
+    records.push({
+      id: `${profile.id}:phone`,
+      source: "profile",
+      userId: profile.id,
+      fullName: profile.full_name || null,
+      email: profile.email || null,
+      avatarUrl: profile.avatar_url || null,
+      role: profile.role || null,
+      verificationType: "phone",
+      status: profile.phone_verified_at || profile.phone_verified ? "approved" : normalizeStatus(profile.phone_verification_status),
+      submittedAt: null,
+      reviewedAt: profile.phone_verified_at || null,
+      reviewerName: "Supabase Auth",
+      rejectionReason: null,
+      institution: profile.institution_name || profile.school || null,
+      property: null,
+      documentPaths: [],
+      metadata: {
+        countryIso: profile.phone_country_iso,
+        countryCode: profile.phone_country_code,
+      },
+      phoneMasked: maskPhone(profile.phone_number_e164 || profile.phone),
+      verifiedAt: profile.phone_verified_at || null,
+    });
+  }
+
+  const sortedRecords = records.sort((a, b) => {
+    const left = a.submittedAt || a.reviewedAt || "";
+    const right = b.submittedAt || b.reviewedAt || "";
+    return right.localeCompare(left);
+  });
+
+  return NextResponse.json({
+    records: sortedRecords,
+    profiles: groupVerificationRecords(sortedRecords),
+  });
+}
+
+export async function POST(request: Request) {
+  const { user, admin, response } = await requireAdmin();
+  if (response) return response;
+  if (!admin || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await request.json().catch(() => null);
+  const id = String(body?.id || "");
+  const source = String(body?.source || "");
+  const action = String(body?.action || "");
+  const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
+  const now = new Date().toISOString();
+
+  if (!id || source !== "verification_submissions") {
+    return NextResponse.json(
+      { error: "Only unified verification submissions can be reviewed here." },
+      { status: 400 }
+    );
+  }
+
+  const nextStatus =
+    action === "approve"
+      ? "approved"
+      : action === "reject"
+        ? "rejected"
+        : action === "resubmission"
+          ? "resubmission_required"
+          : null;
+
+  if (!nextStatus) {
+    return NextResponse.json({ error: "Invalid review action." }, { status: 400 });
+  }
+
+  if ((nextStatus === "rejected" || nextStatus === "resubmission_required") && !reason) {
+    return NextResponse.json({ error: "A user-facing reason is required." }, { status: 400 });
+  }
+
+  const { data: submission, error: readError } = await admin
+    .from("verification_submissions")
+    .select("id, user_id, verification_type")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError || !submission) {
+    return NextResponse.json({ error: "Verification submission not found." }, { status: 404 });
+  }
+
+  const { error } = await admin
+    .from("verification_submissions")
+    .update({
+      status: nextStatus,
+      reviewed_at: now,
+      reviewed_by: user.id,
+      rejection_reason: nextStatus === "rejected" ? reason : null,
+      request_more_information_message:
+        nextStatus === "resubmission_required" ? reason : null,
+      updated_at: now,
+    })
+    .eq("id", id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const profileUpdate: Record<string, unknown> = { updated_at: now };
+  if (submission.verification_type === "identity") {
+    profileUpdate.identity_verification_status = nextStatus;
+    profileUpdate.identity_verified = nextStatus === "approved";
+    profileUpdate.is_verified = nextStatus === "approved";
+    profileUpdate.identity_verified_at = nextStatus === "approved" ? now : null;
+  }
+  if (submission.verification_type === "student_status") {
+    profileUpdate.student_verification_status = nextStatus;
+    profileUpdate.student_email_verified = nextStatus === "approved";
+  }
+
+  if (Object.keys(profileUpdate).length > 1) {
+    await admin.from("profiles").update(profileUpdate).eq("id", submission.user_id);
+  }
+
+  await admin.from("notifications").insert({
+    user_id: submission.user_id,
+    title:
+      nextStatus === "approved"
+        ? "Verification approved"
+        : nextStatus === "rejected"
+          ? "Verification rejected"
+          : "More information required",
+    body:
+      reason ||
+      "Your Travel Markets verification status was updated.",
+    message:
+      reason ||
+      "Your Travel Markets verification status was updated.",
+    type: `verification_${nextStatus}`,
+    is_read: false,
+    link: "/dashboard/verification",
+  });
+
+  await admin.from("admin_audit_logs").insert({
+    admin_id: user.id,
+    action: `verification_${nextStatus}`,
+    target_user_id: submission.user_id,
+    metadata: {
+      submissionId: id,
+      verificationType: submission.verification_type,
+      reason,
+    },
+  });
+
+  return NextResponse.json({ success: true });
+}

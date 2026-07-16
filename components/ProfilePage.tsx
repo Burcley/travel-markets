@@ -4,6 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import {
+  calculateProfileCompletion,
+  calculateTrustScore,
+  isHostRole,
+  normalizeVerificationStatus,
+  trustScoreLabel,
+  trustStars,
+  verificationLabel,
+  type PropertyVerificationRecord,
+  type VerificationStatus,
+} from "@/lib/verification-center";
 
 type Role = "student" | "owner";
 
@@ -15,6 +26,14 @@ type Profile = {
   role: Role | null;
   avatar_url: string | null;
   is_verified: boolean | null;
+  identity_verified: boolean | null;
+  identity_verification_status: string | null;
+  identity_verified_at: string | null;
+  phone_verified: boolean | null;
+  phone_verified_at: string | null;
+  student_email_verified: boolean | null;
+  student_verification_status: string | null;
+  profile_completion_percentage: number | null;
   is_admin: boolean | null;
   trust_score: number | null;
   trust_level: string | null;
@@ -26,12 +45,21 @@ export default function ProfilePage() {
 
   const [email, setEmail] = useState("");
   const [id, setId] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [role, setRole] = useState<Role>("student");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState(false);
+  const [identityStatus, setIdentityStatus] =
+    useState<VerificationStatus>("not_started");
+  const [phoneStatus, setPhoneStatus] =
+    useState<VerificationStatus>("not_started");
+  const [studentStatus, setStudentStatus] =
+    useState<VerificationStatus>("not_started");
+  const [propertyVerification, setPropertyVerification] =
+    useState<PropertyVerificationRecord | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [trustScore, setTrustScore] = useState(20);
   const [trustLevel, setTrustLevel] = useState("new");
@@ -62,12 +90,13 @@ export default function ProfilePage() {
     }
 
     setEmail(user.email || "");
+    setEmailVerified(Boolean(user.email_confirmed_at));
     setId(user.id);
 
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, phone, bio, role, avatar_url, is_verified, is_admin, trust_score, trust_level"
+        "id, full_name, phone, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, phone_verified, phone_verified_at, student_email_verified, student_verification_status, profile_completion_percentage, is_admin, trust_score, trust_level"
       )
       .eq("id", user.id)
       .maybeSingle();
@@ -88,13 +117,15 @@ export default function ProfilePage() {
           role: "student",
           avatar_url: null,
           is_verified: false,
+          identity_verified: false,
+          identity_verification_status: "not_started",
           is_admin: false,
           trust_score: 20,
           trust_level: "new",
           account_status: "active",
         })
         .select(
-          "id, full_name, phone, bio, role, avatar_url, is_verified, is_admin, trust_score, trust_level"
+          "id, full_name, phone, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, phone_verified, phone_verified_at, student_email_verified, student_verification_status, profile_completion_percentage, is_admin, trust_score, trust_level"
         )
         .single();
 
@@ -104,24 +135,64 @@ export default function ProfilePage() {
         return;
       }
 
-      applyProfile(newProfile as Profile);
+      await applyProfile(newProfile as Profile, Boolean(user.email_confirmed_at));
       setLoading(false);
       return;
     }
 
-    applyProfile(data as Profile);
+    await applyProfile(data as Profile, Boolean(user.email_confirmed_at));
     setLoading(false);
   }
 
-  function applyProfile(profile: Profile) {
+  async function applyProfile(profile: Profile, verifiedEmail: boolean) {
     setFullName(profile.full_name || "");
     setPhone(profile.phone || "");
     setBio(profile.bio || "");
     setRole(profile.role || "student");
     setAvatarUrl(profile.avatar_url || null);
     setIsVerified(Boolean(profile.is_verified));
+    setIdentityStatus(
+      normalizeVerificationStatus(
+        profile.identity_verification_status,
+        Boolean(profile.identity_verified || profile.is_verified)
+      )
+    );
+    setPhoneStatus(
+      normalizeVerificationStatus(
+        profile.phone_verified_at ? "verified" : null,
+        Boolean(profile.phone_verified || profile.phone_verified_at)
+      )
+    );
+    setStudentStatus(
+      normalizeVerificationStatus(
+        profile.student_verification_status,
+        Boolean(profile.student_email_verified)
+      )
+    );
     setIsAdmin(Boolean(profile.is_admin));
-    setTrustScore(profile.trust_score ?? 20);
+    let latestPropertyVerification: PropertyVerificationRecord | null = null;
+
+    if (isHostRole(profile.role)) {
+      const { data: verification } = await supabase
+        .from("listing_verifications")
+        .select("status, reviewed_at, submitted_at, owner_visible_reason")
+        .eq("owner_id", profile.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      latestPropertyVerification = verification as PropertyVerificationRecord | null;
+    }
+
+    setPropertyVerification(latestPropertyVerification);
+    setTrustScore(
+      profile.trust_score ??
+        calculateTrustScore({
+          profile,
+          emailVerified: verifiedEmail,
+          propertyVerification: latestPropertyVerification,
+        })
+    );
     setTrustLevel(profile.trust_level || "new");
   }
 
@@ -240,21 +311,49 @@ export default function ProfilePage() {
     return t("trust.labels.new");
   }
 
-  function getTrustMessage(level: string) {
-    if (level === "elite") {
-      return t("trust.messages.elite");
-    }
-
-    if (level === "trusted") {
-      return t("trust.messages.trusted");
-    }
-
-    if (level === "basic") {
-      return t("trust.messages.basic");
-    }
-
-    return t("trust.messages.new");
+  function badgeClass(status: VerificationStatus) {
+    if (status === "verified") return "border border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
+    if (status === "pending" || status === "code_sent") return "border border-yellow-500/25 bg-yellow-500/10 text-yellow-200";
+    if (status === "rejected" || status === "resubmission_required" || status === "failed" || status === "locked" || status === "expired") return "border border-red-500/25 bg-red-500/10 text-red-200";
+    return "border border-white/10 bg-zinc-800 text-zinc-300";
   }
+
+  const propertyStatus = normalizeVerificationStatus(propertyVerification?.status);
+  const roleSpecificStatus = isHostRole(role) ? propertyStatus : studentStatus;
+  const completionPercent = calculateProfileCompletion({
+    profile: {
+      full_name: fullName,
+      phone,
+      bio,
+      role,
+      avatar_url: avatarUrl,
+      is_verified: isVerified,
+      identity_verification_status: identityStatus,
+      phone_verified_at: phoneStatus === "verified" ? "verified" : null,
+      student_verification_status: studentStatus,
+    },
+    emailVerified,
+    propertyVerification,
+  });
+  const displayTrustScore = calculateTrustScore({
+    profile: {
+      full_name: fullName,
+      phone,
+      bio,
+      role,
+      avatar_url: avatarUrl,
+      is_verified: isVerified,
+      identity_verification_status: identityStatus,
+      phone_verified_at: phoneStatus === "verified" ? "verified" : null,
+      student_verification_status: studentStatus,
+    },
+    emailVerified,
+    propertyVerification,
+    reviewCount: 0,
+    responseRate: 80,
+    listingQuality: isHostRole(role) ? 70 : 40,
+  });
+  const effectiveTrustScore = Math.max(trustScore, displayTrustScore);
 
   if (loading) {
     return (
@@ -324,10 +423,26 @@ export default function ProfilePage() {
                   {role}
                 </span>
 
-                {isVerified && (
-                  <span className="rounded-full bg-blue-500/10 px-3 py-1 text-sm text-blue-300">
-                    ✓ {t("identityVerified")}
-                  </span>
+                <span className={`rounded-full px-3 py-1 text-sm ${badgeClass(emailVerified ? "verified" : "not_started")}`}>
+                  Email: {verificationLabel(emailVerified ? "verified" : "not_started")}
+                </span>
+
+                <span className={`rounded-full px-3 py-1 text-sm ${badgeClass(identityStatus)}`}>
+                  Identity: {verificationLabel(identityStatus)}
+                </span>
+
+                <span className={`rounded-full px-3 py-1 text-sm ${badgeClass(roleSpecificStatus)}`}>
+                  {isHostRole(role) ? "Property" : "Student"}:{" "}
+                  {verificationLabel(roleSpecificStatus)}
+                </span>
+
+                {roleSpecificStatus === "rejected" && (
+                  <Link
+                    href="/dashboard/verification"
+                    className="rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1 text-sm font-semibold text-red-200 underline underline-offset-4"
+                  >
+                    View reason
+                  </Link>
                 )}
 
                 {isAdmin && (
@@ -336,6 +451,15 @@ export default function ProfilePage() {
                   </span>
                 )}
               </div>
+
+              {(identityStatus === "pending" || roleSpecificStatus === "pending") && (
+                <div className="mt-4 w-full rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-left text-sm text-yellow-100">
+                  <p className="font-black">Pending Identity Review</p>
+                  <p className="mt-1 leading-6 text-yellow-100/75">
+                    Estimated review time: 24-48 hours.
+                  </p>
+                </div>
+              )}
 
               <div className="mt-6 w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
                 <div className="flex items-center justify-between">
@@ -349,18 +473,23 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="mt-3 text-4xl font-black text-white">
-                  {trustScore}/100
+                  {effectiveTrustScore}/100
                 </div>
+
+                <p className="mt-2 text-sm font-semibold text-emerald-100">
+                  {trustStars(effectiveTrustScore)} {trustScoreLabel(effectiveTrustScore)}
+                </p>
 
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/50">
                   <div
                     className="h-full rounded-full bg-emerald-400"
-                    style={{ width: `${Math.min(trustScore, 100)}%` }}
+                    style={{ width: `${Math.min(effectiveTrustScore, 100)}%` }}
                   />
                 </div>
 
                 <p className="mt-3 text-sm leading-6 text-emerald-100/70">
-                  {getTrustMessage(trustLevel)}
+                  Based on verification, profile completion, reviews, response rate,
+                  and listing quality.
                 </p>
 
                 <button
@@ -374,12 +503,30 @@ export default function ProfilePage() {
 
               {!isVerified && (
                 <Link
-                  href="/verify-identity"
+                  href="/dashboard/verification"
                   className="mt-4 w-full rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-center font-semibold text-blue-300 hover:bg-blue-500/20"
                 >
-                  {t("verifyIdentity")}
+                  Open Verification Center
                 </Link>
               )}
+
+              <div className="mt-4 w-full rounded-2xl border border-white/10 bg-black/30 p-5">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-white">Profile completeness</p>
+                  <p className="text-sm font-black text-pink-200">
+                    {completionPercent}%
+                  </p>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-900">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-pink-500 to-emerald-400"
+                    style={{ width: `${completionPercent}%` }}
+                  />
+                </div>
+                <p className="mt-3 text-sm text-zinc-400">
+                  Complete your profile to build trust.
+                </p>
+              </div>
 
               {isAdmin && (
                 <Link
