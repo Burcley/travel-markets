@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { boostRankForDuration, type BoostSource } from "@/lib/boosts/config";
 import { getOwnerPlanLabel, planFromPriceId } from "@/lib/subscriptions/plans";
+import { applyFoundingDiscountToSubscription } from "@/lib/founding-landlords/stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -10,6 +11,15 @@ const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
+
+type StripeSubscriptionWithPeriods = Stripe.Subscription & {
+  current_period_start?: number | null;
+  current_period_end?: number | null;
+};
+
+type StripeInvoiceWithSubscription = Stripe.Invoice & {
+  subscription?: string | { id?: string | null } | null;
+};
 
 function getSiteUrl() {
   return (
@@ -115,7 +125,7 @@ async function sendBillingEmail({
   }
 }
 
-function getUserIdFromSubscription(subscription: any) {
+function getUserIdFromSubscription(subscription: Stripe.Subscription) {
   if (subscription?.metadata?.user_id) {
     return subscription.metadata.user_id;
   }
@@ -131,7 +141,7 @@ function getUserIdFromSubscription(subscription: any) {
   return null;
 }
 
-function getSubscriptionPeriodStart(subscription: any) {
+function getSubscriptionPeriodStart(subscription: StripeSubscriptionWithPeriods) {
   return (
     subscription?.current_period_start ||
     subscription?.items?.data?.[0]?.current_period_start ||
@@ -139,7 +149,7 @@ function getSubscriptionPeriodStart(subscription: any) {
   );
 }
 
-function getSubscriptionPeriodEnd(subscription: any) {
+function getSubscriptionPeriodEnd(subscription: StripeSubscriptionWithPeriods) {
   return (
     subscription?.current_period_end ||
     subscription?.items?.data?.[0]?.current_period_end ||
@@ -148,15 +158,21 @@ function getSubscriptionPeriodEnd(subscription: any) {
 }
 
 async function syncSubscription(subscriptionId: string) {
-  const subscription: any = await stripe.subscriptions.retrieve(subscriptionId, {
+  const subscription = (await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["customer", "items.data.price"],
-  });
+  })) as StripeSubscriptionWithPeriods;
 
   const userId = getUserIdFromSubscription(subscription);
 
   if (!userId) {
     throw new Error("Missing user_id on Stripe subscription metadata.");
   }
+
+  await applyFoundingDiscountToSubscription({
+    stripe,
+    subscription,
+    userId,
+  });
 
   const customerId =
     typeof subscription.customer === "string"
@@ -363,7 +379,7 @@ async function activateListingBoost(session: Stripe.Checkout.Session) {
   });
 }
 
-async function handleSubscriptionDeleted(subscription: any) {
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const { data: existingSubscription } = await supabaseAdmin
     .from("owner_subscriptions")
     .select("user_id")
@@ -408,7 +424,7 @@ async function handleSubscriptionDeleted(subscription: any) {
   }
 }
 
-async function handleInvoicePaymentSucceeded(invoice: any) {
+async function handleInvoicePaymentSucceeded(invoice: StripeInvoiceWithSubscription) {
   const subscriptionId =
     typeof invoice.subscription === "string"
       ? invoice.subscription
@@ -434,7 +450,7 @@ async function handleInvoicePaymentSucceeded(invoice: any) {
   });
 }
 
-async function handleInvoicePaymentFailed(invoice: any) {
+async function handleInvoicePaymentFailed(invoice: StripeInvoiceWithSubscription) {
   const subscriptionId =
     typeof invoice.subscription === "string"
       ? invoice.subscription
@@ -558,7 +574,7 @@ export async function POST(request: NextRequest) {
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.resumed"
     ) {
-      const subscription = event.data.object as any;
+      const subscription = event.data.object as Stripe.Subscription;
       const subscriptionResult = await syncSubscription(subscription.id);
 
       if (event.type === "customer.subscription.updated") {
@@ -592,26 +608,27 @@ export async function POST(request: NextRequest) {
     }
 
     if (event.type === "customer.subscription.deleted") {
-      const subscription = event.data.object as any;
+      const subscription = event.data.object as Stripe.Subscription;
       await handleSubscriptionDeleted(subscription);
     }
 
     if (event.type === "invoice.payment_succeeded") {
-      const invoice = event.data.object as any;
+      const invoice = event.data.object as StripeInvoiceWithSubscription;
       await handleInvoicePaymentSucceeded(invoice);
     }
 
     if (event.type === "invoice.payment_failed") {
-      const invoice = event.data.object as any;
+      const invoice = event.data.object as StripeInvoiceWithSubscription;
       await handleInvoicePaymentFailed(invoice);
     }
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("STRIPE WEBHOOK ERROR:", error);
+    const message = error instanceof Error ? error.message : "Webhook failed";
 
     return NextResponse.json(
-      { error: error?.message || "Webhook failed" },
+      { error: message },
       { status: 500 }
     );
   }

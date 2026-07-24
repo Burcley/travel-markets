@@ -12,6 +12,7 @@ import OwnerTrustCard from "@/components/OwnerTrustCard";
 import ListingImageGallery from "@/components/listings/listing-image-gallery";
 import CampusRouteMap from "@/components/listings/CampusRouteMap";
 import Money from "@/components/Money";
+import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
 import {
   FairHousingNotice,
   OntarioOccupancyNotice,
@@ -39,6 +40,9 @@ type Profile = {
   phone: string | null;
   avatar_url: string | null;
   is_verified: boolean | null;
+  is_founding_landlord?: boolean | null;
+  founding_landlord_number?: number | null;
+  founding_status?: string | null;
 };
 
 type Listing = {
@@ -314,7 +318,9 @@ export default function ListingDetailsPage() {
 
       const { data: ownerData, error: ownerError } = await supabase
         .from("profiles")
-        .select("id, full_name, role, bio, phone, avatar_url, is_verified, identity_verified, identity_verification_status, trust_score, trust_level, phone_verified, student_email_verified")
+        .select(
+          "id, full_name, role, bio, phone, avatar_url, is_verified, identity_verified, identity_verification_status, trust_score, trust_level, phone_verified, student_email_verified, is_founding_landlord, founding_landlord_number, founding_status"
+        )
         .eq("id", safeListing.user_id)
         .maybeSingle();
 
@@ -751,6 +757,13 @@ export default function ListingDetailsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-4xl font-bold">{listing.title}</h1>
             <StatusBadge />
+            <FoundingLandlordBadge
+              number={
+                owner?.is_founding_landlord && owner?.founding_status === "confirmed"
+                  ? owner.founding_landlord_number || null
+                  : null
+              }
+            />
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-gray-300">

@@ -454,6 +454,12 @@ export default function AdminDashboardPage() {
               >
                 Audit Logs
               </Link>
+              <Link
+                href="/admin/founding-landlords"
+                className="rounded-xl border border-pink-300/30 bg-pink-500/15 px-5 py-3 font-semibold text-pink-100 hover:bg-pink-500/25"
+              >
+                Founding Landlords
+              </Link>
 
               <Link
                 href="/"

@@ -18,6 +18,71 @@ const TRUST_TIER: Record<string, number> = {
   elite: 4,
 };
 
+type ListingImageRow = {
+  image_url?: string | null;
+  is_cover?: boolean | null;
+  sort_order?: number | null;
+};
+
+type SearchListingRow = {
+  id: string;
+  user_id?: string | null;
+  title?: string | null;
+  city?: string | null;
+  location?: string | null;
+  campus?: string | null;
+  price?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  guests?: number | null;
+  status?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  public_latitude?: number | null;
+  public_longitude?: number | null;
+  created_at?: string | null;
+  is_featured?: boolean | null;
+  featured_until?: string | null;
+  featured_rank?: number | null;
+  boost_until?: string | null;
+  boost_rank?: number | null;
+  listing_images?: ListingImageRow[] | null;
+};
+
+type OwnerSubscriptionSummary = {
+  user_id?: string | null;
+  plan?: string | null;
+  status?: string | null;
+};
+
+type OwnerProfileSummary = {
+  id?: string | null;
+  is_verified?: boolean | null;
+  identity_verified?: boolean | null;
+  trust_score?: number | null;
+  trust_level?: string | null;
+  is_founding_landlord?: boolean | null;
+  founding_landlord_number?: number | null;
+  founding_status?: string | null;
+};
+
+type EnrichedSearchListing = SearchListingRow & {
+  owner_plan?: string | null;
+  owner_is_verified?: boolean | null;
+  owner_trust_score?: number | null;
+  owner_trust_level?: string | null;
+  owner_founding_landlord_number?: number | null;
+  is_verified?: boolean | null;
+  identity_verified?: boolean | null;
+  trust_score?: number | null;
+  trust_level?: string | null;
+};
+
+type ExtendedListingSearchParams = ListingSearchParams & {
+  verified?: string | null;
+  trust?: string | null;
+};
+
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -86,7 +151,10 @@ function getOwnerPlan(subscription?: {
   return normalizeOwnerPlan(subscription?.plan);
 }
 
-function compareByMarketplacePriority(a: any, b: any) {
+function compareByMarketplacePriority(
+  a: EnrichedSearchListing,
+  b: EnrichedSearchListing
+) {
   const aFeatured = Boolean(a.is_featured) && isFeaturedActive(a.featured_until);
   const bFeatured = Boolean(b.is_featured) && isFeaturedActive(b.featured_until);
 
@@ -128,7 +196,7 @@ function compareByMarketplacePriority(a: any, b: any) {
   return bDate - aDate;
 }
 
-function compareByTrust(a: any, b: any) {
+function compareByTrust(a: EnrichedSearchListing, b: EnrichedSearchListing) {
   const aTrustTier = TRUST_TIER[a.trust_level || "new"] || 1;
   const bTrustTier = TRUST_TIER[b.trust_level || "new"] || 1;
 
@@ -163,8 +231,9 @@ export async function searchListings(params: ListingSearchParams) {
   const bathrooms = toNumber(params.bathrooms);
   const guests = toNumber(params.guests);
 
-  const verifiedOnly = clean((params as any).verified) === "true";
-  const trustFilter = clean((params as any).trust);
+  const extendedParams = params as ExtendedListingSearchParams;
+  const verifiedOnly = clean(extendedParams.verified) === "true";
+  const trustFilter = clean(extendedParams.trust);
 
   const sort = normalizeSort(clean(params.sort));
 
@@ -265,26 +334,15 @@ export async function searchListings(params: ListingSearchParams) {
     };
   }
 
-  const rawListings = data || [];
+  const rawListings = (data || []) as SearchListingRow[];
 
   const ownerIds = Array.from(
-    new Set(rawListings.map((listing: any) => listing.user_id).filter(Boolean))
-  );
+    new Set(rawListings.map((listing) => listing.user_id).filter(Boolean))
+  ) as string[];
 
-  let subscriptionMap = new Map<
-    string,
-    { plan?: string | null; status?: string | null }
-  >();
+  let subscriptionMap = new Map<string, OwnerSubscriptionSummary>();
 
-  let profileMap = new Map<
-    string,
-    {
-      is_verified?: boolean | null;
-      identity_verified?: boolean | null;
-      trust_score?: number | null;
-      trust_level?: string | null;
-    }
-  >();
+  let profileMap = new Map<string, OwnerProfileSummary>();
 
   if (ownerIds.length > 0) {
     const { data: subscriptions, error: subError } = await supabaseAdmin
@@ -297,12 +355,16 @@ export async function searchListings(params: ListingSearchParams) {
     }
 
     subscriptionMap = new Map(
-      (subscriptions || []).map((sub: any) => [sub.user_id, sub])
+      ((subscriptions || []) as OwnerSubscriptionSummary[])
+        .filter((sub) => Boolean(sub.user_id))
+        .map((sub) => [sub.user_id as string, sub])
     );
 
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from("profiles")
-      .select("id, is_verified, identity_verified, trust_score, trust_level")
+      .select(
+        "id, is_verified, identity_verified, trust_score, trust_level, is_founding_landlord, founding_landlord_number, founding_status"
+      )
       .in("id", ownerIds);
 
     if (profilesError) {
@@ -310,13 +372,19 @@ export async function searchListings(params: ListingSearchParams) {
     }
 
     profileMap = new Map(
-      (profiles || []).map((profile: any) => [profile.id, profile])
+      ((profiles || []) as OwnerProfileSummary[])
+        .filter((profile) => Boolean(profile.id))
+        .map((profile) => [profile.id as string, profile])
     );
   }
 
-  const enrichedListings = rawListings.map((listing: any) => {
-    const ownerSubscription = subscriptionMap.get(listing.user_id);
-    const ownerProfile = profileMap.get(listing.user_id);
+  const enrichedListings: EnrichedSearchListing[] = rawListings.map((listing) => {
+    const ownerSubscription = listing.user_id
+      ? subscriptionMap.get(listing.user_id)
+      : undefined;
+    const ownerProfile = listing.user_id
+      ? profileMap.get(listing.user_id)
+      : undefined;
     const ownerPlan = getOwnerPlan(ownerSubscription);
 
     const ownerVerified = Boolean(
@@ -325,6 +393,11 @@ export async function searchListings(params: ListingSearchParams) {
 
     const ownerTrustScore = Number(ownerProfile?.trust_score || 0);
     const ownerTrustLevel = ownerProfile?.trust_level || "new";
+    const ownerFoundingNumber =
+      ownerProfile?.is_founding_landlord &&
+      ownerProfile?.founding_status === "confirmed"
+        ? ownerProfile.founding_landlord_number || null
+        : null;
 
     return {
       ...listing,
@@ -336,10 +409,11 @@ export async function searchListings(params: ListingSearchParams) {
       owner_is_verified: ownerVerified,
       owner_trust_score: ownerTrustScore,
       owner_trust_level: ownerTrustLevel,
+      owner_founding_landlord_number: ownerFoundingNumber,
     };
   });
 
-  const filteredByTrust = enrichedListings.filter((listing: any) => {
+  const filteredByTrust = enrichedListings.filter((listing) => {
     if (verifiedOnly && !listing.owner_is_verified) return false;
     if (trustFilter && listing.owner_trust_level !== trustFilter) return false;
     return true;
@@ -355,17 +429,17 @@ export async function searchListings(params: ListingSearchParams) {
   const totalFilteredCount = rankedData.length;
   const paginatedData = rankedData.slice(from, to + 1);
 
-  const listings = paginatedData.map((listing: any) => {
+  const listings = paginatedData.map((listing) => {
     const images = Array.isArray(listing.listing_images)
       ? listing.listing_images
       : [];
 
     const sortedImages = [...images].sort(
-      (a: any, b: any) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
+      (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
     );
 
     const cover =
-      images.find((img: any) => img.is_cover)?.image_url ||
+      images.find((img) => img.is_cover)?.image_url ||
       sortedImages[0]?.image_url ||
       null;
 
@@ -388,6 +462,7 @@ export async function searchListings(params: ListingSearchParams) {
     const ownerVerified = Boolean(listing.owner_is_verified);
     const ownerTrustScore = Number(listing.owner_trust_score || 0);
     const ownerTrustLevel = listing.owner_trust_level || "new";
+    const ownerFoundingNumber = listing.owner_founding_landlord_number || null;
 
     return {
       id: listing.id,
@@ -416,6 +491,7 @@ export async function searchListings(params: ListingSearchParams) {
       trust_level: ownerTrustLevel,
       owner_trust_score: ownerTrustScore,
       owner_trust_level: ownerTrustLevel,
+      owner_founding_landlord_number: ownerFoundingNumber,
 
       image_url: cover,
       cover_image_url: cover,

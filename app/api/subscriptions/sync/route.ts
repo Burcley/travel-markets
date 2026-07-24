@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { planFromPriceId } from "@/lib/subscriptions/plans";
+import { applyFoundingDiscountToSubscription } from "@/lib/founding-landlords/stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -67,6 +68,12 @@ export async function POST() {
         expand: ["customer", "items.data.price"],
       }
     );
+
+    await applyFoundingDiscountToSubscription({
+      stripe,
+      subscription,
+      userId: user.id,
+    });
 
     const priceId = subscription.items?.data?.[0]?.price?.id || null;
     const plan = planFromPriceId(priceId);

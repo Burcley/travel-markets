@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
 import {
   calculateProfileCompletion,
   calculateTrustScore,
@@ -37,6 +38,9 @@ type Profile = {
   is_admin: boolean | null;
   trust_score: number | null;
   trust_level: string | null;
+  is_founding_landlord?: boolean | null;
+  founding_landlord_number?: number | null;
+  founding_status?: string | null;
 };
 
 export default function ProfilePage() {
@@ -63,6 +67,7 @@ export default function ProfilePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [trustScore, setTrustScore] = useState(20);
   const [trustLevel, setTrustLevel] = useState("new");
+  const [foundingNumber, setFoundingNumber] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,7 +101,7 @@ export default function ProfilePage() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, phone, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, phone_verified, phone_verified_at, student_email_verified, student_verification_status, profile_completion_percentage, is_admin, trust_score, trust_level"
+        "id, full_name, phone, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, phone_verified, phone_verified_at, student_email_verified, student_verification_status, profile_completion_percentage, is_admin, trust_score, trust_level, is_founding_landlord, founding_landlord_number, founding_status"
       )
       .eq("id", user.id)
       .maybeSingle();
@@ -125,7 +130,7 @@ export default function ProfilePage() {
           account_status: "active",
         })
         .select(
-          "id, full_name, phone, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, phone_verified, phone_verified_at, student_email_verified, student_verification_status, profile_completion_percentage, is_admin, trust_score, trust_level"
+          "id, full_name, phone, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, phone_verified, phone_verified_at, student_email_verified, student_verification_status, profile_completion_percentage, is_admin, trust_score, trust_level, is_founding_landlord, founding_landlord_number, founding_status"
         )
         .single();
 
@@ -170,6 +175,11 @@ export default function ProfilePage() {
       )
     );
     setIsAdmin(Boolean(profile.is_admin));
+    setFoundingNumber(
+      profile.is_founding_landlord && profile.founding_status === "confirmed"
+        ? profile.founding_landlord_number || null
+        : null
+    );
     let latestPropertyVerification: PropertyVerificationRecord | null = null;
 
     if (isHostRole(profile.role)) {
@@ -422,6 +432,8 @@ export default function ProfilePage() {
                 <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm capitalize">
                   {role}
                 </span>
+
+                <FoundingLandlordBadge number={foundingNumber} compact />
 
                 <span className={`rounded-full px-3 py-1 text-sm ${badgeClass(emailVerified ? "verified" : "not_started")}`}>
                   Email: {verificationLabel(emailVerified ? "verified" : "not_started")}

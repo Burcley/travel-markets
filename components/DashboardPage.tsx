@@ -18,6 +18,8 @@ import {
   Eye,
   Heart,
   TrendingUp,
+  BadgeCheck,
+  Gift,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -57,6 +59,47 @@ type ProfileCompletion = {
   bio: string | null;
   avatar_url: string | null;
   identity_verified: boolean | null;
+};
+
+type FoundingLandlordStatus = {
+  profile: {
+    is_founding_landlord: boolean | null;
+    founding_landlord_number: number | null;
+    founding_status:
+      | "not_eligible"
+      | "reserved"
+      | "pending_verification"
+      | "pending_listing"
+      | "confirmed"
+      | "disqualified"
+      | null;
+    founding_reservation_expires_at: string | null;
+    founding_confirmed_at: string | null;
+    founding_free_fee_period_ends_at: string | null;
+    founding_discount_percentage: number | null;
+    founding_referral_code: string | null;
+    founding_benefits_disabled: boolean | null;
+  } | null;
+  progress: {
+    hasLandlordVerification: boolean;
+    hasApprovedPublishedListing: boolean;
+    activeListings: number;
+    verifiedListings: number;
+    monthlyBoostsUsed: number;
+    referralRewards: number;
+  };
+  stats: {
+    maxPositions: number;
+    confirmedCount: number;
+    reservedCount: number;
+    availablePositions: number;
+  };
+  benefits: {
+    platformCommissionWaivedMonths: number;
+    lifetimeDiscountPercentage: number;
+    monthlyFreeBoosts: number;
+    referralReward: string;
+  };
 };
 
 const PLAN_LIMITS: Record<string, number> = {
@@ -122,6 +165,8 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<ListingAnalytics[]>([]);
   const [profileCompletion, setProfileCompletion] =
     useState<ProfileCompletion | null>(null);
+  const [foundingLandlord, setFoundingLandlord] =
+    useState<FoundingLandlordStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   const displayName = getFirstName(name, t("fallbackUser"));
@@ -183,6 +228,16 @@ export default function DashboardPage() {
     setName(profile?.full_name || user.email || t("fallbackUser"));
     setRole(profile?.role || "student");
     setProfileCompletion((profile || null) as ProfileCompletion | null);
+
+    if (profile?.role === "owner" || profile?.role === "landlord" || profile?.role === "host") {
+      const foundingResponse = await fetch("/api/founding-landlords/status", {
+        cache: "no-store",
+      });
+      const foundingData = await foundingResponse.json().catch(() => null);
+      if (foundingResponse.ok) {
+        setFoundingLandlord(foundingData as FoundingLandlordStatus);
+      }
+    }
 
     const { data: ownerSubscription } = await supabase
       .from("owner_subscriptions")
@@ -547,6 +602,10 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {foundingLandlord && (
+          <FoundingLandlordPanel foundingLandlord={foundingLandlord} />
+        )}
+
         <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <StatCard title={t("stats.listings")} value={stats.listings} icon={<Home size={20} />} href="/my-listings" />
           <StatCard title={t("stats.views")} value={totalViews} icon={<Eye size={20} />} href="/my-listings" />
@@ -667,6 +726,187 @@ export default function DashboardPage() {
   );
 }
 
+function FoundingLandlordPanel({
+  foundingLandlord,
+}: {
+  foundingLandlord: FoundingLandlordStatus;
+}) {
+  const [message, setMessage] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [working, setWorking] = useState<"assistance" | "feedback" | null>(
+    null
+  );
+  const profile = foundingLandlord.profile;
+  const status = profile?.founding_status || "not_eligible";
+  const number = profile?.founding_landlord_number;
+  const confirmed = status === "confirmed" && profile?.is_founding_landlord;
+  const expirationLabel = profile?.founding_reservation_expires_at
+    ? formatDate(profile.founding_reservation_expires_at, "Not available")
+    : "Not reserved";
+
+  const checklist = [
+    {
+      label: "Landlord or owner account",
+      done: status !== "not_eligible" && status !== "disqualified",
+    },
+    {
+      label: "Identity or landlord verification approved",
+      done: foundingLandlord.progress.hasLandlordVerification,
+    },
+    {
+      label: "At least one verified active listing",
+      done: foundingLandlord.progress.hasApprovedPublishedListing,
+    },
+  ];
+
+  async function submitAssistance() {
+    setWorking("assistance");
+    await fetch("/api/founding-landlords/assistance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    setMessage("");
+    setWorking(null);
+  }
+
+  async function submitFeedback() {
+    if (!feedback.trim()) return;
+    setWorking("feedback");
+    await fetch("/api/founding-landlords/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: feedback }),
+    });
+    setFeedback("");
+    setWorking(null);
+  }
+
+  return (
+    <section className="rounded-[1.6rem] border border-pink-400/25 bg-gradient-to-br from-pink-500/15 via-[#070707] to-yellow-500/10 p-5 shadow-2xl sm:rounded-[2rem] md:p-6">
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl border border-pink-300/30 bg-pink-500/20 p-3 text-pink-100">
+              <BadgeCheck size={24} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-pink-200">
+                Founding Landlord Program
+              </p>
+              <h2 className="text-2xl font-black sm:text-3xl">
+                {confirmed && number
+                  ? `Founding Landlord #${number} of ${foundingLandlord.stats.maxPositions}`
+                  : "Reserve one of the first 30 founder spots"}
+              </h2>
+            </div>
+          </div>
+
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300">
+            Founding Landlords get a permanent founder badge, 12 months of zero
+            Travel Markets platform commission, a lifetime discount afterward,
+            two free 7-day boosts each month, and priority review/support.
+          </p>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <InfoPill label="Status" value={status.replaceAll("_", " ")} />
+            <InfoPill
+              label="Reserved until"
+              value={confirmed ? "Confirmed" : expirationLabel}
+            />
+            <InfoPill
+              label="Spots left"
+              value={`${foundingLandlord.stats.availablePositions}/${foundingLandlord.stats.maxPositions}`}
+            />
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            {checklist.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/40 p-4"
+              >
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                    item.done ? "bg-emerald-400 text-black" : "bg-white/10 text-zinc-400"
+                  }`}
+                >
+                  {item.done ? "OK" : "-"}
+                </span>
+                <span className="text-sm font-semibold text-zinc-100">
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-white/10 bg-black p-5">
+            <div className="flex items-center gap-3">
+              <Gift className="text-yellow-200" size={20} />
+              <h3 className="font-bold">Founder benefits</h3>
+            </div>
+            <div className="mt-4 space-y-3 text-sm leading-6 text-zinc-300">
+              <p>0% Travel Markets platform commission for 12 months.</p>
+              <p>
+                {profile?.founding_discount_percentage ||
+                  foundingLandlord.benefits.lifetimeDiscountPercentage}
+                % lifetime platform discount after the free period.
+              </p>
+              <p>
+                {foundingLandlord.benefits.monthlyFreeBoosts} free 7-day boosts
+                per calendar month. No rollover.
+              </p>
+              <p>Referral code: {profile?.founding_referral_code || "Pending"}</p>
+            </div>
+          </div>
+
+          {confirmed && (
+            <div className="rounded-3xl border border-white/10 bg-black p-5">
+              <label className="text-sm font-semibold text-zinc-200">
+                Request listing setup assistance
+              </label>
+              <textarea
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                className="mt-3 min-h-20 w-full rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-white outline-none transition focus:border-pink-300"
+                placeholder="Tell us what you need help with."
+              />
+              <button
+                type="button"
+                onClick={submitAssistance}
+                disabled={working === "assistance"}
+                className="mt-3 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black disabled:opacity-60"
+              >
+                {working === "assistance" ? "Sending..." : "Request help"}
+              </button>
+
+              <label className="mt-5 block text-sm font-semibold text-zinc-200">
+                Early access feedback
+              </label>
+              <textarea
+                value={feedback}
+                onChange={(event) => setFeedback(event.target.value)}
+                className="mt-3 min-h-20 w-full rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-white outline-none transition focus:border-pink-300"
+                placeholder="Share an idea or report friction."
+              />
+              <button
+                type="button"
+                onClick={submitFeedback}
+                disabled={working === "feedback" || !feedback.trim()}
+                className="mt-3 rounded-2xl border border-pink-300/40 bg-pink-500/20 px-4 py-2 text-sm font-bold text-pink-100 disabled:opacity-60"
+              >
+                {working === "feedback" ? "Sending..." : "Send feedback"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DashboardButton({
   href,
   children,
@@ -756,6 +996,15 @@ function InfoBox({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-white/10 bg-black p-5">
       <p className="text-sm text-zinc-400">{label}</p>
       <p className="mt-2 truncate text-lg font-semibold capitalize sm:text-xl">{value}</p>
+    </div>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{label}</p>
+      <p className="mt-2 truncate text-sm font-bold capitalize text-white">{value}</p>
     </div>
   );
 }

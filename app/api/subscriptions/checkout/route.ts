@@ -7,6 +7,10 @@ import {
   isCheckoutOwnerPlan,
   type CheckoutOwnerPlan,
 } from "@/lib/subscriptions/plans";
+import {
+  ensureFoundingStripeCoupon,
+  getFoundingStripeBenefit,
+} from "@/lib/founding-landlords/stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -173,7 +177,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const foundingBenefit = await getFoundingStripeBenefit(user.id);
+    const foundingCouponId = foundingBenefit.eligible
+      ? await ensureFoundingStripeCoupon({
+          stripe,
+          benefit: foundingBenefit,
+        })
+      : null;
+
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       customer: customerId,
       line_items: [
@@ -187,14 +199,33 @@ export async function POST(request: NextRequest) {
       metadata: {
         user_id: user.id,
         plan,
+        founding_landlord_benefit: foundingBenefit.eligible
+          ? foundingBenefit.phase
+          : "none",
+        founding_landlord_coupon_id: foundingCouponId || "",
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
           plan,
+          founding_landlord_benefit: foundingBenefit.eligible
+            ? foundingBenefit.phase
+            : "none",
+          founding_landlord_coupon_id: foundingCouponId || "",
         },
       },
-    });
+      ...(foundingCouponId
+        ? {
+            discounts: [
+              {
+                coupon: foundingCouponId,
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     if (!session.url) {
       return NextResponse.json(
@@ -204,13 +235,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("SUBSCRIPTION CHECKOUT ERROR:", error);
 
     return NextResponse.json(
       {
         error:
-          error?.message ||
+          error instanceof Error && error.message
+            ? error.message
+            :
           "Failed to create subscription checkout. Check terminal logs.",
       },
       { status: 500 }

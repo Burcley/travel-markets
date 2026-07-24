@@ -17,6 +17,9 @@ const boostErrorMessages: Record<string, string> = {
     "Monthly boosts are included with Premium and Elite plans.",
   SUBSCRIPTION_INACTIVE:
     "Your subscription must be active to use included monthly boosts.",
+  FOUNDING_NOT_ELIGIBLE: "Founding Landlord benefits are not active for this account.",
+  FOUNDING_NO_BOOSTS:
+    "You have used your Founding Landlord boosts for this month.",
 };
 
 export async function POST(request: NextRequest) {
@@ -36,6 +39,47 @@ export async function POST(request: NextRequest) {
 
   if (!listingId) {
     return NextResponse.json({ error: "Missing listing ID." }, { status: 400 });
+  }
+
+  const { data: foundingBoostData, error: foundingBoostError } =
+    await admin.rpc("activate_founding_listing_boost", {
+      p_owner_id: user.id,
+      p_listing_id: listingId,
+    });
+
+  if (foundingBoostError) {
+    console.error("FOUNDING BOOST RPC ERROR:", foundingBoostError);
+  }
+
+  const foundingBoost = foundingBoostData as {
+    ok?: boolean;
+    code?: string;
+    remainingMonthly?: number;
+    expiresAt?: string;
+    boostId?: string;
+    source?: string;
+  } | null;
+
+  if (foundingBoost?.ok) {
+    await admin.from("notifications").insert({
+      user_id: user.id,
+      title: "Founding Landlord boost activated",
+      message:
+        "Your free Founding Landlord 7-day listing boost is now active.",
+      type: "listing_boost",
+      href: `/listings/${listingId}`,
+      is_read: false,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      remaining: foundingBoost.remainingMonthly,
+      expiresAt: foundingBoost.expiresAt,
+      boostId: foundingBoost.boostId,
+      source: foundingBoost.source,
+      message:
+        "Your Founding Landlord boost is active for 7 days.",
+    });
   }
 
   const subscription = await getOwnerSubscription(user.id);

@@ -5,6 +5,35 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Crown, ShieldCheck, Sparkles, Star } from "lucide-react";
 import Money from "@/components/Money";
+import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
+
+type ListingCardListing = {
+  id: string;
+  title?: string | null;
+  city?: string | null;
+  campus?: string | null;
+  price?: number | null;
+  status?: string | null;
+  cover_image?: string | null;
+  cover_image_url?: string | null;
+  image_url?: string | null;
+  owner_plan?: string | null;
+  owner_badge?: string | null;
+  is_featured?: boolean | null;
+  owner_trust_score?: number | null;
+  owner_trust_level?: string | null;
+  owner_is_verified?: boolean | null;
+  owner_founding_landlord_number?: number | null;
+  founding_landlord_number?: number | null;
+  trust_score?: number | null;
+  trust_level?: string | null;
+  is_verified?: boolean | null;
+  identity_verified?: boolean | null;
+};
+
+type RecentlyViewedListing = {
+  id: string;
+};
 
 export default function ListingCard({
   listing,
@@ -12,7 +41,7 @@ export default function ListingCard({
   onHover,
   onLeave,
 }: {
-  listing: any;
+  listing: ListingCardListing;
   isActive?: boolean;
   onHover?: () => void;
   onLeave?: () => void;
@@ -27,6 +56,10 @@ export default function ListingCard({
 
   const ownerPlan = listing.owner_plan || "free";
   const ownerBadge = listing.owner_badge;
+  const foundingNumber =
+    listing.owner_founding_landlord_number ||
+    listing.founding_landlord_number ||
+    null;
 
   const trustScore = listing.owner_trust_score ?? listing.trust_score ?? null;
   const trustLevel = listing.owner_trust_level ?? listing.trust_level ?? "new";
@@ -72,13 +105,14 @@ export default function ListingCard({
       owner_trust_score: trustScore,
       owner_trust_level: trustLevel,
       owner_is_verified: ownerVerified,
+      owner_founding_landlord_number: foundingNumber,
     };
 
     const existing = JSON.parse(
       localStorage.getItem("recentlyViewedListings") || "[]"
-    );
+    ) as RecentlyViewedListing[];
 
-    const filtered = existing.filter((x: any) => x.id !== listing.id);
+    const filtered = existing.filter((x) => x.id !== listing.id);
     const updated = [item, ...filtered].slice(0, 6);
 
     localStorage.setItem("recentlyViewedListings", JSON.stringify(updated));
@@ -147,6 +181,8 @@ export default function ListingCard({
               {ownerBadge}
             </div>
           )}
+
+          <FoundingLandlordBadge number={foundingNumber} compact />
 
           <div
             className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black shadow-xl backdrop-blur ${trustClass}`}
