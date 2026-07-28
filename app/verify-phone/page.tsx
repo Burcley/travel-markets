@@ -118,15 +118,16 @@ export default function VerifyPhonePage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("country, phone, phone_verified, phone_verified_at, phone_verification_status")
+        .select("country, phone, phone_country_iso, phone_number_e164, phone_verified, phone_verified_at, phone_verification_status")
         .eq("id", user.id)
         .maybeSingle();
 
-      setCountry(countryFromName(profile?.country));
+      setCountry((profile?.phone_country_iso as CountryCode | null) || countryFromName(profile?.country));
 
-      if (profile?.phone) {
-        setPhone(profile.phone);
-        setNormalizedPhone(profile.phone);
+      if (profile?.phone_number_e164 || profile?.phone) {
+        const savedPhone = profile.phone_number_e164 || profile.phone || "";
+        setPhone(savedPhone);
+        setNormalizedPhone(savedPhone);
       }
 
       if (
@@ -161,37 +162,28 @@ export default function VerifyPhonePage() {
 
     setLoading(true);
 
-    const { error: updateError } = await supabase.auth.updateUser({ phone: e164 });
+    const response = await fetch("/api/phone-verification/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        country,
+        phone,
+      }),
+    });
+    const data = await response.json().catch(() => null);
 
-    if (updateError) {
-      console.error("PHONE OTP SEND ERROR:", updateError);
-      setError(otpError(updateError.message));
+    if (!response.ok || !data?.ok) {
+      setError(otpError(data?.error || "We could not send a verification code right now."));
+      setCountdown(Number(data?.cooldownSeconds || 0));
       setLoading(false);
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user?.id) {
-      await supabase
-        .from("profiles")
-        .update({
-          phone: e164,
-          phone_country_code: `+${getCountryCallingCode(country)}`,
-          phone_country_iso: country,
-          phone_number_e164: e164,
-          phone_verification_status: "code_sent",
-          phone_verification_sent_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
-    }
-
-    setNormalizedPhone(e164);
+    setNormalizedPhone(data.phone || e164);
     setCodeSent(true);
-    setCountdown(45);
+    setCountdown(Number(data.cooldownSeconds || 45));
     setLoading(false);
     setTimeout(() => inputRefs.current[0]?.focus(), 50);
   }
@@ -207,38 +199,24 @@ export default function VerifyPhonePage() {
 
     setLoading(true);
 
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      phone: normalizedPhone,
-      token,
-      type: "phone_change",
+    const response = await fetch("/api/phone-verification/check", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code: token,
+      }),
     });
+    const data = await response.json().catch(() => null);
 
-    if (verifyError) {
-      console.error("PHONE OTP VERIFY ERROR:", verifyError.message);
-      setError(otpError(verifyError.message));
+    if (!response.ok || !data?.ok) {
+      setError(otpError(data?.error || "Phone verification failed. Please try again."));
       setLoading(false);
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user?.id) {
-      await supabase
-        .from("profiles")
-        .update({
-          phone: normalizedPhone,
-          phone_country_code: `+${getCountryCallingCode(country)}`,
-          phone_country_iso: country,
-          phone_number_e164: normalizedPhone,
-          phone_verified: true,
-          phone_verified_at: new Date().toISOString(),
-          phone_verification_status: "verified",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
-    }
+    setNormalizedPhone(data.phone || normalizedPhone);
 
     setSuccess(true);
     setLoading(false);
