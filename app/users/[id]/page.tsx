@@ -7,7 +7,10 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   BadgeCheck,
+  BriefcaseBusiness,
+  CalendarDays,
   Crown,
+  GraduationCap,
   Home,
   LockKeyhole,
   MessageCircle,
@@ -17,22 +20,45 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ReportButton from "@/components/ReportButton";
-import { calculateProfileCompletion } from "@/lib/verification-center";
+import {
+  calculateProfileCompletion,
+  calculateTrustScore,
+  isHostRole,
+  normalizeVerificationStatus,
+  trustScoreLabel,
+  trustStars,
+  verificationLabel,
+} from "@/lib/verification-center";
+import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
 
 type Profile = {
   id: string;
   full_name: string | null;
-  phone: string | null;
   bio: string | null;
   role: string | null;
   avatar_url: string | null;
   is_verified?: boolean | null;
+  identity_verified?: boolean | null;
   identity_verification_status?: string | null;
   identity_verified_at?: string | null;
   student_verification_status?: string | null;
   phone_verified_at?: string | null;
+  phone_verified?: boolean | null;
+  trust_score?: number | null;
+  trust_level?: string | null;
   profile_completion_percentage?: number | null;
   created_at?: string | null;
+  country?: string | null;
+  school?: string | null;
+  institution_name?: string | null;
+  campus_name?: string | null;
+  program?: string | null;
+  program_name?: string | null;
+  host_type?: string | null;
+  property_management_company?: string | null;
+  is_founding_landlord?: boolean | null;
+  founding_landlord_number?: number | null;
+  founding_status?: string | null;
 };
 
 type Listing = {
@@ -93,6 +119,35 @@ export default function PublicUserProfilePage() {
           : null,
       })
     : 0;
+  const isHost = isHostRole(profile?.role);
+  const identityStatus = normalizeVerificationStatus(
+    profile?.identity_verification_status,
+    Boolean(profile?.identity_verified || profile?.is_verified)
+  );
+  const studentStatus = normalizeVerificationStatus(
+    profile?.student_verification_status
+  );
+  const roleSpecificStatus = isHost
+    ? normalizeVerificationStatus(hasVerifiedPropertyRelationship ? "verified" : null)
+    : studentStatus;
+  const trustScore =
+    profile?.trust_score ??
+    (profile
+      ? calculateTrustScore({
+          profile,
+          emailVerified: true,
+          propertyVerification: hasVerifiedPropertyRelationship
+            ? { status: "verified" }
+            : null,
+          reviewCount: reviews.length,
+          responseRate: reviews.length ? 75 : 0,
+          listingQuality: listings.length ? 75 : 0,
+        })
+      : 0);
+  const foundingNumber =
+    profile?.is_founding_landlord && profile.founding_status === "confirmed"
+      ? profile.founding_landlord_number || null
+      : null;
 
   useEffect(() => {
     loadData();
@@ -118,7 +173,7 @@ export default function PublicUserProfilePage() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, bio, role, avatar_url, is_verified, identity_verification_status, identity_verified_at, student_verification_status, phone_verified_at, profile_completion_percentage, created_at")
+        .select("id, full_name, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, student_verification_status, phone_verified, phone_verified_at, profile_completion_percentage, created_at, country, school, institution_name, campus_name, program, program_name, host_type, property_management_company, trust_score, trust_level, is_founding_landlord, founding_landlord_number, founding_status")
         .eq("id", userId)
         .maybeSingle();
 
@@ -186,7 +241,7 @@ export default function PublicUserProfilePage() {
       if (reviewerIds.length > 0) {
         const { data: reviewerData } = await supabase
           .from("profiles")
-          .select("id, full_name, phone, bio, role, avatar_url, is_verified")
+          .select("id, full_name, bio, role, avatar_url, is_verified")
           .in("id", reviewerIds);
 
         setReviewers((reviewerData || []) as Profile[]);
@@ -265,25 +320,25 @@ export default function PublicUserProfilePage() {
 
   return (
     <main className="min-h-screen bg-black px-4 py-8 text-white">
-      <div className="mx-auto max-w-7xl space-y-10">
+      <div className="mx-auto max-w-7xl space-y-8">
         <section
-          className={`overflow-hidden rounded-[2rem] border p-8 shadow-2xl ${
+          className={`overflow-hidden rounded-[2rem] border p-6 shadow-2xl sm:p-8 ${
             isElite
-              ? "border-purple-400/40 bg-gradient-to-br from-purple-500/15 via-[#070707] to-black"
+              ? "border-purple-400/40 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.24),transparent_32%),linear-gradient(135deg,#070707,#020202)]"
               : isPremium
-              ? "border-yellow-400/40 bg-gradient-to-br from-yellow-500/15 via-[#070707] to-black"
-              : "border-gray-800 bg-[#070707]"
+                ? "border-yellow-400/40 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.16),transparent_32%),linear-gradient(135deg,#070707,#020202)]"
+                : "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,46,114,0.16),transparent_30%),linear-gradient(135deg,#09090b,#020202)]"
           }`}
         >
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex flex-col gap-6 md:flex-row md:items-center">
               <div
-                className={`h-28 w-28 overflow-hidden rounded-full ${
+                className={`h-28 w-28 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl ${
                   isElite
                     ? "bg-purple-500/20 ring-2 ring-purple-400/50"
                     : isPremium
-                    ? "bg-yellow-400/20 ring-2 ring-yellow-400/50"
-                    : "bg-gray-800"
+                      ? "bg-yellow-400/20 ring-2 ring-yellow-400/50"
+                      : "bg-[#FF2E72]/20 ring-2 ring-pink-400/40"
                 }`}
               >
                 {profile.avatar_url ? (
@@ -312,51 +367,61 @@ export default function PublicUserProfilePage() {
                     </span>
                   )}
 
-                  {profile.is_verified && (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-bold text-blue-300">
+                  {identityStatus === "verified" && (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200">
                       <BadgeCheck size={16} />
-                      {t("verified")}
+                      Verified by Travel Markets
                     </span>
                   )}
+
+                  <FoundingLandlordBadge number={foundingNumber} compact />
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-3">
-                  <span className="rounded-full border border-gray-700 bg-black/40 px-4 py-2 text-sm capitalize text-gray-300">
-                    {profile.role || t("ownerRole")}
+                  <span className="rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm capitalize text-zinc-300">
+                    {isHost ? "Host" : profile.role || "Student"}
                   </span>
 
-                  <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-300">
+                  <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-200">
                     {t("ratingSummary", {
                       rating: averageRating,
                       count: reviews.length,
                     })}
                   </span>
 
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
-                    {t("addressProtection")}
-                  </span>
+                  {profile.created_at && (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm text-zinc-300">
+                      <CalendarDays size={15} />
+                      Member since{" "}
+                      {new Date(profile.created_at).toLocaleDateString("en-CA", {
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <TrustIndicator
                     label="Identity verified"
-                    active={
-                      Boolean(profile.is_verified) ||
-                      profile.identity_verification_status === "approved"
-                    }
+                    active={identityStatus === "verified"}
+                    value={verificationLabel(identityStatus)}
                   />
-                  <TrustIndicator label="Email verified" active />
+                  <TrustIndicator label="Email verified" active value="Verified" />
                   <TrustIndicator
                     label="Phone verified"
                     active={Boolean(profile.phone_verified_at)}
+                    value={profile.phone_verified_at ? "Verified" : "Not public"}
                   />
                   <TrustIndicator
                     label="Student status verified"
-                    active={profile.student_verification_status === "approved"}
+                    active={studentStatus === "verified"}
+                    value={verificationLabel(studentStatus)}
                   />
                   <TrustIndicator
                     label="Property relationship verified"
                     active={hasVerifiedPropertyRelationship}
+                    value={verificationLabel(roleSpecificStatus)}
                   />
                   <TrustIndicator
                     label="Profile completeness"
@@ -381,6 +446,33 @@ export default function PublicUserProfilePage() {
                   {profile.bio ||
                     t("defaultBio")}
                 </p>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  {profile.country && (
+                    <ProfilePill icon={<ShieldCheck size={15} />} label={profile.country} />
+                  )}
+                  {!isHost && (profile.institution_name || profile.school) && (
+                    <ProfilePill
+                      icon={<GraduationCap size={15} />}
+                      label={profile.institution_name || profile.school || ""}
+                    />
+                  )}
+                  {!isHost && (profile.program_name || profile.program) && (
+                    <ProfilePill
+                      icon={<GraduationCap size={15} />}
+                      label={profile.program_name || profile.program || ""}
+                    />
+                  )}
+                  {isHost && profile.host_type && (
+                    <ProfilePill icon={<Home size={15} />} label={profile.host_type} />
+                  )}
+                  {isHost && profile.property_management_company && (
+                    <ProfilePill
+                      icon={<BriefcaseBusiness size={15} />}
+                      label={profile.property_management_company}
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -391,9 +483,47 @@ export default function PublicUserProfilePage() {
                 <ProfileStat label={t("reviews")} value={reviews.length} />
                 <ProfileStat
                   label={t("verifiedStat")}
-                  value={profile.is_verified ? t("yes") : t("no")}
+                  value={identityStatus === "verified" ? t("yes") : t("no")}
                 />
               </div>
+
+              <div className="rounded-3xl border border-white/10 bg-black/45 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-white">Trust score</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Verification, completion, reviews, and listing quality.
+                    </p>
+                  </div>
+                  <p className="text-3xl font-black text-white">{trustScore}/100</p>
+                </div>
+                <p className="mt-3 text-sm font-bold text-pink-100">
+                  {trustStars(trustScore)} {trustScoreLabel(trustScore)}
+                </p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-[#FF2E72]"
+                    style={{ width: `${Math.min(trustScore, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {isOwnProfile && (
+                <div className="grid gap-3">
+                  <Link
+                    href="/settings"
+                    className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-black text-black transition hover:bg-zinc-200"
+                  >
+                    Edit profile
+                  </Link>
+                  <Link
+                    href="/dashboard/verification"
+                    className="rounded-2xl border border-pink-400/30 bg-pink-500/10 px-5 py-3 text-center text-sm font-black text-pink-100 transition hover:bg-pink-500/20"
+                  >
+                    Complete verification
+                  </Link>
+                </div>
+              )}
 
               {!isOwnProfile && (
                 <div className="pt-2">
@@ -405,15 +535,17 @@ export default function PublicUserProfilePage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <div className="rounded-[2rem] border border-gray-800 bg-[#070707] p-8">
-            <h2 className="text-2xl font-bold">{t("aboutHost")}</h2>
+          <div className="rounded-[2rem] border border-white/10 bg-[#070707] p-8 shadow-xl">
+            <h2 className="text-2xl font-bold">
+              {isHost ? "About this host" : "About this student"}
+            </h2>
             <p className="mt-4 leading-7 text-gray-300">
               {profile.bio ||
                 t("aboutHostFallback")}
             </p>
           </div>
 
-          <div className="rounded-[2rem] border border-gray-800 bg-[#070707] p-8">
+          <div className="rounded-[2rem] border border-white/10 bg-[#070707] p-8 shadow-xl">
             <div className="mb-6 flex items-center gap-2">
               <ShieldCheck className="text-emerald-300" size={22} />
               <h2 className="text-2xl font-bold">{t("hostHighlights")}</h2>
@@ -452,12 +584,14 @@ export default function PublicUserProfilePage() {
                 color="text-yellow-300"
               />
 
-              <Highlight
-                icon={<MessageCircle size={16} />}
-                label={t("fastResponseHost")}
-                text={t("fastResponseHostText")}
-                color="text-emerald-300"
-              />
+              {reviews.length > 0 && (
+                <Highlight
+                  icon={<MessageCircle size={16} />}
+                  label={t("fastResponseHost")}
+                  text={t("fastResponseHostText")}
+                  color="text-emerald-300"
+                />
+              )}
 
               <Highlight
                 icon={<LockKeyhole size={16} />}
@@ -466,12 +600,14 @@ export default function PublicUserProfilePage() {
                 color="text-emerald-300"
               />
 
-              <Highlight
-                icon={<Zap size={16} />}
-                label={t("trustedHost")}
-                text={t("trustedHostText")}
-                color="text-sky-300"
-              />
+              {hasVerifiedPropertyRelationship && (
+                <Highlight
+                  icon={<Zap size={16} />}
+                  label={t("trustedHost")}
+                  text={t("trustedHostText")}
+                  color="text-sky-300"
+                />
+              )}
             </div>
           </div>
         </section>
@@ -660,6 +796,17 @@ function Highlight({
         <p className="mt-0.5 text-xs leading-5 text-gray-400">{text}</p>
       </div>
     </div>
+  );
+}
+
+function ProfilePill({ icon, label }: { icon: ReactNode; label: string }) {
+  if (!label) return null;
+
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-zinc-300">
+      <span className="text-pink-200">{icon}</span>
+      {label}
+    </span>
   );
 }
 

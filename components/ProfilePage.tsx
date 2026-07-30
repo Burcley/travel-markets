@@ -374,28 +374,39 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8 flex items-center justify-between">
+    <main className="min-h-screen bg-black px-4 py-8 text-white sm:px-6 lg:py-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,46,114,0.16),transparent_32%),linear-gradient(135deg,#09090b,#020202)] p-6 shadow-2xl sm:flex-row sm:items-end sm:justify-between sm:p-8">
           <div>
-            <p className="text-sm font-semibold text-emerald-400">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
               {t("eyebrow")}
             </p>
-            <h1 className="mt-1 text-3xl font-bold">{t("title")}</h1>
+            <h1 className="mt-3 text-4xl font-black tracking-tight">{t("title")}</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+              Preview and maintain the profile students and landlords use to build trust.
+            </p>
           </div>
 
-          <Link
-            href="/dashboard"
-            className="rounded-xl bg-white px-4 py-2 font-semibold text-black"
-          >
-            {t("dashboard")}
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/users/${id}`}
+              className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-white transition hover:border-pink-400/40 hover:bg-pink-500/10"
+            >
+              Public preview
+            </Link>
+            <Link
+              href="/dashboard"
+              className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-zinc-200"
+            >
+              {t("dashboard")}
+            </Link>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-zinc-900 p-6">
+          <div className="rounded-[2rem] border border-white/10 bg-zinc-950 p-6 shadow-2xl">
             <div className="flex flex-col items-center">
-              <div className="h-32 w-32 overflow-hidden rounded-full bg-zinc-800 ring-2 ring-white/10">
+              <div className="h-32 w-32 overflow-hidden rounded-[2rem] bg-zinc-800 ring-2 ring-pink-400/30">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
@@ -409,7 +420,7 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              <label className="mt-4 cursor-pointer rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500">
+              <label className="mt-4 cursor-pointer rounded-2xl bg-[#FF2E72] px-4 py-2 text-sm font-black text-white shadow-lg shadow-pink-950/30 transition hover:-translate-y-0.5 hover:bg-pink-500">
                 {t("upload")}
                 <input
                   type="file"
@@ -516,7 +527,7 @@ export default function ProfilePage() {
               {!isVerified && (
                 <Link
                   href="/dashboard/verification"
-                  className="mt-4 w-full rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-center font-semibold text-blue-300 hover:bg-blue-500/20"
+                  className="mt-4 w-full rounded-2xl border border-pink-400/25 bg-pink-500/10 px-4 py-3 text-center font-black text-pink-100 transition hover:bg-pink-500/20"
                 >
                   Open Verification Center
                 </Link>
@@ -543,7 +554,7 @@ export default function ProfilePage() {
               {isAdmin && (
                 <Link
                   href="/admin"
-                  className="mt-4 w-full rounded-xl border border-zinc-700 bg-white/5 px-4 py-3 text-center font-semibold hover:bg-white/10"
+                  className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center font-bold hover:bg-white/10"
                 >
                   {t("openAdminDashboard")}
                 </Link>
@@ -551,7 +562,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900 p-6 lg:col-span-2">
+          <div className="space-y-4 rounded-[2rem] border border-white/10 bg-zinc-950 p-6 shadow-2xl lg:col-span-2">
             <div>
               <label className="mb-2 block text-sm font-semibold text-zinc-300">
                 {t("fields.fullName")}
@@ -560,7 +571,7 @@ export default function ProfilePage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder={t("fields.fullName")}
-                className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500"
+                className="w-full rounded-2xl border border-white/10 bg-black p-3 outline-none transition focus:border-pink-400/60 focus:ring-4 focus:ring-pink-500/10"
               />
             </div>
 
@@ -572,7 +583,7 @@ export default function ProfilePage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder={t("fields.phone")}
-                className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500"
+                className="w-full rounded-2xl border border-white/10 bg-black p-3 outline-none transition focus:border-pink-400/60 focus:ring-4 focus:ring-pink-500/10"
               />
             </div>
 
@@ -584,7 +595,7 @@ export default function ProfilePage() {
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
                 disabled={isAdmin}
-                className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500 disabled:opacity-50"
+                className="w-full rounded-2xl border border-white/10 bg-black p-3 outline-none transition focus:border-pink-400/60 focus:ring-4 focus:ring-pink-500/10 disabled:opacity-50"
               >
                 <option value="student">{t("roles.student")}</option>
                 <option value="owner">{t("roles.owner")}</option>
@@ -600,14 +611,14 @@ export default function ProfilePage() {
                 onChange={(e) => setBio(e.target.value)}
                 placeholder={t("fields.bio")}
                 rows={4}
-                className="w-full rounded-xl border border-zinc-800 bg-black p-3 outline-none focus:border-blue-500"
+                className="w-full rounded-2xl border border-white/10 bg-black p-3 outline-none transition focus:border-pink-400/60 focus:ring-4 focus:ring-pink-500/10"
               />
             </div>
 
             <button
               onClick={saveProfile}
               disabled={saving || recalculating}
-              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold disabled:bg-zinc-700"
+              className="rounded-2xl bg-[#FF2E72] px-6 py-3 font-black text-white transition hover:bg-pink-500 disabled:bg-zinc-700"
             >
               {saving ? t("saving") : t("save")}
             </button>
@@ -615,7 +626,7 @@ export default function ProfilePage() {
         </div>
 
         {!isAdmin && (
-          <section className="mt-8 rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
+          <section id="delete-account" className="mt-8 scroll-mt-24 rounded-[2rem] border border-red-500/30 bg-red-500/10 p-6">
             <h2 className="text-2xl font-bold text-red-300">{t("delete.title")}</h2>
 
             <p className="mt-2 text-sm text-white/70">

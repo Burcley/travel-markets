@@ -307,7 +307,7 @@ export default async function VerificationCenterPage() {
                 Trust & Safety
               </p>
               <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-                Verification Center
+                Verification Centre
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
                 Build trust with students and landlords by completing the checks that
@@ -358,108 +358,153 @@ export default async function VerificationCenterPage() {
           </section>
         )}
 
-        <section className="grid gap-5 md:grid-cols-2">
-          {cards.map((card) => {
-            const Icon = card.icon;
-            const verifiedDate = formatDate(card.verifiedAt);
-            const banner = statusBanner(card.status, card.rejectedReason);
-            const BannerIcon = banner?.icon;
+        <section className="grid gap-6 lg:grid-cols-[300px_1fr]">
+          <aside className="sticky top-24 hidden self-start rounded-[2rem] border border-white/10 bg-zinc-950/90 p-4 shadow-2xl lg:block">
+            <div className="rounded-3xl border border-pink-400/20 bg-pink-500/10 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-pink-200">
+                Verification progress
+              </p>
+              <p className="mt-3 text-4xl font-black">{completion}%</p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/60">
+                <div
+                  className="h-full rounded-full bg-[#FF2E72]"
+                  style={{ width: `${completion}%` }}
+                />
+              </div>
+            </div>
+            <nav className="mt-4 space-y-2" aria-label="Verification sections">
+              {cards.map((card) => {
+                const Icon = card.icon;
 
-            return (
-              <article
-                key={card.title}
-                className="group rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-xl transition duration-300 hover:-translate-y-1 hover:border-pink-400/40 hover:bg-zinc-900"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="rounded-2xl bg-white/10 p-3">
-                      <Icon className="h-6 w-6 text-pink-200" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold">{card.title}</h2>
-                      <p className="mt-2 text-sm leading-6 text-zinc-400">
-                        {card.explanation}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${statusClasses(
-                      card.status
-                    )}`}
+                return (
+                  <a
+                    key={card.title}
+                    href={`#${slugify(card.title)}`}
+                    className="flex items-center justify-between gap-3 rounded-2xl px-3 py-3 text-sm transition hover:bg-white/10"
                   >
-                    {verificationLabel(card.status)}
-                  </span>
-                </div>
+                    <span className="flex min-w-0 items-center gap-3">
+                      <Icon className="h-4 w-4 shrink-0 text-pink-200" />
+                      <span className="truncate font-bold text-white">{card.title}</span>
+                    </span>
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-black ${statusClasses(card.status)}`}>
+                      {verificationLabel(card.status)}
+                    </span>
+                  </a>
+                );
+              })}
+            </nav>
+          </aside>
 
-                <div className="mt-5 grid gap-3 text-sm text-zinc-300 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
-                    <Clock3 className="h-4 w-4 text-zinc-400" />
-                    <p className="mt-2 font-semibold">Review time</p>
-                    <p className="mt-1 text-zinc-500">{card.estimatedReviewTime}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
-                    <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                    <p className="mt-2 font-semibold">Security</p>
-                    <p className="mt-1 text-zinc-500">{card.security}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
-                    <BadgeCheck className="h-4 w-4 text-zinc-400" />
-                    <p className="mt-2 font-semibold">Why it matters</p>
-                    <p className="mt-1 text-zinc-500">{card.why}</p>
-                  </div>
-                </div>
+          <div className="space-y-6">
+            <section className="grid gap-5 md:grid-cols-2">
+              {cards.map((card) => {
+                const Icon = card.icon;
+                const verifiedDate = formatDate(card.verifiedAt);
+                const banner = statusBanner(card.status, card.rejectedReason);
+                const BannerIcon = banner?.icon;
 
-                {card.status === "verified" && (
-                  <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-                    <p className="font-semibold">Verified by Travel Markets</p>
-                    {verifiedDate && <p className="mt-1 text-emerald-100/70">{verifiedDate}</p>}
-                  </div>
-                )}
+                return (
+                  <article
+                    id={slugify(card.title)}
+                    key={card.title}
+                    className="group scroll-mt-24 rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-xl transition duration-300 hover:-translate-y-1 hover:border-pink-400/40 hover:bg-zinc-900"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="rounded-2xl bg-white/10 p-3">
+                          <Icon className="h-6 w-6 text-pink-200" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-bold">{card.title}</h2>
+                          <p className="mt-2 text-sm leading-6 text-zinc-400">
+                            {card.explanation}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${statusClasses(
+                          card.status
+                        )}`}
+                      >
+                        {verificationLabel(card.status)}
+                      </span>
+                    </div>
 
-                {banner && card.status !== "verified" && BannerIcon && (
-                  <div className={`mt-5 rounded-2xl border p-4 text-sm ${banner.className}`}>
-                    <div className="flex items-start gap-3">
-                      <BannerIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                      <div>
-                        <p className="font-black">{banner.title}</p>
-                        <p className="mt-1 leading-6 opacity-80">{banner.text}</p>
+                    <div className="mt-5 grid gap-3 text-sm text-zinc-300 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
+                        <Clock3 className="h-4 w-4 text-zinc-400" />
+                        <p className="mt-2 font-semibold">Review time</p>
+                        <p className="mt-1 text-zinc-500">{card.estimatedReviewTime}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
+                        <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                        <p className="mt-2 font-semibold">Security</p>
+                        <p className="mt-1 text-zinc-500">{card.security}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
+                        <BadgeCheck className="h-4 w-4 text-zinc-400" />
+                        <p className="mt-2 font-semibold">Why it matters</p>
+                        <p className="mt-1 text-zinc-500">{card.why}</p>
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {card.status !== "verified" && (
-                  <Link
-                    href={card.href}
-                    className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-black transition hover:-translate-y-0.5 hover:bg-zinc-200"
-                  >
-                    {card.cta}
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                )}
-              </article>
-            );
-          })}
-        </section>
+                    {card.status === "verified" && (
+                      <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+                        <p className="font-semibold">Verified by Travel Markets</p>
+                        {verifiedDate && <p className="mt-1 text-emerald-100/70">{verifiedDate}</p>}
+                      </div>
+                    )}
 
-        <section className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Profile Completeness</h2>
-              <p className="mt-2 text-zinc-400">
-                Complete your profile to build trust.
-              </p>
-            </div>
-            <p className="text-3xl font-black">{completion}%</p>
-          </div>
-          <div className="mt-5 h-3 overflow-hidden rounded-full bg-black">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-pink-500 to-emerald-400"
-              style={{ width: `${completion}%` }}
-            />
+                    {banner && card.status !== "verified" && BannerIcon && (
+                      <div className={`mt-5 rounded-2xl border p-4 text-sm ${banner.className}`}>
+                        <div className="flex items-start gap-3">
+                          <BannerIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                          <div>
+                            <p className="font-black">{banner.title}</p>
+                            <p className="mt-1 leading-6 opacity-80">{banner.text}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {card.status !== "verified" && (
+                      <Link
+                        href={card.href}
+                        className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-black transition hover:-translate-y-0.5 hover:bg-zinc-200"
+                      >
+                        {card.cta}
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
+                    )}
+                  </article>
+                );
+              })}
+            </section>
+
+            <section className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Profile Completeness</h2>
+                  <p className="mt-2 text-zinc-400">
+                    Complete your profile to build trust.
+                  </p>
+                </div>
+                <p className="text-3xl font-black">{completion}%</p>
+              </div>
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-black">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-pink-500 to-emerald-400"
+                  style={{ width: `${completion}%` }}
+                />
+              </div>
+            </section>
           </div>
         </section>
       </div>
     </main>
   );
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
