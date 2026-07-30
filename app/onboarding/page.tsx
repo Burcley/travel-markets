@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 import {
   CANADIAN_INSTITUTIONS,
+  OTHER_CAMPUS_ID,
   PROGRAM_OPTIONS,
+  UNLISTED_INSTITUTION_ID,
   getCampusById,
   getCampusesForInstitution,
   getInstitutionById,
@@ -56,8 +58,6 @@ type ExistingProfile = {
 };
 
 const TOTAL_STEPS = 5;
-const UNLISTED_INSTITUTION_ID = "__institution_not_listed";
-const OTHER_CAMPUS_ID = "__other_campus";
 const OTHER_PROGRAM_NAME = "Other";
 
 function isMissingOnboardingInfrastructure(error: unknown) {
@@ -315,7 +315,7 @@ function OnboardingWizard() {
     setInstitutionId(nextInstitutionId);
     setInstitutionSearch(
       profile.institution_not_listed
-        ? "Institution not listed"
+        ? "Other Ontario university"
         : institution?.name || profile.institution_name || profile.school || ""
     );
     setUnlistedInstitutionName(profile.unlisted_institution_name || "");
@@ -594,7 +594,7 @@ function OnboardingWizard() {
     setInstitutionId(nextInstitutionId);
     setInstitutionSearch(
       nextInstitutionId === UNLISTED_INSTITUTION_ID
-        ? "Institution not listed"
+        ? "Other Ontario university"
         : institution?.name || ""
     );
     setCampusId("");
@@ -997,8 +997,8 @@ function InstitutionSelector({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [provinceFilter, setProvinceFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [provinceFilter, setProvinceFilter] = useState("Ontario");
+  const [typeFilter, setTypeFilter] = useState("university");
   const normalizedSearch = search.trim().toLowerCase();
   const matches = CANADIAN_INSTITUTIONS.filter((institution) => {
     if (!institution.active) return false;
@@ -1027,7 +1027,7 @@ function InstitutionSelector({
     })),
     {
       id: UNLISTED_INSTITUTION_ID,
-      label: "Institution not listed",
+      label: "Other Ontario university",
       description: "Submit the institution name for Travel Markets review.",
       type: "review",
     },
@@ -1062,7 +1062,7 @@ function InstitutionSelector({
   return (
     <div ref={containerRef}>
       <label className="block">
-        <span className="text-sm font-bold text-zinc-300">Institution</span>
+        <span className="text-sm font-bold text-zinc-300">Select your university</span>
         <input
           role="combobox"
           aria-expanded={open}
@@ -1094,7 +1094,7 @@ function InstitutionSelector({
               setOpen(false);
             }
           }}
-          placeholder="Search by school, abbreviation, city, or province"
+          placeholder="Search Ontario universities by name, abbreviation, or city"
           className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400/70"
           aria-label="Search institution"
         />
@@ -1104,7 +1104,7 @@ function InstitutionSelector({
         <p className="mt-2 text-sm font-semibold text-pink-200">
           Selected:{" "}
           {selectedId === UNLISTED_INSTITUTION_ID
-            ? "Institution not listed"
+            ? "Other Ontario university"
             : getInstitutionById(selectedId)?.name || selectedId}
         </p>
       )}
@@ -1184,7 +1184,7 @@ function CampusSelector({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-bold text-zinc-300">Campus</span>
+      <span className="text-sm font-bold text-zinc-300">Select your campus</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -1196,7 +1196,7 @@ function CampusSelector({
             {campus.name} — {campus.city}, {campus.province}
           </option>
         ))}
-        <option value={OTHER_CAMPUS_ID}>Other campus</option>
+        <option value={OTHER_CAMPUS_ID}>Other campus / campus not listed</option>
       </select>
     </label>
   );

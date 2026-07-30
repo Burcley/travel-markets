@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
@@ -11,6 +11,15 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import InstitutionCampusSelector, {
+  OTHER_CAMPUS_ID,
+  UNLISTED_INSTITUTION_ID,
+} from "@/components/institutions/InstitutionCampusSelector";
+import {
+  getCampusById,
+  getCampusesForInstitution,
+  getInstitutionById,
+} from "@/lib/data/canadian-institutions";
 
 type VerificationType = "identity" | "student_status" | "property_relationship";
 
@@ -86,7 +95,11 @@ function VerifyIdentityContent() {
     verificationType === "student_status" ? "proof_of_enrollment" : "passport"
   );
   const [issuingCountry, setIssuingCountry] = useState("Canada");
-  const [institutionName, setInstitutionName] = useState("");
+  const [institutionId, setInstitutionId] = useState("");
+  const [institutionSearch, setInstitutionSearch] = useState("");
+  const [unlistedInstitutionName, setUnlistedInstitutionName] = useState("");
+  const [campusId, setCampusId] = useState("");
+  const [unlistedCampusName, setUnlistedCampusName] = useState("");
   const [expectedGraduation, setExpectedGraduation] = useState("");
   const [relationshipType, setRelationshipType] = useState("owner");
   const [listingId, setListingId] = useState("");
@@ -95,6 +108,54 @@ function VerifyIdentityContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (verificationType !== "student_status") return;
+
+    let cancelled = false;
+
+    async function loadStudentProfile() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || cancelled) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select(
+          "institution_id, institution_name, institution_not_listed, unlisted_institution_name, campus_id, campus_name, campus_not_listed, unlisted_campus_name, expected_graduation"
+        )
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!data || cancelled) return;
+
+      if (data.institution_not_listed) {
+        setInstitutionId(UNLISTED_INSTITUTION_ID);
+        setInstitutionSearch("Other Ontario university");
+        setUnlistedInstitutionName(data.unlisted_institution_name || data.institution_name || "");
+      } else {
+        setInstitutionId(data.institution_id || "");
+        setInstitutionSearch(data.institution_name || "");
+      }
+
+      if (data.campus_not_listed) {
+        setCampusId(OTHER_CAMPUS_ID);
+        setUnlistedCampusName(data.unlisted_campus_name || data.campus_name || "");
+      } else {
+        setCampusId(data.campus_id || "");
+      }
+
+      setExpectedGraduation(data.expected_graduation || "");
+    }
+
+    loadStudentProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, verificationType]);
 
   async function submitVerification() {
     setLoading(true);
@@ -114,7 +175,22 @@ function VerifyIdentityContent() {
     formData.set("full_legal_name", fullLegalName.trim());
     formData.set("document_type", documentType);
     formData.set("issuing_country", issuingCountry.trim());
-    formData.set("institution_name", institutionName.trim());
+    const selectedInstitution =
+      institutionId && institutionId !== UNLISTED_INSTITUTION_ID
+        ? getInstitutionById(institutionId)
+        : null;
+    const selectedCampus =
+      campusId && campusId !== OTHER_CAMPUS_ID ? getCampusById(campusId) : null;
+    const canonicalInstitutionName =
+      selectedInstitution?.name || unlistedInstitutionName.trim();
+    const canonicalCampusName = selectedCampus?.name || unlistedCampusName.trim();
+
+    formData.set("institution_id", institutionId);
+    formData.set("institution_name", canonicalInstitutionName);
+    formData.set("unlisted_institution_name", unlistedInstitutionName.trim());
+    formData.set("campus_id", campusId);
+    formData.set("campus_name", canonicalCampusName);
+    formData.set("unlisted_campus_name", unlistedCampusName.trim());
     formData.set("expected_graduation", expectedGraduation);
     formData.set("relationship_type", relationshipType);
     formData.set("listing_id", listingId.trim());
@@ -186,11 +262,36 @@ function VerifyIdentityContent() {
 
           {verificationType === "student_status" && (
             <>
-              <Field
-                label="Institution name"
-                value={institutionName}
-                onChange={setInstitutionName}
-                placeholder="Durham College"
+              <InstitutionCampusSelector
+                institutionId={institutionId}
+                institutionSearch={institutionSearch}
+                campusId={campusId}
+                unlistedInstitutionName={unlistedInstitutionName}
+                unlistedCampusName={unlistedCampusName}
+                onInstitutionSearchChange={setInstitutionSearch}
+                onInstitutionChange={(nextInstitutionId) => {
+                  const institution =
+                    nextInstitutionId === UNLISTED_INSTITUTION_ID
+                      ? null
+                      : getInstitutionById(nextInstitutionId);
+
+                  setInstitutionId(nextInstitutionId);
+                  setInstitutionSearch(
+                    nextInstitutionId === UNLISTED_INSTITUTION_ID
+                      ? "Other Ontario university"
+                      : institution?.name || ""
+                  );
+                  setCampusId("");
+                  setUnlistedCampusName("");
+                }}
+                onCampusChange={(nextCampusId) => {
+                  setCampusId(nextCampusId);
+                  if (nextCampusId !== OTHER_CAMPUS_ID) {
+                    setUnlistedCampusName("");
+                  }
+                }}
+                onUnlistedInstitutionNameChange={setUnlistedInstitutionName}
+                onUnlistedCampusNameChange={setUnlistedCampusName}
               />
               <SelectField
                 label="Academic document type"
@@ -209,6 +310,14 @@ function VerifyIdentityContent() {
                 onChange={setExpectedGraduation}
                 type="date"
               />
+              {institutionId &&
+                institutionId !== UNLISTED_INSTITUTION_ID &&
+                getCampusesForInstitution(institutionId).length === 0 && (
+                  <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-zinc-400">
+                    This university does not have multiple campuses listed yet. Your
+                    document will still be reviewed against the selected university.
+                  </p>
+                )}
             </>
           )}
 

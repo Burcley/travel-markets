@@ -1,4 +1,11 @@
 import { NextResponse } from "next/server";
+import {
+  OTHER_CAMPUS_ID,
+  UNLISTED_INSTITUTION_ID,
+  campusBelongsToInstitution,
+  getCampusesForInstitution,
+  getInstitutionById,
+} from "@/lib/data/canadian-institutions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,6 +25,101 @@ function clean(value: FormDataEntryValue | null) {
 
 function safeFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 120) || "document";
+}
+
+function validateStudentInstitutionMetadata(formData: FormData) {
+  const institutionId = clean(formData.get("institution_id"));
+  const campusId = clean(formData.get("campus_id"));
+  const unlistedInstitutionName = clean(formData.get("unlisted_institution_name"));
+  const unlistedCampusName = clean(formData.get("unlisted_campus_name"));
+  const submittedInstitutionName = clean(formData.get("institution_name"));
+  const submittedCampusName = clean(formData.get("campus_name"));
+
+  if (!institutionId) {
+    return {
+      error: "Choose your university.",
+    };
+  }
+
+  if (institutionId === UNLISTED_INSTITUTION_ID) {
+    if (!unlistedInstitutionName) {
+      return {
+        error: "Enter the Ontario university name for review.",
+      };
+    }
+
+    return {
+      institutionId: null,
+      institutionName: unlistedInstitutionName,
+      institutionNotListed: true,
+      unlistedInstitutionName,
+      campusId: null,
+      campusName: unlistedCampusName || submittedCampusName || null,
+      campusNotListed: Boolean(unlistedCampusName || submittedCampusName),
+      unlistedCampusName: unlistedCampusName || submittedCampusName || null,
+    };
+  }
+
+  const institution = getInstitutionById(institutionId);
+
+  if (
+    !institution ||
+    !institution.active ||
+    institution.province !== "Ontario" ||
+    institution.type !== "university"
+  ) {
+    return {
+      error: "Choose a recognized Ontario university.",
+    };
+  }
+
+  const campuses = getCampusesForInstitution(institution.id);
+  let campusName: string | null = null;
+  let normalizedCampusId: string | null = null;
+  let campusNotListed = false;
+  let normalizedUnlistedCampusName: string | null = null;
+
+  if (campuses.length > 0) {
+    if (!campusId) {
+      return {
+        error: "Choose your campus.",
+      };
+    }
+
+    if (campusId === OTHER_CAMPUS_ID) {
+      if (!unlistedCampusName) {
+        return {
+          error: "Enter the campus name for review.",
+        };
+      }
+
+      campusName = unlistedCampusName;
+      campusNotListed = true;
+      normalizedUnlistedCampusName = unlistedCampusName;
+    } else {
+      if (!campusBelongsToInstitution({ campusId, institutionId: institution.id })) {
+        return {
+          error: "Choose a valid campus for the selected university.",
+        };
+      }
+
+      const campus = campuses.find((item) => item.id === campusId);
+      normalizedCampusId = campusId;
+      campusName = campus?.name || submittedCampusName || null;
+    }
+  }
+
+  return {
+    institutionId: institution.id,
+    institutionName: institution.name,
+    institutionNotListed: false,
+    unlistedInstitutionName: null,
+    campusId: normalizedCampusId,
+    campusName,
+    campusNotListed,
+    unlistedCampusName: normalizedUnlistedCampusName,
+    submittedInstitutionName,
+  };
 }
 
 async function notifyAdmins({
@@ -113,11 +215,28 @@ export async function POST(request: Request) {
     );
   }
 
+  const studentInstitution =
+    verificationType === "student_status"
+      ? validateStudentInstitutionMetadata(formData)
+      : null;
+
+  if (studentInstitution && "error" in studentInstitution) {
+    return NextResponse.json({ error: studentInstitution.error }, { status: 400 });
+  }
+
   const metadata = {
     fullLegalName: clean(formData.get("full_legal_name")),
     documentType: clean(formData.get("document_type")),
     issuingCountry: clean(formData.get("issuing_country")),
-    institutionName: clean(formData.get("institution_name")),
+    institutionId: studentInstitution?.institutionId || null,
+    institutionName:
+      studentInstitution?.institutionName || clean(formData.get("institution_name")),
+    institutionNotListed: studentInstitution?.institutionNotListed || false,
+    unlistedInstitutionName: studentInstitution?.unlistedInstitutionName || null,
+    campusId: studentInstitution?.campusId || null,
+    campusName: studentInstitution?.campusName || null,
+    campusNotListed: studentInstitution?.campusNotListed || false,
+    unlistedCampusName: studentInstitution?.unlistedCampusName || null,
     expectedGraduation: clean(formData.get("expected_graduation")),
     relationshipType: clean(formData.get("relationship_type")),
     listingId: clean(formData.get("listing_id")),
@@ -136,7 +255,7 @@ export async function POST(request: Request) {
     (!metadata.institutionName || !metadata.documentType || !metadata.expectedGraduation)
   ) {
     return NextResponse.json(
-      { error: "Enter your school, document type, and expected graduation date." },
+      { error: "Choose your university, document type, and expected graduation date." },
       { status: 400 }
     );
   }

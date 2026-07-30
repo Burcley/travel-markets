@@ -43,6 +43,14 @@ import {
   verificationLabel,
   type VerificationStatus,
 } from "@/lib/verification-center";
+import InstitutionCampusSelector, {
+  OTHER_CAMPUS_ID,
+  UNLISTED_INSTITUTION_ID,
+} from "@/components/institutions/InstitutionCampusSelector";
+import {
+  getCampusById,
+  getInstitutionById,
+} from "@/lib/data/canadian-institutions";
 
 type Profile = {
   id: string;
@@ -59,8 +67,14 @@ type Profile = {
   preferred_language?: string | null;
   school?: string | null;
   program?: string | null;
+  institution_id?: string | null;
   institution_name?: string | null;
+  institution_not_listed?: boolean | null;
+  unlisted_institution_name?: string | null;
+  campus_id?: string | null;
   campus_name?: string | null;
+  campus_not_listed?: boolean | null;
+  unlisted_campus_name?: string | null;
   program_name?: string | null;
   expected_graduation?: string | null;
   host_type?: string | null;
@@ -115,7 +129,12 @@ export default function SettingsPage() {
   const [country, setCountry] = useState("Canada");
   const [preferredLanguage, setPreferredLanguage] = useState("English");
   const [school, setSchool] = useState("");
+  const [institutionId, setInstitutionId] = useState("");
+  const [institutionSearch, setInstitutionSearch] = useState("");
+  const [unlistedInstitutionName, setUnlistedInstitutionName] = useState("");
+  const [campusId, setCampusId] = useState("");
   const [campusName, setCampusName] = useState("");
+  const [unlistedCampusName, setUnlistedCampusName] = useState("");
   const [program, setProgram] = useState("");
   const [expectedGraduation, setExpectedGraduation] = useState("");
   const [hostType, setHostType] = useState("");
@@ -243,7 +262,12 @@ export default function SettingsPage() {
     country,
     preferredLanguage,
     school,
+    institutionId,
+    institutionSearch,
+    unlistedInstitutionName,
+    campusId,
     campusName,
+    unlistedCampusName,
     program,
     expectedGraduation,
     hostType,
@@ -296,7 +320,7 @@ export default function SettingsPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("id, email, full_name, phone, bio, role, avatar_url, is_admin, account_status, created_at, country, preferred_language, school, program, institution_name, campus_name, program_name, expected_graduation, host_type, property_management_company, management_role, is_verified, identity_verified, identity_verification_status, phone_verified, phone_verified_at, phone_verification_status, student_email_verified, student_verification_status")
+      .select("id, email, full_name, phone, bio, role, avatar_url, is_admin, account_status, created_at, country, preferred_language, school, program, institution_id, institution_name, institution_not_listed, unlisted_institution_name, campus_id, campus_name, campus_not_listed, unlisted_campus_name, program_name, expected_graduation, host_type, property_management_company, management_role, is_verified, identity_verified, identity_verification_status, phone_verified, phone_verified_at, phone_verification_status, student_email_verified, student_verification_status")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -331,12 +355,33 @@ export default function SettingsPage() {
     setAvatarUrl(nextProfile.avatar_url || null);
     setCountry(nextProfile.country || "Canada");
     setPreferredLanguage(nextProfile.preferred_language || "English");
-    setSchool(
-      nextProfile.institution_name ||
-        nextProfile.school ||
-        ""
+    const loadedInstitutionId = nextProfile.institution_not_listed
+      ? UNLISTED_INSTITUTION_ID
+      : nextProfile.institution_id || "";
+    const loadedInstitutionName =
+      nextProfile.institution_name || nextProfile.school || "";
+    const loadedCampusId = nextProfile.campus_not_listed
+      ? OTHER_CAMPUS_ID
+      : nextProfile.campus_id || "";
+    const loadedCampusName = nextProfile.campus_name || "";
+
+    setSchool(loadedInstitutionName);
+    setInstitutionId(loadedInstitutionId);
+    setInstitutionSearch(
+      loadedInstitutionId === UNLISTED_INSTITUTION_ID
+        ? "Other Ontario university"
+        : loadedInstitutionName
     );
+    setUnlistedInstitutionName(
+      nextProfile.unlisted_institution_name ||
+        (nextProfile.institution_not_listed ? loadedInstitutionName : "")
+    );
+    setCampusId(loadedCampusId);
     setCampusName(nextProfile.campus_name || "");
+    setUnlistedCampusName(
+      nextProfile.unlisted_campus_name ||
+        (nextProfile.campus_not_listed ? loadedCampusName : "")
+    );
     setProgram(nextProfile.program_name || nextProfile.program || "");
     setExpectedGraduation(nextProfile.expected_graduation || "");
     setHostType(nextProfile.host_type || "");
@@ -351,7 +396,19 @@ export default function SettingsPage() {
         country: nextProfile.country || "Canada",
         preferredLanguage: nextProfile.preferred_language || "English",
         school: nextProfile.institution_name || nextProfile.school || "",
+        institutionId: loadedInstitutionId,
+        institutionSearch:
+          loadedInstitutionId === UNLISTED_INSTITUTION_ID
+            ? "Other Ontario university"
+            : loadedInstitutionName,
+        unlistedInstitutionName:
+          nextProfile.unlisted_institution_name ||
+          (nextProfile.institution_not_listed ? loadedInstitutionName : ""),
+        campusId: loadedCampusId,
         campusName: nextProfile.campus_name || "",
+        unlistedCampusName:
+          nextProfile.unlisted_campus_name ||
+          (nextProfile.campus_not_listed ? loadedCampusName : ""),
         program: nextProfile.program_name || nextProfile.program || "",
         expectedGraduation: nextProfile.expected_graduation || "",
         hostType: nextProfile.host_type || "",
@@ -401,6 +458,22 @@ export default function SettingsPage() {
     setNotice("");
     setError("");
 
+    const selectedInstitution =
+      institutionId && institutionId !== UNLISTED_INSTITUTION_ID
+        ? getInstitutionById(institutionId)
+        : null;
+    const selectedCampus =
+      campusId && campusId !== OTHER_CAMPUS_ID ? getCampusById(campusId) : null;
+    const finalInstitutionName = !isOwner
+      ? selectedInstitution?.name ||
+        unlistedInstitutionName.trim() ||
+        institutionSearch.trim() ||
+        school.trim()
+      : "";
+    const finalCampusName = !isOwner
+      ? selectedCampus?.name || unlistedCampusName.trim() || campusName.trim()
+      : "";
+
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -410,9 +483,23 @@ export default function SettingsPage() {
         avatar_url: avatarUrl,
         country: country.trim() || null,
         preferred_language: preferredLanguage.trim() || null,
-        school: !isOwner ? school.trim() || null : null,
-        institution_name: !isOwner ? school.trim() || null : null,
-        campus_name: !isOwner ? campusName.trim() || null : null,
+        school: !isOwner ? finalInstitutionName || null : null,
+        institution_id:
+          !isOwner && selectedInstitution ? selectedInstitution.id : null,
+        institution_name: !isOwner ? finalInstitutionName || null : null,
+        institution_not_listed:
+          !isOwner && institutionId === UNLISTED_INSTITUTION_ID,
+        unlisted_institution_name:
+          !isOwner && institutionId === UNLISTED_INSTITUTION_ID
+            ? unlistedInstitutionName.trim() || null
+            : null,
+        campus_id: !isOwner && selectedCampus ? selectedCampus.id : null,
+        campus_name: !isOwner ? finalCampusName || null : null,
+        campus_not_listed: !isOwner && campusId === OTHER_CAMPUS_ID,
+        unlisted_campus_name:
+          !isOwner && campusId === OTHER_CAMPUS_ID
+            ? unlistedCampusName.trim() || null
+            : null,
         program: !isOwner ? program.trim() || null : null,
         program_name: !isOwner ? program.trim() || null : null,
         expected_graduation: !isOwner && expectedGraduation ? expectedGraduation : null,
@@ -701,12 +788,53 @@ export default function SettingsPage() {
                 />
                 {!isOwner ? (
                   <>
-                    <Field label="School" value={school} onChange={setSchool} />
-                    <Field
-                      label="Campus"
-                      value={campusName}
-                      onChange={setCampusName}
-                    />
+                    <div className="md:col-span-2">
+                      <InstitutionCampusSelector
+                        institutionId={institutionId}
+                        institutionSearch={institutionSearch}
+                        campusId={campusId}
+                        unlistedInstitutionName={unlistedInstitutionName}
+                        unlistedCampusName={unlistedCampusName}
+                        onInstitutionSearchChange={setInstitutionSearch}
+                        onInstitutionChange={(nextInstitutionId) => {
+                          const institution =
+                            nextInstitutionId === UNLISTED_INSTITUTION_ID
+                              ? null
+                              : getInstitutionById(nextInstitutionId);
+
+                          setInstitutionId(nextInstitutionId);
+                          setInstitutionSearch(
+                            nextInstitutionId === UNLISTED_INSTITUTION_ID
+                              ? "Other Ontario university"
+                              : institution?.name || ""
+                          );
+                          setSchool(institution?.name || "");
+                          setCampusId("");
+                          setCampusName("");
+                          setUnlistedCampusName("");
+                        }}
+                        onCampusChange={(nextCampusId) => {
+                          const campus =
+                            nextCampusId === OTHER_CAMPUS_ID
+                              ? null
+                              : getCampusById(nextCampusId);
+
+                          setCampusId(nextCampusId);
+                          setCampusName(campus?.name || "");
+                          if (nextCampusId !== OTHER_CAMPUS_ID) {
+                            setUnlistedCampusName("");
+                          }
+                        }}
+                        onUnlistedInstitutionNameChange={(value) => {
+                          setUnlistedInstitutionName(value);
+                          setSchool(value);
+                        }}
+                        onUnlistedCampusNameChange={(value) => {
+                          setUnlistedCampusName(value);
+                          setCampusName(value);
+                        }}
+                      />
+                    </div>
                     <Field label="Program" value={program} onChange={setProgram} />
                     <Field
                       label="Expected graduation"

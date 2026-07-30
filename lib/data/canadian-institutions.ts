@@ -21,6 +21,7 @@ export type InstitutionCampus = {
   name: string;
   city: string;
   province: string;
+  aliases?: string[];
   latitude?: number;
   longitude?: number;
   active: boolean;
@@ -32,7 +33,90 @@ export type ProgramOption = {
   aliases?: string[];
 };
 
+export const UNLISTED_INSTITUTION_ID = "__institution_not_listed";
+export const OTHER_CAMPUS_ID = "__other_campus";
+
 export const CANADIAN_INSTITUTIONS: CanadianInstitution[] = [
+  {
+    id: "algoma-university",
+    name: "Algoma University",
+    type: "university",
+    province: "Ontario",
+    city: "Sault Ste. Marie",
+    domain: "algomau.ca",
+    aliases: ["algoma", "algoma u"],
+    active: true,
+  },
+  {
+    id: "brock-university",
+    name: "Brock University",
+    type: "university",
+    province: "Ontario",
+    city: "St. Catharines",
+    domain: "brocku.ca",
+    aliases: ["brock", "brock u"],
+    active: true,
+  },
+  {
+    id: "university-of-guelph",
+    name: "University of Guelph",
+    type: "university",
+    province: "Ontario",
+    city: "Guelph",
+    domain: "uoguelph.ca",
+    aliases: ["guelph", "u of guelph", "uoguelph"],
+    active: true,
+  },
+  {
+    id: "lakehead-university",
+    name: "Lakehead University",
+    type: "university",
+    province: "Ontario",
+    city: "Thunder Bay",
+    domain: "lakeheadu.ca",
+    aliases: ["lakehead"],
+    active: true,
+  },
+  {
+    id: "laurentian-university",
+    name: "Laurentian University",
+    type: "university",
+    province: "Ontario",
+    city: "Greater Sudbury",
+    domain: "laurentian.ca",
+    aliases: ["laurentian", "universite laurentienne", "université laurentienne"],
+    active: true,
+  },
+  {
+    id: "nipissing-university",
+    name: "Nipissing University",
+    type: "university",
+    province: "Ontario",
+    city: "North Bay",
+    domain: "nipissingu.ca",
+    aliases: ["nipissing"],
+    active: true,
+  },
+  {
+    id: "nosm-university",
+    name: "NOSM University",
+    type: "university",
+    province: "Ontario",
+    city: "Greater Sudbury",
+    domain: "nosm.ca",
+    aliases: ["nosm", "northern ontario school of medicine"],
+    active: true,
+  },
+  {
+    id: "ocad-university",
+    name: "OCAD University",
+    type: "university",
+    province: "Ontario",
+    city: "Toronto",
+    domain: "ocadu.ca",
+    aliases: ["ocad", "ontario college of art and design"],
+    active: true,
+  },
   {
     id: "trent-university",
     name: "Trent University",
@@ -191,6 +275,121 @@ export const CANADIAN_INSTITUTIONS: CanadianInstitution[] = [
     city: "Ottawa",
     domain: "carleton.ca",
     aliases: ["carleton"],
+    active: true,
+  },
+  {
+    id: "royal-military-college-of-canada",
+    name: "Royal Military College of Canada",
+    type: "university",
+    province: "Ontario",
+    city: "Kingston",
+    domain: "rmc-cmr.ca",
+    aliases: ["rmc", "rmcc", "royal military college"],
+    active: true,
+  },
+  {
+    id: "toronto-metropolitan-university",
+    name: "Toronto Metropolitan University",
+    type: "university",
+    province: "Ontario",
+    city: "Toronto",
+    domain: "torontomu.ca",
+    aliases: ["tmu", "toronto met", "ryerson"],
+    active: true,
+  },
+  {
+    id: "universite-de-hearst",
+    name: "Universite de Hearst",
+    type: "university",
+    province: "Ontario",
+    city: "Hearst",
+    domain: "uhearst.ca",
+    aliases: ["université de hearst", "hearst university", "uhearst"],
+    active: true,
+  },
+  {
+    id: "universite-de-lontario-francais",
+    name: "Universite de l'Ontario francais",
+    type: "university",
+    province: "Ontario",
+    city: "Toronto",
+    domain: "uontario.ca",
+    aliases: [
+      "université de l'ontario français",
+      "uof",
+      "uoft francais",
+      "ontario francais",
+    ],
+    active: true,
+  },
+  {
+    id: "university-of-windsor",
+    name: "University of Windsor",
+    type: "university",
+    province: "Ontario",
+    city: "Windsor",
+    domain: "uwindsor.ca",
+    aliases: ["windsor", "uwindsor"],
+    active: true,
+  },
+  {
+    id: "dominican-university-college",
+    name: "Dominican University College",
+    type: "university",
+    province: "Ontario",
+    city: "Ottawa",
+    domain: "dominicanu.ca",
+    aliases: ["dominican", "dominican college", "college universitaire dominicain"],
+    active: true,
+  },
+  {
+    id: "saint-paul-university",
+    name: "Saint Paul University",
+    type: "university",
+    province: "Ontario",
+    city: "Ottawa",
+    domain: "ustpaul.ca",
+    aliases: ["saint paul", "st paul university", "ustpaul"],
+    active: true,
+  },
+  {
+    id: "redeemer-university",
+    name: "Redeemer University",
+    type: "university",
+    province: "Ontario",
+    city: "Hamilton",
+    domain: "redeemer.ca",
+    aliases: ["redeemer"],
+    active: true,
+  },
+  {
+    id: "tyndale-university",
+    name: "Tyndale University",
+    type: "university",
+    province: "Ontario",
+    city: "Toronto",
+    domain: "tyndale.ca",
+    aliases: ["tyndale"],
+    active: true,
+  },
+  {
+    id: "huron-university",
+    name: "Huron University",
+    type: "university",
+    province: "Ontario",
+    city: "London",
+    domain: "huronatwestern.ca",
+    aliases: ["huron", "huron university college"],
+    active: true,
+  },
+  {
+    id: "kings-university-college",
+    name: "King's University College",
+    type: "university",
+    province: "Ontario",
+    city: "London",
+    domain: "kings.uwo.ca",
+    aliases: ["king's", "kings", "kings at western"],
     active: true,
   },
   {
@@ -476,8 +675,31 @@ export const CANADIAN_INSTITUTIONS: CanadianInstitution[] = [
 ];
 
 export const INSTITUTION_CAMPUSES: InstitutionCampus[] = [
+  { id: "algoma-sault-ste-marie", institutionId: "algoma-university", name: "Sault Ste. Marie Campus", city: "Sault Ste. Marie", province: "Ontario", active: true },
+  { id: "algoma-brampton", institutionId: "algoma-university", name: "Brampton Campus", city: "Brampton", province: "Ontario", active: true },
+  { id: "algoma-timmins", institutionId: "algoma-university", name: "Timmins Campus", city: "Timmins", province: "Ontario", active: true },
+  { id: "brock-st-catharines", institutionId: "brock-university", name: "St. Catharines Campus", city: "St. Catharines", province: "Ontario", active: true },
+  { id: "brock-burlington", institutionId: "brock-university", name: "Burlington Campus", city: "Burlington", province: "Ontario", active: true },
+  { id: "brock-marilyn-i-walker", institutionId: "brock-university", name: "Marilyn I. Walker School of Fine and Performing Arts", city: "St. Catharines", province: "Ontario", aliases: ["miwsfpa"], active: true },
+  { id: "carleton-main", institutionId: "carleton-university", name: "Main Campus", city: "Ottawa", province: "Ontario", active: true },
+  { id: "guelph-main", institutionId: "university-of-guelph", name: "Guelph Campus", city: "Guelph", province: "Ontario", active: true },
+  { id: "guelph-humber", institutionId: "university-of-guelph", name: "University of Guelph-Humber", city: "Toronto", province: "Ontario", aliases: ["guelph-humber"], active: true },
+  { id: "guelph-ridgetown", institutionId: "university-of-guelph", name: "Ridgetown Campus", city: "Ridgetown", province: "Ontario", active: true },
+  { id: "lakehead-thunder-bay", institutionId: "lakehead-university", name: "Thunder Bay Campus", city: "Thunder Bay", province: "Ontario", active: true },
+  { id: "lakehead-orillia", institutionId: "lakehead-university", name: "Orillia Campus", city: "Orillia", province: "Ontario", active: true },
+  { id: "laurentian-sudbury", institutionId: "laurentian-university", name: "Sudbury Campus", city: "Greater Sudbury", province: "Ontario", active: true },
+  { id: "mcmaster-hamilton", institutionId: "mcmaster-university", name: "Main Campus", city: "Hamilton", province: "Ontario", aliases: ["hamilton campus"], active: true },
+  { id: "mcmaster-downtown-centre", institutionId: "mcmaster-university", name: "McMaster Downtown Centre", city: "Hamilton", province: "Ontario", active: true },
+  { id: "mcmaster-ron-joyce-centre", institutionId: "mcmaster-university", name: "Ron Joyce Centre", city: "Burlington", province: "Ontario", active: true },
+  { id: "mcmaster-waterloo-regional-campus", institutionId: "mcmaster-university", name: "Waterloo Regional Campus", city: "Kitchener", province: "Ontario", active: true },
+  { id: "mcmaster-niagara-regional-campus", institutionId: "mcmaster-university", name: "Niagara Regional Campus", city: "St. Catharines", province: "Ontario", active: true },
+  { id: "nipissing-north-bay", institutionId: "nipissing-university", name: "North Bay Campus", city: "North Bay", province: "Ontario", active: true },
+  { id: "nosm-east-campus", institutionId: "nosm-university", name: "East Campus", city: "Greater Sudbury", province: "Ontario", aliases: ["sudbury campus"], active: true },
+  { id: "nosm-west-campus", institutionId: "nosm-university", name: "West Campus", city: "Thunder Bay", province: "Ontario", aliases: ["thunder bay campus"], active: true },
+  { id: "ocad-toronto", institutionId: "ocad-university", name: "Toronto Campus", city: "Toronto", province: "Ontario", active: true },
   { id: "trent-peterborough", institutionId: "trent-university", name: "Peterborough Campus", city: "Peterborough", province: "Ontario", active: true },
   { id: "trent-durham-gta", institutionId: "trent-university", name: "Durham Greater Toronto Area Campus", city: "Oshawa", province: "Ontario", active: true },
+  { id: "trent-catharine-parr-traill", institutionId: "trent-university", name: "Catharine Parr Traill College", city: "Peterborough", province: "Ontario", active: true },
   { id: "utoronto-st-george", institutionId: "university-of-toronto", name: "St. George", city: "Toronto", province: "Ontario", active: true },
   { id: "utoronto-scarborough", institutionId: "university-of-toronto", name: "Scarborough", city: "Toronto", province: "Ontario", active: true },
   { id: "utoronto-mississauga", institutionId: "university-of-toronto", name: "Mississauga", city: "Mississauga", province: "Ontario", active: true },
@@ -495,6 +717,37 @@ export const INSTITUTION_CAMPUSES: InstitutionCampus[] = [
   { id: "sheridan-davis", institutionId: "sheridan-college", name: "Davis Campus", city: "Brampton", province: "Ontario", active: true },
   { id: "sheridan-trafalgar", institutionId: "sheridan-college", name: "Trafalgar Road Campus", city: "Oakville", province: "Ontario", active: true },
   { id: "sheridan-hmc", institutionId: "sheridan-college", name: "Hazel McCallion Campus", city: "Mississauga", province: "Ontario", active: true },
+  { id: "western-london", institutionId: "western-university", name: "London Campus", city: "London", province: "Ontario", active: true },
+  { id: "waterloo-main", institutionId: "university-of-waterloo", name: "Waterloo Campus", city: "Waterloo", province: "Ontario", active: true },
+  { id: "waterloo-cambridge", institutionId: "university-of-waterloo", name: "Cambridge Campus", city: "Cambridge", province: "Ontario", active: true },
+  { id: "waterloo-kitchener", institutionId: "university-of-waterloo", name: "Kitchener Campus", city: "Kitchener", province: "Ontario", active: true },
+  { id: "waterloo-stratford", institutionId: "university-of-waterloo", name: "Stratford School", city: "Stratford", province: "Ontario", active: true },
+  { id: "york-keele", institutionId: "york-university", name: "Keele Campus", city: "Toronto", province: "Ontario", active: true },
+  { id: "york-glendon", institutionId: "york-university", name: "Glendon Campus", city: "Toronto", province: "Ontario", active: true },
+  { id: "york-markham", institutionId: "york-university", name: "Markham Campus", city: "Markham", province: "Ontario", active: true },
+  { id: "queens-kingston", institutionId: "queens-university", name: "Kingston Campus", city: "Kingston", province: "Ontario", active: true },
+  { id: "uottawa-main", institutionId: "university-of-ottawa", name: "Main Campus", city: "Ottawa", province: "Ontario", active: true },
+  { id: "uottawa-lees", institutionId: "university-of-ottawa", name: "Lees Campus", city: "Ottawa", province: "Ontario", active: true },
+  { id: "uottawa-roger-guindon", institutionId: "university-of-ottawa", name: "Roger Guindon Campus", city: "Ottawa", province: "Ontario", active: true },
+  { id: "uottawa-99-bank", institutionId: "university-of-ottawa", name: "99 Bank Campus", city: "Ottawa", province: "Ontario", active: true },
+  { id: "rmc-kingston", institutionId: "royal-military-college-of-canada", name: "Kingston Campus", city: "Kingston", province: "Ontario", active: true },
+  { id: "tmu-toronto", institutionId: "toronto-metropolitan-university", name: "Toronto Campus", city: "Toronto", province: "Ontario", active: true },
+  { id: "uhearst-hearst", institutionId: "universite-de-hearst", name: "Hearst Campus", city: "Hearst", province: "Ontario", active: true },
+  { id: "uhearst-kapuskasing", institutionId: "universite-de-hearst", name: "Kapuskasing Campus", city: "Kapuskasing", province: "Ontario", active: true },
+  { id: "uhearst-timmins", institutionId: "universite-de-hearst", name: "Timmins Campus", city: "Timmins", province: "Ontario", active: true },
+  { id: "uof-toronto", institutionId: "universite-de-lontario-francais", name: "Toronto Campus", city: "Toronto", province: "Ontario", active: true },
+  { id: "uwindsor-main", institutionId: "university-of-windsor", name: "Main Campus", city: "Windsor", province: "Ontario", active: true },
+  { id: "uwindsor-downtown", institutionId: "university-of-windsor", name: "Downtown Campus", city: "Windsor", province: "Ontario", active: true },
+  { id: "laurier-waterloo", institutionId: "wilfrid-laurier-university", name: "Waterloo Campus", city: "Waterloo", province: "Ontario", active: true },
+  { id: "laurier-brantford", institutionId: "wilfrid-laurier-university", name: "Brantford Campus", city: "Brantford", province: "Ontario", active: true },
+  { id: "laurier-milton", institutionId: "wilfrid-laurier-university", name: "Milton Campus", city: "Milton", province: "Ontario", active: true },
+  { id: "laurier-kitchener", institutionId: "wilfrid-laurier-university", name: "Kitchener Location", city: "Kitchener", province: "Ontario", active: true },
+  { id: "dominican-ottawa", institutionId: "dominican-university-college", name: "Ottawa Campus", city: "Ottawa", province: "Ontario", active: true },
+  { id: "saint-paul-ottawa", institutionId: "saint-paul-university", name: "Ottawa Campus", city: "Ottawa", province: "Ontario", active: true },
+  { id: "redeemer-ancaster", institutionId: "redeemer-university", name: "Ancaster Campus", city: "Hamilton", province: "Ontario", active: true },
+  { id: "tyndale-toronto", institutionId: "tyndale-university", name: "Toronto Campus", city: "Toronto", province: "Ontario", active: true },
+  { id: "huron-london", institutionId: "huron-university", name: "London Campus", city: "London", province: "Ontario", active: true },
+  { id: "kings-london", institutionId: "kings-university-college", name: "London Campus", city: "London", province: "Ontario", active: true },
   { id: "ubc-vancouver", institutionId: "university-of-british-columbia", name: "Vancouver Campus", city: "Vancouver", province: "British Columbia", active: true },
   { id: "ubc-okanagan", institutionId: "university-of-british-columbia", name: "Okanagan Campus", city: "Kelowna", province: "British Columbia", active: true },
   { id: "sfu-burnaby", institutionId: "simon-fraser-university", name: "Burnaby Campus", city: "Burnaby", province: "British Columbia", active: true },
@@ -561,4 +814,25 @@ export function getCampusesForInstitution(institutionId: string) {
   return INSTITUTION_CAMPUSES.filter(
     (campus) => campus.institutionId === institutionId && campus.active
   );
+}
+
+export function getOntarioUniversities() {
+  return CANADIAN_INSTITUTIONS.filter(
+    (institution) =>
+      institution.active &&
+      institution.province === "Ontario" &&
+      institution.type === "university"
+  );
+}
+
+export function campusBelongsToInstitution({
+  campusId,
+  institutionId,
+}: {
+  campusId: string;
+  institutionId: string;
+}) {
+  const campus = getCampusById(campusId);
+
+  return Boolean(campus && campus.active && campus.institutionId === institutionId);
 }

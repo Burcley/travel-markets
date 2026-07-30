@@ -30,6 +30,27 @@ function maskPhone(value?: string | null) {
   return `${prefix} ••• ••• ${last}`;
 }
 
+function formatStudentInstitution({
+  metadata,
+  profile,
+}: {
+  metadata?: Record<string, unknown>;
+  profile?: {
+    institution_name?: string | null;
+    school?: string | null;
+    campus_name?: string | null;
+  } | null;
+}) {
+  const institution =
+    String(metadata?.institutionName || "") ||
+    profile?.institution_name ||
+    profile?.school ||
+    "";
+  const campus = String(metadata?.campusName || "") || profile?.campus_name || "";
+
+  return [institution, campus].filter(Boolean).join(" - ") || null;
+}
+
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -66,7 +87,7 @@ export async function GET() {
     admin
       .from("profiles")
       .select(
-        "id, email, full_name, avatar_url, role, institution_name, school, phone, phone_number_e164, phone_country_code, phone_country_iso, phone_verified, phone_verified_at, phone_verification_status, email_verified_at"
+        "id, email, full_name, avatar_url, role, institution_name, school, campus_name, phone, phone_number_e164, phone_country_code, phone_country_iso, phone_verified, phone_verified_at, phone_verification_status, email_verified_at"
       ),
     admin
       .from("verification_submissions")
@@ -130,11 +151,7 @@ export async function GET() {
         submission.rejection_reason ||
         submission.request_more_information_message ||
         null,
-      institution:
-        String(metadata.institutionName || "") ||
-        profile?.institution_name ||
-        profile?.school ||
-        null,
+      institution: formatStudentInstitution({ metadata, profile }),
       property: String(metadata.listingId || "") || null,
       documentPaths: submission.document_paths || [],
       metadata,
@@ -157,7 +174,7 @@ export async function GET() {
       reviewedAt: item.reviewed_at || null,
       reviewerName: null,
       rejectionReason: item.rejection_reason,
-      institution: profile?.institution_name || profile?.school || null,
+      institution: formatStudentInstitution({ profile }),
       property: null,
       documentPaths: [item.document_url, item.selfie_url, item.proof_url]
         .filter(Boolean)
@@ -222,7 +239,7 @@ export async function GET() {
       reviewedAt: profile.email_verified_at || null,
       reviewerName: "Supabase Auth",
       rejectionReason: null,
-      institution: profile.institution_name || profile.school || null,
+      institution: formatStudentInstitution({ profile }),
       property: null,
       documentPaths: [],
       metadata: {},
@@ -243,7 +260,7 @@ export async function GET() {
       reviewedAt: profile.phone_verified_at || null,
       reviewerName: "Supabase Auth",
       rejectionReason: null,
-      institution: profile.institution_name || profile.school || null,
+      institution: formatStudentInstitution({ profile }),
       property: null,
       documentPaths: [],
       metadata: {
@@ -305,7 +322,7 @@ export async function POST(request: Request) {
 
   const { data: submission, error: readError } = await admin
     .from("verification_submissions")
-    .select("id, user_id, verification_type")
+    .select("id, user_id, verification_type, document_metadata")
     .eq("id", id)
     .maybeSingle();
 
@@ -338,8 +355,33 @@ export async function POST(request: Request) {
     profileUpdate.identity_verified_at = nextStatus === "approved" ? now : null;
   }
   if (submission.verification_type === "student_status") {
+    const metadata = (submission.document_metadata || {}) as Record<string, unknown>;
+
     profileUpdate.student_verification_status = nextStatus;
     profileUpdate.student_email_verified = nextStatus === "approved";
+
+    if (nextStatus === "approved") {
+      profileUpdate.institution_id =
+        typeof metadata.institutionId === "string" ? metadata.institutionId : null;
+      profileUpdate.institution_name =
+        typeof metadata.institutionName === "string" ? metadata.institutionName : null;
+      profileUpdate.school =
+        typeof metadata.institutionName === "string" ? metadata.institutionName : null;
+      profileUpdate.institution_not_listed = Boolean(metadata.institutionNotListed);
+      profileUpdate.unlisted_institution_name =
+        typeof metadata.unlistedInstitutionName === "string"
+          ? metadata.unlistedInstitutionName
+          : null;
+      profileUpdate.campus_id =
+        typeof metadata.campusId === "string" ? metadata.campusId : null;
+      profileUpdate.campus_name =
+        typeof metadata.campusName === "string" ? metadata.campusName : null;
+      profileUpdate.campus_not_listed = Boolean(metadata.campusNotListed);
+      profileUpdate.unlisted_campus_name =
+        typeof metadata.unlistedCampusName === "string"
+          ? metadata.unlistedCampusName
+          : null;
+    }
   }
 
   if (Object.keys(profileUpdate).length > 1) {
