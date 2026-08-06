@@ -14,6 +14,10 @@ import {
 import BillingActions from "./BillingActions";
 import { createClient } from "@/lib/supabase/server";
 import {
+  getFoundingBenefitStatus,
+  getFoundingProfile,
+} from "@/lib/founding-landlords/server";
+import {
   CHECKOUT_OWNER_PLANS,
   OWNER_PLAN_ENTITLEMENTS,
   getOwnerPlanLabel,
@@ -146,6 +150,15 @@ export default async function BillingPage() {
     subscription?.status,
     subscription?.current_period_end
   );
+  const [foundingProfile, foundingBenefit] = await Promise.all([
+    getFoundingProfile(user.id),
+    getFoundingBenefitStatus(user.id),
+  ]);
+  const showFoundingCard = foundingBenefit.isConfirmedFounder;
+  const foundingDiscount =
+    foundingBenefit.lifetimeDiscountPercentage ??
+    foundingProfile?.founding_discount_percentage ??
+    null;
 
   return (
     <main className="min-h-screen bg-black px-4 py-10 text-white">
@@ -191,6 +204,82 @@ export default async function BillingPage() {
                   benefits active.
                 </p>
               </div>
+            </div>
+          </section>
+        )}
+
+        {showFoundingCard && (
+          <section className="mt-6 overflow-hidden rounded-[2rem] border border-pink-400/30 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.28),rgba(10,10,10,0.94)_42%,rgba(2,6,23,1)_100%)] p-6 shadow-2xl md:p-8">
+            <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-center">
+              <div>
+                <p className="inline-flex items-center gap-2 rounded-full border border-pink-300/30 bg-pink-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-100">
+                  <Crown size={15} />
+                  Founding Landlord
+                </p>
+                <h2 className="mt-5 text-3xl font-black md:text-4xl">
+                  {foundingBenefit.freePeriodActive
+                    ? "12 months free with unlimited listings"
+                    : "Founding status and lifetime discount retained"}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                  {foundingBenefit.freePeriodActive
+                    ? "Your Founding Landlord free period is active. Normal listing caps are bypassed server-side until the free period expires."
+                    : "Your 12-month free listing period has ended, but your Founding Landlord status and lifetime discount remain attached to this account."}
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-black/45 p-5">
+                <p className="text-sm font-bold uppercase tracking-[0.16em] text-pink-200">
+                  Lifetime Discount
+                </p>
+                <p className="mt-2 text-5xl font-black">
+                  {foundingDiscount != null ? `${foundingDiscount}%` : "Configured"}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Applies after the free period according to the existing
+                  Founding Landlord Stripe billing rules.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-4">
+              <SummaryCard
+                icon={<Sparkles />}
+                label="Founding status"
+                value={
+                  foundingProfile?.founding_benefits_disabled
+                    ? "Benefits disabled"
+                    : foundingProfile?.founding_status || "confirmed"
+                }
+              />
+              <SummaryCard
+                icon={<Home />}
+                label="Listings"
+                value={
+                  foundingBenefit.freePeriodActive
+                    ? "Unlimited"
+                    : "Normal plan rules"
+                }
+                helper={
+                  foundingBenefit.freePeriodActive
+                    ? "Unlimited active listings included during the free period."
+                    : "Use your current owner plan allowance after the free period."
+                }
+              />
+              <SummaryCard
+                icon={<CreditCard />}
+                label="Free period started"
+                value={formatDate(foundingBenefit.freePeriodStartedAt)}
+              />
+              <SummaryCard
+                icon={<Zap />}
+                label={
+                  foundingBenefit.freePeriodEnded
+                    ? "Free period ended"
+                    : "Free period expires"
+                }
+                value={formatDate(foundingBenefit.freePeriodEndsAt)}
+              />
             </div>
           </section>
         )}

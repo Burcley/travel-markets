@@ -45,6 +45,7 @@ const PLAN_LIMITS: Record<string, number> = {
   premium: 5,
   elite: Infinity,
   legacy_premium: Infinity,
+  founding_free: Infinity,
 };
 
 const yesNoOptions = [
@@ -246,7 +247,22 @@ export default function PostListingPage() {
         ? subscription?.plan || "free"
         : "free";
 
-    setPlan(safePlan);
+    const foundingResponse = await fetch("/api/founding-landlords/status", {
+      cache: "no-store",
+    }).catch(() => null);
+    const foundingData = foundingResponse?.ok
+      ? await foundingResponse.json().catch(() => null)
+      : null;
+    const freePeriodEndsAt =
+      foundingData?.profile?.founding_free_fee_period_ends_at || null;
+    const foundingFreeActive =
+      foundingData?.profile?.founding_status === "confirmed" &&
+      foundingData?.profile?.is_founding_landlord === true &&
+      foundingData?.profile?.founding_benefits_disabled !== true &&
+      freePeriodEndsAt &&
+      new Date(freePeriodEndsAt).getTime() > Date.now();
+
+    setPlan(foundingFreeActive ? "founding_free" : safePlan);
 
     const { count } = await supabase
       .from("listings")
@@ -411,19 +427,6 @@ export default function PostListingPage() {
       if (!user.email_confirmed_at) {
         alert(t("verifyEmailAlert"));
         router.push("/verify-email");
-        return;
-      }
-
-      const { count } = await supabase
-        .from("listings")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .neq("status", "rented")
-        .neq("status", "draft");
-
-      if ((count || 0) >= listingLimit) {
-        alert(t("limitAlert", { plan, listingLimit }));
-        router.push("/billing");
         return;
       }
 

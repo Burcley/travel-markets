@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getFoundingListingEntitlement } from "@/lib/founding-landlords/server";
 import {
   getPlanEntitlements,
   normalizeOwnerPlan,
@@ -158,6 +159,21 @@ export async function canCreateOrActivateListing({
     userId,
     excludeListingId,
   });
+  const foundingEntitlement = await getFoundingListingEntitlement(userId);
+
+  if (foundingEntitlement.hasUnlimitedListings) {
+    return {
+      allowed: true,
+      reason: null,
+      code: null,
+      currentCount,
+      limit: null,
+      plan,
+      entitlements,
+      foundingEntitlement,
+    };
+  }
+
   const limit = entitlements.activeListingLimit;
   const allowed = limit === null || currentCount < limit;
 
@@ -173,6 +189,7 @@ export async function canCreateOrActivateListing({
     limit,
     plan,
     entitlements,
+    foundingEntitlement,
   };
 }
 

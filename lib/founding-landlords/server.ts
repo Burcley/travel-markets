@@ -1,4 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  getFoundingBenefitState,
+  isFoundingLandlordRole,
+  type FoundingBenefitState,
+} from "@/lib/founding-landlords/entitlements";
 
 export type FoundingStatus =
   | "not_eligible"
@@ -38,9 +43,7 @@ export type FoundingPublicStats = {
 };
 
 export function isLandlordRole(role?: string | null) {
-  return ["owner", "landlord", "host"].includes(
-    String(role || "").toLowerCase()
-  );
+  return isFoundingLandlordRole(role);
 }
 
 export async function getFoundingPublicStats() {
@@ -150,6 +153,24 @@ export async function getFoundingProfile(userId: string) {
   }
 
   return (data || null) as FoundingLandlordProfile | null;
+}
+
+export async function getFoundingBenefitStatus(
+  userId: string
+): Promise<FoundingBenefitState> {
+  const profile = await getFoundingProfile(userId);
+
+  return getFoundingBenefitState(profile);
+}
+
+export async function getFoundingListingEntitlement(userId: string) {
+  const benefit = await getFoundingBenefitStatus(userId);
+
+  return {
+    ...benefit,
+    hasUnlimitedListings: benefit.freePeriodActive,
+    listingLimit: benefit.freePeriodActive ? null : undefined,
+  };
 }
 
 export async function getFoundingProgress(userId: string) {

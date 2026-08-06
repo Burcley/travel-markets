@@ -174,11 +174,24 @@ export default function DashboardPage() {
   const isStudent = normalizedRole !== "owner" && normalizedRole !== "admin";
 
   const plan = subscription.plan || "free";
-  const listingLimit = PLAN_LIMITS[plan] || 1;
+  const foundingProfile = foundingLandlord?.profile;
+  const foundingFreePeriodActive =
+    foundingProfile?.founding_status === "confirmed" &&
+    foundingProfile?.is_founding_landlord === true &&
+    foundingProfile?.founding_benefits_disabled !== true &&
+    Boolean(foundingProfile?.founding_free_fee_period_ends_at) &&
+    new Date(foundingProfile.founding_free_fee_period_ends_at || "").getTime() >
+      Date.now();
+  const listingLimit = foundingFreePeriodActive
+    ? Infinity
+    : PLAN_LIMITS[plan] || 1;
   const boostLimit = BOOST_LIMITS[plan] || 0;
   const boostsUsed = subscription.monthly_boosts_used || 0;
   const listingLimitLabel =
     listingLimit === Infinity ? "Unlimited" : String(listingLimit);
+  const listingUsageLabel = foundingFreePeriodActive
+    ? "Unlimited"
+    : `${stats.listings}/${listingLimitLabel}`;
 
   const listingUsagePercent =
     listingLimit === Infinity
@@ -580,7 +593,7 @@ export default function DashboardPage() {
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <UsageBar
                     label={t("listingSlots")}
-                    value={`${stats.listings}/${listingLimitLabel}`}
+                    value={listingUsageLabel}
                     percent={listingUsagePercent}
                   />
                   <UsageBar
@@ -702,7 +715,7 @@ export default function DashboardPage() {
                 <InfoBox label={t("accountStatus.role")} value={role} />
                 <InfoBox label={t("accountStatus.ownerPlan")} value={plan} />
                 <InfoBox label={t("accountStatus.planStatus")} value={subscription.status || "inactive"} />
-                <InfoBox label={t("listingSlots")} value={`${stats.listings}/${listingLimitLabel}`} />
+                <InfoBox label={t("listingSlots")} value={listingUsageLabel} />
                 <InfoBox label={t("accountStatus.boostsUsed")} value={`${boostsUsed}/${boostLimit}`} />
                 <InfoBox label={t("accountStatus.nextBillingDate")} value={formatDate(subscription.current_period_end, t("notAvailable"))} />
               </div>
