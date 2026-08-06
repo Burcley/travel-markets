@@ -1,7 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  getFoundingBoostEntitlementState,
   getFoundingBenefitState,
   isFoundingLandlordRole,
+  type FoundingBoostEntitlementState,
   type FoundingBenefitState,
 } from "@/lib/founding-landlords/entitlements";
 
@@ -171,6 +173,43 @@ export async function getFoundingListingEntitlement(userId: string) {
     hasUnlimitedListings: benefit.freePeriodActive,
     listingLimit: benefit.freePeriodActive ? null : undefined,
   };
+}
+
+export async function getFoundingBoostEntitlement(
+  userId: string
+): Promise<FoundingBoostEntitlementState> {
+  const admin = createAdminClient();
+  const benefit = await getFoundingBenefitStatus(userId);
+  const monthStart = new Date();
+  const monthStartValue = new Date(
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), 1)
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  const [{ data: config }, { count: monthlyBoostsUsed }] = await Promise.all([
+    admin
+      .from("founding_landlord_program_config")
+      .select("monthly_free_boosts")
+      .eq("id", true)
+      .maybeSingle(),
+    admin
+      .from("founding_landlord_monthly_boost_redemptions")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", userId)
+      .eq("source", "founding_monthly")
+      .eq("month_start", monthStartValue),
+  ]);
+
+  return getFoundingBoostEntitlementState({
+    benefit,
+    monthlyFreeBoosts:
+      typeof config?.monthly_free_boosts === "number"
+        ? config.monthly_free_boosts
+        : 2,
+    monthlyBoostsUsed: monthlyBoostsUsed || 0,
+    now: monthStart,
+  });
 }
 
 export async function getFoundingProgress(userId: string) {

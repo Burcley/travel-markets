@@ -21,6 +21,21 @@ export type FoundingBenefitState = {
   lifetimeDiscountPercentage: number | null;
 };
 
+export type FoundingBoostEntitlementState = {
+  eligible: boolean;
+  includedTotal: number;
+  includedUsed: number;
+  includedAvailable: number;
+  monthStart: string | null;
+  nextResetDate: string | null;
+};
+
+export type FoundingCouponAction = {
+  targetCouponId: string | null;
+  shouldApply: boolean;
+  reason: "not_eligible" | "already_applied" | "replace_existing";
+};
+
 export function isFoundingLandlordRole(role?: string | null) {
   return ["owner", "landlord", "host"].includes(String(role || "").toLowerCase());
 }
@@ -70,3 +85,63 @@ export function getFoundingBenefitState(
   };
 }
 
+export function getFoundingCouponAction({
+  targetCouponId,
+  existingCouponIds,
+}: {
+  targetCouponId?: string | null;
+  existingCouponIds?: string[] | null;
+}): FoundingCouponAction {
+  if (!targetCouponId) {
+    return {
+      targetCouponId: null,
+      shouldApply: false,
+      reason: "not_eligible",
+    };
+  }
+
+  const uniqueExistingCouponIds = Array.from(
+    new Set((existingCouponIds || []).filter(Boolean))
+  );
+  const alreadyApplied =
+    uniqueExistingCouponIds.length === 1 &&
+    uniqueExistingCouponIds[0] === targetCouponId;
+
+  return {
+    targetCouponId,
+    shouldApply: !alreadyApplied,
+    reason: alreadyApplied ? "already_applied" : "replace_existing",
+  };
+}
+
+export function getFoundingBoostEntitlementState({
+  benefit,
+  monthlyFreeBoosts,
+  monthlyBoostsUsed,
+  now = new Date(),
+}: {
+  benefit: FoundingBenefitState;
+  monthlyFreeBoosts?: number | null;
+  monthlyBoostsUsed?: number | null;
+  now?: Date;
+}): FoundingBoostEntitlementState {
+  const includedTotal = benefit.freePeriodActive
+    ? Math.max(0, Math.floor(Number(monthlyFreeBoosts ?? 0)))
+    : 0;
+  const includedUsed = Math.max(0, Math.floor(Number(monthlyBoostsUsed ?? 0)));
+  const monthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+  );
+  const nextResetDate = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+  );
+
+  return {
+    eligible: benefit.freePeriodActive && includedTotal > 0,
+    includedTotal,
+    includedUsed,
+    includedAvailable: Math.max(0, includedTotal - includedUsed),
+    monthStart: monthStart.toISOString().slice(0, 10),
+    nextResetDate: nextResetDate.toISOString(),
+  };
+}

@@ -18,6 +18,10 @@ import {
   getFoundingProfile,
 } from "@/lib/founding-landlords/server";
 import {
+  formatCurrencyFromCents,
+  getFoundingPricingRows,
+} from "@/lib/founding-landlords/pricing";
+import {
   CHECKOUT_OWNER_PLANS,
   OWNER_PLAN_ENTITLEMENTS,
   getOwnerPlanLabel,
@@ -159,6 +163,7 @@ export default async function BillingPage() {
     foundingBenefit.lifetimeDiscountPercentage ??
     foundingProfile?.founding_discount_percentage ??
     null;
+  const foundingPricingRows = getFoundingPricingRows(foundingDiscount);
 
   return (
     <main className="min-h-screen bg-black px-4 py-10 text-white">
@@ -280,6 +285,58 @@ export default async function BillingPage() {
                 }
                 value={formatDate(foundingBenefit.freePeriodEndsAt)}
               />
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-white/10 bg-black/45 p-5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <h3 className="text-xl font-black">
+                    After your 12-month free period
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    $0 is due for Travel Markets platform fees during the active
+                    Founding free period. After it ends, your lifetime Founding
+                    discount applies to eligible paid landlord subscriptions.
+                    The discount does not expire while this account remains
+                    eligible under the Founding rules.
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/boosts"
+                  className="inline-flex items-center justify-center rounded-2xl border border-pink-300/25 bg-pink-500/15 px-4 py-2 text-sm font-bold text-pink-100 hover:bg-pink-500/20"
+                >
+                  Use Founder boosts
+                </Link>
+              </div>
+
+              <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+                <div className="grid grid-cols-4 bg-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-300">
+                  <span>Plan</span>
+                  <span>Regular</span>
+                  <span>Founder price</span>
+                  <span>Savings</span>
+                </div>
+                {foundingPricingRows.map((row) => (
+                  <div
+                    key={row.plan}
+                    className="grid grid-cols-4 gap-3 border-t border-white/10 px-4 py-4 text-sm text-slate-200"
+                  >
+                    <span className="font-bold text-white">
+                      {row.planName}
+                      <span className="block text-xs font-medium text-slate-500">
+                        Monthly
+                      </span>
+                    </span>
+                    <span>{formatCurrencyFromCents(row.regularPriceCents)}</span>
+                    <span className="font-bold text-emerald-200">
+                      {formatCurrencyFromCents(row.foundingPriceCents)}
+                    </span>
+                    <span>
+                      {formatCurrencyFromCents(row.savingsCents)}/month
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}

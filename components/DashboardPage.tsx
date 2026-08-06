@@ -185,13 +185,23 @@ export default function DashboardPage() {
   const listingLimit = foundingFreePeriodActive
     ? Infinity
     : PLAN_LIMITS[plan] || 1;
-  const boostLimit = BOOST_LIMITS[plan] || 0;
-  const boostsUsed = subscription.monthly_boosts_used || 0;
+  const foundingMonthlyBoostTotal = foundingFreePeriodActive
+    ? foundingLandlord?.benefits.monthlyFreeBoosts || 2
+    : 0;
+  const boostLimit = foundingFreePeriodActive
+    ? foundingMonthlyBoostTotal
+    : BOOST_LIMITS[plan] || 0;
+  const boostsUsed = foundingFreePeriodActive
+    ? foundingLandlord?.progress.monthlyBoostsUsed || 0
+    : subscription.monthly_boosts_used || 0;
   const listingLimitLabel =
     listingLimit === Infinity ? "Unlimited" : String(listingLimit);
   const listingUsageLabel = foundingFreePeriodActive
     ? "Unlimited"
     : `${stats.listings}/${listingLimitLabel}`;
+  const boostUsageLabel = foundingFreePeriodActive
+    ? `${Math.max(0, boostLimit - boostsUsed)} remaining this month`
+    : `${boostsUsed}/${boostLimit}`;
 
   const listingUsagePercent =
     listingLimit === Infinity
@@ -598,7 +608,7 @@ export default function DashboardPage() {
                   />
                   <UsageBar
                     label={t("monthlyFeaturedBoosts")}
-                    value={`${boostsUsed}/${boostLimit}`}
+                    value={boostUsageLabel}
                     percent={boostUsagePercent}
                   />
                 </div>
@@ -716,7 +726,7 @@ export default function DashboardPage() {
                 <InfoBox label={t("accountStatus.ownerPlan")} value={plan} />
                 <InfoBox label={t("accountStatus.planStatus")} value={subscription.status || "inactive"} />
                 <InfoBox label={t("listingSlots")} value={listingUsageLabel} />
-                <InfoBox label={t("accountStatus.boostsUsed")} value={`${boostsUsed}/${boostLimit}`} />
+                <InfoBox label={t("accountStatus.boostsUsed")} value={boostUsageLabel} />
                 <InfoBox label={t("accountStatus.nextBillingDate")} value={formatDate(subscription.current_period_end, t("notAvailable"))} />
               </div>
             </div>
@@ -871,7 +881,10 @@ function FoundingLandlordPanel({
                 {foundingLandlord.benefits.monthlyFreeBoosts} free 7-day boosts
                 per calendar month. No rollover.
               </p>
-              <p>Referral code: {profile?.founding_referral_code || "Pending"}</p>
+              <p>
+                Qualified landlord referrals can unlock extra reward boosts.
+                Referral tracking is managed securely by Travel Markets.
+              </p>
             </div>
           </div>
 

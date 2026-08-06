@@ -5,6 +5,7 @@ import {
   getCurrentUserSubscription,
   getPlanEntitlements,
 } from "@/lib/subscriptions/server";
+import { getFoundingBoostEntitlement } from "@/lib/founding-landlords/server";
 import { PURCHASED_BOOST_OPTIONS } from "@/lib/boosts/config";
 import BoostCenterClient, {
   type BoostCenterListing,
@@ -80,15 +81,20 @@ export default async function BoostCenterPage() {
   }
 
   const entitlements = getPlanEntitlements(plan);
+  const foundingBoostEntitlement = await getFoundingBoostEntitlement(user.id);
   const used = Math.max(
     0,
-    Number(
-      subscription?.included_monthly_boosts_used ??
-        subscription?.monthly_boosts_used ??
-        0
-    )
+    foundingBoostEntitlement.eligible
+      ? foundingBoostEntitlement.includedUsed
+      : Number(
+          subscription?.included_monthly_boosts_used ??
+            subscription?.monthly_boosts_used ??
+            0
+        )
   );
-  const includedTotal = entitlements.monthlyBoosts;
+  const includedTotal = foundingBoostEntitlement.eligible
+    ? foundingBoostEntitlement.includedTotal
+    : entitlements.monthlyBoosts;
   const includedAvailable = Math.max(0, includedTotal - used);
   const purchasedAvailable = Math.max(
     0,
@@ -197,8 +203,10 @@ export default async function BoostCenterPage() {
     includedUsed: used,
     includedTotal,
     purchasedAvailable,
-    nextResetDate: subscription?.current_period_end || null,
-    plan,
+    nextResetDate: foundingBoostEntitlement.eligible
+      ? foundingBoostEntitlement.nextResetDate
+      : subscription?.current_period_end || null,
+    plan: foundingBoostEntitlement.eligible ? "founding_landlord" : plan,
   };
 
   return (

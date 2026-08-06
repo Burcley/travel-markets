@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { getFoundingCouponAction } from "@/lib/founding-landlords/entitlements";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type FoundingStripeBenefit =
@@ -180,11 +181,12 @@ export async function applyFoundingDiscountToSubscription({
 
   const couponId = await ensureFoundingStripeCoupon({ stripe, benefit });
   const existingCouponIds = getSubscriptionDiscountCouponIds(subscription);
+  const couponAction = getFoundingCouponAction({
+    targetCouponId: couponId,
+    existingCouponIds,
+  });
 
-  if (
-    existingCouponIds.length === 1 &&
-    existingCouponIds[0] === couponId
-  ) {
+  if (!couponAction.shouldApply) {
     return { applied: false, benefit };
   }
 

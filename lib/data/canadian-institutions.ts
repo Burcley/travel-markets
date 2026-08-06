@@ -21,6 +21,8 @@ export type InstitutionCampus = {
   name: string;
   city: string;
   province: string;
+  address?: string;
+  entranceLabel?: string;
   aliases?: string[];
   latitude?: number;
   longitude?: number;
@@ -215,6 +217,16 @@ export const CANADIAN_INSTITUTIONS: CanadianInstitution[] = [
     city: "London",
     domain: "uwo.ca",
     aliases: ["western", "uwo"],
+    active: true,
+  },
+  {
+    id: "wilfrid-laurier-university",
+    name: "Wilfrid Laurier University",
+    type: "university",
+    province: "Ontario",
+    city: "Waterloo",
+    domain: "wlu.ca",
+    aliases: ["wilfrid laurier", "laurier", "wlu"],
     active: true,
   },
   {
@@ -802,6 +814,471 @@ export const PROGRAM_OPTIONS: ProgramOption[] = [
   { category: "Other", name: "Other" },
 ];
 
+export type RouteReadyCampusOption = {
+  id: string;
+  institutionId: string;
+  institutionName: string;
+  institutionType: InstitutionType;
+  name: string;
+  officialName: string;
+  address: string;
+  entranceLabel: string;
+  city: string;
+  province: string;
+  latitude: number;
+  longitude: number;
+  aliases: string[];
+};
+
+const campusRouteDetails: Record<
+  string,
+  {
+    address: string;
+    entranceLabel: string;
+    latitude: number;
+    longitude: number;
+  }
+> = {
+  "algoma-sault-ste-marie": {
+    address: "1520 Queen St E, Sault Ste. Marie, ON",
+    entranceLabel: "Queen Street entrance",
+    latitude: 46.5013,
+    longitude: -84.2876,
+  },
+  "algoma-brampton": {
+    address: "24 Queen St E, Brampton, ON",
+    entranceLabel: "Downtown Brampton entrance",
+    latitude: 43.686,
+    longitude: -79.759,
+  },
+  "algoma-timmins": {
+    address: "4715 Highway 101 E, South Porcupine, ON",
+    entranceLabel: "Timmins campus entrance",
+    latitude: 48.4758,
+    longitude: -81.2948,
+  },
+  "brock-st-catharines": {
+    address: "1812 Sir Isaac Brock Way, St. Catharines, ON",
+    entranceLabel: "Schmon Tower entrance",
+    latitude: 43.1187,
+    longitude: -79.2477,
+  },
+  "brock-burlington": {
+    address: "3400 North Service Rd, Burlington, ON",
+    entranceLabel: "Burlington campus entrance",
+    latitude: 43.3572,
+    longitude: -79.7996,
+  },
+  "brock-marilyn-i-walker": {
+    address: "15 Artists' Common, St. Catharines, ON",
+    entranceLabel: "Artists' Common entrance",
+    latitude: 43.158,
+    longitude: -79.2465,
+  },
+  "carleton-main": {
+    address: "1125 Colonel By Dr, Ottawa, ON",
+    entranceLabel: "Campus Avenue entrance",
+    latitude: 45.3833,
+    longitude: -75.6976,
+  },
+  "guelph-main": {
+    address: "50 Stone Rd E, Guelph, ON",
+    entranceLabel: "Stone Road entrance",
+    latitude: 43.5315,
+    longitude: -80.2267,
+  },
+  "guelph-humber": {
+    address: "207 Humber College Blvd, Toronto, ON",
+    entranceLabel: "Humber College Boulevard entrance",
+    latitude: 43.7289,
+    longitude: -79.6079,
+  },
+  "guelph-ridgetown": {
+    address: "120 Main St E, Ridgetown, ON",
+    entranceLabel: "Main Street entrance",
+    latitude: 42.4391,
+    longitude: -81.8831,
+  },
+  "lakehead-thunder-bay": {
+    address: "955 Oliver Rd, Thunder Bay, ON",
+    entranceLabel: "Oliver Road entrance",
+    latitude: 48.4215,
+    longitude: -89.2609,
+  },
+  "lakehead-orillia": {
+    address: "500 University Ave, Orillia, ON",
+    entranceLabel: "University Avenue entrance",
+    latitude: 44.5887,
+    longitude: -79.4148,
+  },
+  "laurentian-sudbury": {
+    address: "935 Ramsey Lake Rd, Greater Sudbury, ON",
+    entranceLabel: "Ramsey Lake Road entrance",
+    latitude: 46.4668,
+    longitude: -80.9733,
+  },
+  "mcmaster-hamilton": {
+    address: "1280 Main St W, Hamilton, ON",
+    entranceLabel: "Main Street West entrance",
+    latitude: 43.2609,
+    longitude: -79.9192,
+  },
+  "mcmaster-downtown-centre": {
+    address: "50 Main St E, Hamilton, ON",
+    entranceLabel: "Downtown Centre entrance",
+    latitude: 43.2551,
+    longitude: -79.8686,
+  },
+  "mcmaster-ron-joyce-centre": {
+    address: "4350 South Service Rd, Burlington, ON",
+    entranceLabel: "Ron Joyce Centre entrance",
+    latitude: 43.3796,
+    longitude: -79.7824,
+  },
+  "mcmaster-waterloo-regional-campus": {
+    address: "10B Victoria St S, Kitchener, ON",
+    entranceLabel: "Waterloo Regional Campus entrance",
+    latitude: 43.4515,
+    longitude: -80.4943,
+  },
+  "mcmaster-niagara-regional-campus": {
+    address: "1812 Sir Isaac Brock Way, St. Catharines, ON",
+    entranceLabel: "Niagara Regional Campus entrance",
+    latitude: 43.1187,
+    longitude: -79.2477,
+  },
+  "nipissing-north-bay": {
+    address: "100 College Dr, North Bay, ON",
+    entranceLabel: "College Drive entrance",
+    latitude: 46.344,
+    longitude: -79.491,
+  },
+  "nosm-east-campus": {
+    address: "935 Ramsey Lake Rd, Greater Sudbury, ON",
+    entranceLabel: "NOSM East Campus entrance",
+    latitude: 46.4668,
+    longitude: -80.9733,
+  },
+  "nosm-west-campus": {
+    address: "955 Oliver Rd, Thunder Bay, ON",
+    entranceLabel: "NOSM West Campus entrance",
+    latitude: 48.4215,
+    longitude: -89.2609,
+  },
+  "ocad-toronto": {
+    address: "100 McCaul St, Toronto, ON",
+    entranceLabel: "McCaul Street entrance",
+    latitude: 43.6531,
+    longitude: -79.3914,
+  },
+  "trent-peterborough": {
+    address: "1600 West Bank Dr, Peterborough, ON",
+    entranceLabel: "West Bank Drive entrance",
+    latitude: 44.3568,
+    longitude: -78.2904,
+  },
+  "trent-durham-gta": {
+    address: "55 Thornton Rd S, Oshawa, ON",
+    entranceLabel: "Main entrance",
+    latitude: 43.8895,
+    longitude: -78.8791,
+  },
+  "trent-catharine-parr-traill": {
+    address: "300 London St, Peterborough, ON",
+    entranceLabel: "London Street entrance",
+    latitude: 44.3055,
+    longitude: -78.3194,
+  },
+  "utoronto-st-george": {
+    address: "27 King's College Cir, Toronto, ON",
+    entranceLabel: "King's College Circle",
+    latitude: 43.6629,
+    longitude: -79.3957,
+  },
+  "utoronto-scarborough": {
+    address: "1265 Military Trail, Toronto, ON",
+    entranceLabel: "Military Trail entrance",
+    latitude: 43.7846,
+    longitude: -79.1873,
+  },
+  "utoronto-mississauga": {
+    address: "3359 Mississauga Rd, Mississauga, ON",
+    entranceLabel: "Mississauga Road entrance",
+    latitude: 43.5483,
+    longitude: -79.6628,
+  },
+  "ontario-tech-north-oshawa": {
+    address: "2000 Simcoe St N, Oshawa, ON",
+    entranceLabel: "Main campus entrance",
+    latitude: 43.9457,
+    longitude: -78.8969,
+  },
+  "ontario-tech-downtown-oshawa": {
+    address: "61 Charles St, Oshawa, ON",
+    entranceLabel: "Downtown Oshawa entrance",
+    latitude: 43.8973,
+    longitude: -78.8635,
+  },
+  "uottawa-99-bank": {
+    address: "99 Bank St, Ottawa, ON",
+    entranceLabel: "Bank Street entrance",
+    latitude: 45.42044,
+    longitude: -75.70008,
+  },
+  "durham-oshawa": {
+    address: "2000 Simcoe St N, Oshawa, ON",
+    entranceLabel: "Main/student entrance",
+    latitude: 43.9461,
+    longitude: -78.8972,
+  },
+  "durham-whitby": {
+    address: "1610 Champlain Ave, Whitby, ON",
+    entranceLabel: "Whitby campus entrance",
+    latitude: 43.8678,
+    longitude: -78.9065,
+  },
+  "george-brown-casa-loma": {
+    address: "160 Kendal Ave, Toronto, ON",
+    entranceLabel: "Casa Loma campus entrance",
+    latitude: 43.6761507,
+    longitude: -79.4105116,
+  },
+  "george-brown-st-james": {
+    address: "200 King St E, Toronto, ON",
+    entranceLabel: "St. James campus entrance",
+    latitude: 43.6512708,
+    longitude: -79.3698075,
+  },
+  "george-brown-waterfront": {
+    address: "51 Dockside Dr, Toronto, ON",
+    entranceLabel: "Waterfront campus entrance",
+    latitude: 43.6440702,
+    longitude: -79.3654865,
+  },
+  "humber-north": {
+    address: "205 Humber College Blvd, Toronto, ON",
+    entranceLabel: "North Campus entrance",
+    latitude: 43.7297,
+    longitude: -79.6077,
+  },
+  "humber-lakeshore": {
+    address: "2 Colonel Samuel Smith Park Dr, Toronto, ON",
+    entranceLabel: "Lakeshore Campus entrance",
+    latitude: 43.5963,
+    longitude: -79.516,
+  },
+  "seneca-newnham": {
+    address: "1750 Finch Ave E, Toronto, ON",
+    entranceLabel: "Newnham Campus entrance",
+    latitude: 43.7954,
+    longitude: -79.3496,
+  },
+  "seneca-king": {
+    address: "13990 Dufferin St, King City, ON",
+    entranceLabel: "King Campus entrance",
+    latitude: 43.956,
+    longitude: -79.515,
+  },
+  "sheridan-davis": {
+    address: "7899 McLaughlin Rd, Brampton, ON",
+    entranceLabel: "Davis Campus entrance",
+    latitude: 43.7305,
+    longitude: -79.7328,
+  },
+  "sheridan-trafalgar": {
+    address: "1430 Trafalgar Rd, Oakville, ON",
+    entranceLabel: "Trafalgar Campus entrance",
+    latitude: 43.4686,
+    longitude: -79.7007,
+  },
+  "sheridan-hmc": {
+    address: "4180 Duke of York Blvd, Mississauga, ON",
+    entranceLabel: "Hazel McCallion Campus entrance",
+    latitude: 43.5896,
+    longitude: -79.6469,
+  },
+  "western-london": {
+    address: "1151 Richmond St, London, ON",
+    entranceLabel: "Richmond Street entrance",
+    latitude: 43.0096,
+    longitude: -81.2737,
+  },
+  "waterloo-main": {
+    address: "200 University Ave W, Waterloo, ON",
+    entranceLabel: "University Avenue entrance",
+    latitude: 43.4723,
+    longitude: -80.5449,
+  },
+  "waterloo-cambridge": {
+    address: "7 Melville St S, Cambridge, ON",
+    entranceLabel: "Cambridge campus entrance",
+    latitude: 43.3594,
+    longitude: -80.3145,
+  },
+  "waterloo-kitchener": {
+    address: "10 Victoria St S, Kitchener, ON",
+    entranceLabel: "Victoria Street entrance",
+    latitude: 43.4503,
+    longitude: -80.4948,
+  },
+  "waterloo-stratford": {
+    address: "125 St Patrick St, Stratford, ON",
+    entranceLabel: "Stratford School entrance",
+    latitude: 43.3695,
+    longitude: -80.9815,
+  },
+  "york-keele": {
+    address: "4700 Keele St, Toronto, ON",
+    entranceLabel: "Keele Street entrance",
+    latitude: 43.7735,
+    longitude: -79.5019,
+  },
+  "york-glendon": {
+    address: "2275 Bayview Ave, Toronto, ON",
+    entranceLabel: "Bayview Avenue entrance",
+    latitude: 43.7279,
+    longitude: -79.3789,
+  },
+  "york-markham": {
+    address: "1 University Blvd, Markham, ON",
+    entranceLabel: "Markham Campus entrance",
+    latitude: 43.8508,
+    longitude: -79.3271,
+  },
+  "queens-kingston": {
+    address: "99 University Ave, Kingston, ON",
+    entranceLabel: "University Avenue entrance",
+    latitude: 44.2253,
+    longitude: -76.4951,
+  },
+  "uottawa-main": {
+    address: "75 Laurier Ave E, Ottawa, ON",
+    entranceLabel: "Laurier Avenue entrance",
+    latitude: 45.4231,
+    longitude: -75.6831,
+  },
+  "uottawa-lees": {
+    address: "200 Lees Ave, Ottawa, ON",
+    entranceLabel: "Lees Avenue entrance",
+    latitude: 45.4163,
+    longitude: -75.6696,
+  },
+  "uottawa-roger-guindon": {
+    address: "451 Smyth Rd, Ottawa, ON",
+    entranceLabel: "Smyth Road entrance",
+    latitude: 45.4034,
+    longitude: -75.6489,
+  },
+  "rmc-kingston": {
+    address: "13 General Crerar Crescent, Kingston, ON",
+    entranceLabel: "Main gate",
+    latitude: 44.2296,
+    longitude: -76.4697,
+  },
+  "tmu-toronto": {
+    address: "350 Victoria St, Toronto, ON",
+    entranceLabel: "Victoria Street campus entrance",
+    latitude: 43.6577,
+    longitude: -79.3788,
+  },
+  "uhearst-hearst": {
+    address: "60 9th St, Hearst, ON",
+    entranceLabel: "Hearst campus entrance",
+    latitude: 49.6867,
+    longitude: -83.6668,
+  },
+  "uhearst-kapuskasing": {
+    address: "7 Aurora Ave, Kapuskasing, ON",
+    entranceLabel: "Kapuskasing campus entrance",
+    latitude: 49.4175,
+    longitude: -82.4336,
+  },
+  "uhearst-timmins": {
+    address: "395 Theriault Blvd, Timmins, ON",
+    entranceLabel: "Timmins campus entrance",
+    latitude: 48.4758,
+    longitude: -81.3305,
+  },
+  "uof-toronto": {
+    address: "9 Lower Jarvis St, Toronto, ON",
+    entranceLabel: "Lower Jarvis Street entrance",
+    latitude: 43.6457,
+    longitude: -79.3696,
+  },
+  "uwindsor-main": {
+    address: "401 Sunset Ave, Windsor, ON",
+    entranceLabel: "Sunset Avenue entrance",
+    latitude: 42.3044,
+    longitude: -83.066,
+  },
+  "uwindsor-downtown": {
+    address: "167 Ferry St, Windsor, ON",
+    entranceLabel: "Downtown campus entrance",
+    latitude: 42.3175,
+    longitude: -83.0402,
+  },
+  "laurier-waterloo": {
+    address: "75 University Ave W, Waterloo, ON",
+    entranceLabel: "University Avenue entrance",
+    latitude: 43.4738,
+    longitude: -80.5275,
+  },
+  "laurier-brantford": {
+    address: "73 George St, Brantford, ON",
+    entranceLabel: "George Street entrance",
+    latitude: 43.1394,
+    longitude: -80.2644,
+  },
+  "laurier-milton": {
+    address: "555 Industrial Dr, Milton, ON",
+    entranceLabel: "Milton campus entrance",
+    latitude: 43.5248,
+    longitude: -79.8726,
+  },
+  "laurier-kitchener": {
+    address: "120 Duke St W, Kitchener, ON",
+    entranceLabel: "Kitchener location entrance",
+    latitude: 43.4527,
+    longitude: -80.4928,
+  },
+  "dominican-ottawa": {
+    address: "96 Empress Ave, Ottawa, ON",
+    entranceLabel: "Empress Avenue entrance",
+    latitude: 45.4097,
+    longitude: -75.7102,
+  },
+  "saint-paul-ottawa": {
+    address: "223 Main St, Ottawa, ON",
+    entranceLabel: "Main Street entrance",
+    latitude: 45.4074,
+    longitude: -75.6766,
+  },
+  "redeemer-ancaster": {
+    address: "777 Garner Rd E, Hamilton, ON",
+    entranceLabel: "Garner Road entrance",
+    latitude: 43.2099,
+    longitude: -79.9493,
+  },
+  "tyndale-toronto": {
+    address: "3377 Bayview Ave, Toronto, ON",
+    entranceLabel: "Bayview Avenue entrance",
+    latitude: 43.7972,
+    longitude: -79.3921,
+  },
+  "huron-london": {
+    address: "1349 Western Rd, London, ON",
+    entranceLabel: "Western Road entrance",
+    latitude: 43.0091,
+    longitude: -81.2768,
+  },
+  "kings-london": {
+    address: "266 Epworth Ave, London, ON",
+    entranceLabel: "Epworth Avenue entrance",
+    latitude: 43.0113,
+    longitude: -81.2647,
+  },
+};
+
 export function getInstitutionById(id: string) {
   return CANADIAN_INSTITUTIONS.find((institution) => institution.id === id) || null;
 }
@@ -823,6 +1300,52 @@ export function getOntarioUniversities() {
       institution.province === "Ontario" &&
       institution.type === "university"
   );
+}
+
+export function getInstitutionCampusDisplayName(campus: InstitutionCampus) {
+  const institution = getInstitutionById(campus.institutionId);
+  const institutionName = institution?.name || campus.institutionId;
+  return `${institutionName} — ${campus.name}`;
+}
+
+export function getOntarioRouteReadyCampuses({
+  includeColleges = true,
+}: {
+  includeColleges?: boolean;
+} = {}): RouteReadyCampusOption[] {
+  return INSTITUTION_CAMPUSES.flatMap((campus) => {
+    const institution = getInstitutionById(campus.institutionId);
+    const details = campusRouteDetails[campus.id];
+
+    if (
+      !institution ||
+      !campus.active ||
+      campus.province !== "Ontario" ||
+      institution.province !== "Ontario" ||
+      (!includeColleges && institution.type !== "university") ||
+      !details
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: campus.id,
+        institutionId: institution.id,
+        institutionName: institution.name,
+        institutionType: institution.type,
+        name: getInstitutionCampusDisplayName(campus),
+        officialName: getInstitutionCampusDisplayName(campus),
+        address: campus.address || details.address,
+        entranceLabel: campus.entranceLabel || details.entranceLabel,
+        city: campus.city,
+        province: campus.province,
+        latitude: campus.latitude ?? details.latitude,
+        longitude: campus.longitude ?? details.longitude,
+        aliases: [...institution.aliases, ...(campus.aliases || [])],
+      },
+    ];
+  }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function campusBelongsToInstitution({

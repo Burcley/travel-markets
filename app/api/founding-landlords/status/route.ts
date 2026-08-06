@@ -3,6 +3,7 @@ import {
   getFoundingProfile,
   getFoundingProgress,
   getFoundingPublicStats,
+  getFoundingBoostEntitlement,
   isLandlordRole,
   reserveAndEvaluateFoundingLandlord,
 } from "@/lib/founding-landlords/server";
@@ -44,10 +45,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const [freshProfile, progress, stats] = await Promise.all([
+  const [freshProfile, progress, stats, boostEntitlement] = await Promise.all([
     getFoundingProfile(user.id),
     getFoundingProgress(user.id),
     getFoundingPublicStats(),
+    getFoundingBoostEntitlement(user.id),
   ]);
 
   return NextResponse.json({
@@ -61,8 +63,12 @@ export async function GET(request: NextRequest) {
         freshProfile?.founding_discount_percentage ||
         profile.founding_discount_percentage ||
         25,
-      monthlyFreeBoosts: 2,
-      referralReward: "One extra 7-day listing boost per qualified landlord referral.",
+      monthlyFreeBoosts: boostEntitlement.includedTotal || 2,
+      monthlyBoostsUsed: boostEntitlement.includedUsed,
+      monthlyBoostsRemaining: boostEntitlement.includedAvailable,
+      nextBoostResetAt: boostEntitlement.nextResetDate,
+      referralReward:
+        "Qualified landlord referrals may unlock extra 7-day reward boosts when tracked by Travel Markets.",
     },
   });
 }

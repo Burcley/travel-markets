@@ -1,3 +1,5 @@
+import { getOntarioRouteReadyCampuses } from "@/lib/data/canadian-institutions";
+
 export type UtilityStatus =
   | "included"
   | "partial"
@@ -55,71 +57,7 @@ export type LeaseConditions = {
   notes?: string;
 };
 
-export const campusOptions = [
-  {
-    id: "ontario-tech-oshawa-north",
-    name: "Ontario Tech University",
-    officialName: "Ontario Tech University — North Oshawa Campus",
-    address: "2000 Simcoe St N, Oshawa, ON",
-    entranceLabel: "Main campus entrance",
-    latitude: 43.9457,
-    longitude: -78.8969,
-  },
-  {
-    id: "durham-college-oshawa",
-    name: "Durham College",
-    officialName: "Durham College — Oshawa Campus",
-    address: "2000 Simcoe St N, Oshawa, ON",
-    entranceLabel: "Main/student entrance",
-    latitude: 43.9461,
-    longitude: -78.8972,
-  },
-  {
-    id: "trent-durham-gta",
-    name: "Trent University Durham GTA",
-    officialName: "Trent University Durham GTA",
-    address: "55 Thornton Rd S, Oshawa, ON",
-    entranceLabel: "Main entrance",
-    latitude: 43.8895,
-    longitude: -78.8791,
-  },
-  {
-    id: "university-of-toronto-st-george",
-    name: "University of Toronto",
-    officialName: "University of Toronto — St. George Campus",
-    address: "27 King's College Cir, Toronto, ON",
-    entranceLabel: "King's College Circle",
-    latitude: 43.6629,
-    longitude: -79.3957,
-  },
-  {
-    id: "toronto-metropolitan-university",
-    name: "Toronto Metropolitan University",
-    officialName: "Toronto Metropolitan University",
-    address: "350 Victoria St, Toronto, ON",
-    entranceLabel: "Victoria Street campus entrance",
-    latitude: 43.6577,
-    longitude: -79.3788,
-  },
-  {
-    id: "university-of-waterloo-main",
-    name: "University of Waterloo",
-    officialName: "University of Waterloo — Main Campus",
-    address: "200 University Ave W, Waterloo, ON",
-    entranceLabel: "University Avenue entrance",
-    latitude: 43.4723,
-    longitude: -80.5449,
-  },
-  {
-    id: "western-university-main",
-    name: "Western University",
-    officialName: "Western University — Main Campus",
-    address: "1151 Richmond St, London, ON",
-    entranceLabel: "Richmond Street entrance",
-    latitude: 43.0096,
-    longitude: -81.2737,
-  },
-] as const;
+export const campusOptions = getOntarioRouteReadyCampuses();
 
 export const utilityItems = [
   ["electricity", "Electricity"],
