@@ -164,6 +164,13 @@ export default async function BillingPage() {
     foundingProfile?.founding_discount_percentage ??
     null;
   const foundingPricingRows = getFoundingPricingRows(foundingDiscount);
+  const foundingPricingByPlan = new Map(
+    foundingPricingRows.map((row) => [row.plan, row])
+  );
+  const hasFounderBenefits =
+    foundingBenefit.isConfirmedFounder && !foundingBenefit.benefitsDisabled;
+  const founderFreePeriodActive =
+    hasFounderBenefits && foundingBenefit.freePeriodActive;
 
   return (
     <main className="min-h-screen bg-black px-4 py-10 text-white">
@@ -382,6 +389,19 @@ export default async function BillingPage() {
             const isCurrent = publicPlan === key;
             const emphasized = key === "premium";
             const isElite = key === "elite";
+            const foundingPrice = key === "free" ? null : foundingPricingByPlan.get(key);
+            const showFounderCurrentCard =
+              key === "free" && isCurrent && founderFreePeriodActive;
+            const showFounderPaidPrice = hasFounderBenefits && Boolean(foundingPrice);
+            const features = showFounderCurrentCard
+              ? [
+                  "Unlimited active listings during your Founding period",
+                  "2 free 7-day featured boosts/month",
+                  "25% lifetime Founding discount afterward",
+                  "Receive student inquiries and viewing requests",
+                  "Build your landlord profile",
+                ]
+              : item.features;
 
             return (
               <article
@@ -413,14 +433,53 @@ export default async function BillingPage() {
                   {isElite ? <Crown /> : emphasized ? <Zap /> : <Sparkles />}
                 </div>
 
-                <h2 className="mt-5 text-2xl font-black">{item.publicName}</h2>
+                <h2 className="mt-5 text-2xl font-black">
+                  {showFounderCurrentCard ? "Founding Landlord" : item.publicName}
+                </h2>
                 <p className="mt-2 min-h-12 text-sm leading-6 text-slate-300">
-                  {item.tagline}
+                  {showFounderCurrentCard
+                    ? "Current Plan"
+                    : showFounderPaidPrice
+                      ? "Your Founding price after your free period"
+                      : item.tagline}
                 </p>
-                <p className="mt-5 text-4xl font-black">{item.price}</p>
+                {showFounderCurrentCard ? (
+                  <div className="mt-5">
+                    <p className="text-4xl font-black">$0</p>
+                    <p className="mt-2 text-sm font-semibold text-pink-100">
+                      during your Founding period
+                    </p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Free until {formatDate(foundingBenefit.freePeriodEndsAt)}
+                    </p>
+                  </div>
+                ) : showFounderPaidPrice && foundingPrice ? (
+                  <div className="mt-5">
+                    <p className="text-sm font-semibold text-slate-400">
+                      Regular price{" "}
+                      <span className="text-white/55 line-through">
+                        {formatCurrencyFromCents(foundingPrice.regularPriceCents)}/month
+                      </span>
+                    </p>
+                    <p className="mt-2 text-4xl font-black text-emerald-100">
+                      {formatCurrencyFromCents(foundingPrice.foundingPriceCents)}
+                      <span className="text-base font-bold text-emerald-200/80">
+                        /month
+                      </span>
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-pink-100">
+                      {foundingPrice.discountPercentage}% lifetime Founding discount
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Applies after your 12-month free period.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-5 text-4xl font-black">{item.price}</p>
+                )}
 
                 <ul className="mt-7 flex-1 space-y-3">
-                  {item.features.map((feature) => (
+                  {features.map((feature) => (
                     <li key={feature} className="flex gap-3 text-sm text-slate-200">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
                       <span>{feature}</span>
