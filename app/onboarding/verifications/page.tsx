@@ -43,6 +43,19 @@ function statusClass(status: VerificationStatus) {
   return "border-white/10 bg-white/5 text-zinc-300";
 }
 
+function hasValidPublicRole(role?: string | null, isAdmin?: boolean | null) {
+  const value = String(role || "").toLowerCase();
+
+  return (
+    isAdmin === true ||
+    value === "admin" ||
+    value === "student" ||
+    value === "owner" ||
+    value === "landlord" ||
+    value === "host"
+  );
+}
+
 export default function OnboardingVerificationsPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -79,11 +92,16 @@ export default function OnboardingVerificationsPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, phone_verified, phone_verified_at, phone_verification_status, identity_verified, is_verified, identity_verification_status, student_email_verified, student_verification_status")
+      .select("role, is_admin, phone_verified, phone_verified_at, phone_verification_status, identity_verified, is_verified, identity_verification_status, student_email_verified, student_verification_status")
       .eq("id", user.id)
       .maybeSingle();
 
-    const nextRole = profile?.role || "student";
+    if (!hasValidPublicRole(profile?.role, profile?.is_admin)) {
+      router.replace("/onboarding?step=role");
+      return;
+    }
+
+    const nextRole = profile?.is_admin ? "admin" : profile?.role || "student";
     setRole(nextRole);
     setPhoneStatus(
       normalizeVerificationStatus(

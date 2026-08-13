@@ -70,12 +70,28 @@ function normalizeRole(role?: string | null, isAdmin?: boolean | null) {
 
   if (isAdmin || value === "admin") return "admin";
   if (value === "owner" || value === "landlord" || value === "host") return "owner";
+  if (value === "student") return "student";
 
-  return "student";
+  return null;
 }
 
 function isSafeReturnTo(value: string | null) {
   return Boolean(value && value.startsWith("/") && !value.startsWith("//"));
+}
+
+function authCallbackUrl() {
+  if (typeof window === "undefined") return "/auth/callback";
+
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const currentOrigin = window.location.origin;
+  const isLocal =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+  const origin = isLocal
+    ? currentOrigin
+    : configuredSiteUrl || "https://travelmarkets.ca";
+
+  return `${origin}/auth/callback`;
 }
 
 function AuthForm() {
@@ -138,9 +154,11 @@ function AuthForm() {
             ? returnTo
             : role === "admin"
               ? "/admin"
-              : role === "owner"
-                ? "/dashboard"
-                : "/search";
+            : role === "owner"
+              ? "/dashboard"
+              : role === "student"
+                ? "/search"
+                : "/onboarding?step=role";
 
         if (profileError && !isMissingOnboardingColumn(profileError)) {
           console.error("AUTH PROFILE CHECK ERROR:", profileError);
@@ -164,7 +182,7 @@ function AuthForm() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: authCallbackUrl(),
         },
       });
 

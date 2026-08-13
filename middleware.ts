@@ -207,6 +207,12 @@ export async function middleware(request: NextRequest) {
 
   const url = request.nextUrl.clone();
 
+  if (!user.email_confirmed_at) {
+    url.pathname = "/onboarding/verify-email";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   if (!roleSelected) {
     url.pathname = "/onboarding";
     url.search = "?step=role";
@@ -216,12 +222,6 @@ export async function middleware(request: NextRequest) {
   if (!onboardingProfile || !hasRequiredProfile(onboardingProfile)) {
     url.pathname = "/onboarding";
     url.search = "?step=profile";
-    return NextResponse.redirect(url);
-  }
-
-  if (!user.email_confirmed_at) {
-    url.pathname = "/onboarding/verify-email";
-    url.search = "";
     return NextResponse.redirect(url);
   }
 

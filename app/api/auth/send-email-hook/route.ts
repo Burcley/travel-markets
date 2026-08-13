@@ -23,12 +23,12 @@ type SupabaseSendEmailHookPayload = {
   };
 };
 
-const FROM_EMAIL = "Travel Markets <no-reply@travelmarkets.ca>";
+const FROM_EMAIL = "Travel Markets <noreply@travelmarkets.ca>";
 
 function assertAuthorized(request: Request) {
   const hookSecret = process.env.SUPABASE_AUTH_SEND_EMAIL_HOOK_SECRET;
 
-  if (!hookSecret) return true;
+  if (!hookSecret) return process.env.NODE_ENV !== "production";
 
   const authorization = request.headers.get("authorization") || "";
   return authorization === `Bearer ${hookSecret}`;
@@ -78,11 +78,15 @@ function actionUrl({
   if (!tokenHash) return null;
 
   const requestUrl = new URL(request.url);
+  const isLocal =
+    requestUrl.hostname === "localhost" || requestUrl.hostname === "127.0.0.1";
   const appUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    emailData.site_url ||
-    requestUrl.origin;
+    isLocal
+      ? requestUrl.origin
+      : process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        emailData.site_url ||
+        "https://travelmarkets.ca";
   const url = new URL("/auth/callback", appUrl);
 
   url.searchParams.set("token_hash", tokenHash);

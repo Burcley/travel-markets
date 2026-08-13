@@ -8,6 +8,34 @@ import { createClient } from "@/lib/supabase/client";
 
 const RESEND_SECONDS = 45;
 
+function hasValidPublicRole(role?: string | null, isAdmin?: boolean | null) {
+  const value = String(role || "").toLowerCase();
+
+  return (
+    isAdmin === true ||
+    value === "admin" ||
+    value === "student" ||
+    value === "owner" ||
+    value === "landlord" ||
+    value === "host"
+  );
+}
+
+function authCallbackUrl() {
+  if (typeof window === "undefined") return "/auth/callback";
+
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const currentOrigin = window.location.origin;
+  const isLocal =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+  const origin = isLocal
+    ? currentOrigin
+    : configuredSiteUrl || "https://travelmarkets.ca";
+
+  return `${origin}/auth/callback`;
+}
+
 export default function OnboardingVerifyEmailPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -20,6 +48,18 @@ export default function OnboardingVerifyEmailPage() {
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  async function getPostEmailVerificationPath(userId: string) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_admin")
+      .eq("id", userId)
+      .maybeSingle();
+
+    return hasValidPublicRole(profile?.role, profile?.is_admin)
+      ? "/onboarding?step=profile"
+      : "/onboarding?step=role";
+  }
 
   useEffect(() => {
     loadUser();
@@ -52,7 +92,7 @@ export default function OnboardingVerifyEmailPage() {
         })
         .eq("id", user.id);
 
-      router.replace("/onboarding/verifications");
+      router.replace(await getPostEmailVerificationPath(user.id));
       return;
     }
 
@@ -72,7 +112,7 @@ export default function OnboardingVerifyEmailPage() {
       type: "signup",
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: authCallbackUrl(),
       },
     });
 
@@ -100,7 +140,7 @@ export default function OnboardingVerifyEmailPage() {
 
     const { error: updateError } = await supabase.auth.updateUser(
       { email: nextEmail.trim() },
-      { emailRedirectTo: `${window.location.origin}/auth/callback` }
+      { emailRedirectTo: authCallbackUrl() }
     );
 
     setSending(false);
@@ -140,7 +180,7 @@ export default function OnboardingVerifyEmailPage() {
         })
         .eq("id", user.id);
 
-      router.push("/onboarding/verifications");
+      router.push(await getPostEmailVerificationPath(user.id));
       return;
     }
 

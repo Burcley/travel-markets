@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+function siteUrlForRequest(request: Request) {
+  const requestUrl = new URL(request.url);
+  const isLocal =
+    requestUrl.hostname === "localhost" || requestUrl.hostname === "127.0.0.1";
+
+  if (isLocal) return requestUrl.origin;
+
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "https://travelmarkets.ca"
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
@@ -23,8 +37,7 @@ export async function POST(request: Request) {
       }
     );
 
-    const requestUrl = new URL(request.url);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin;
+    const siteUrl = siteUrlForRequest(request);
 
     const { error } = await supabase.auth.resend({
       type: "signup",

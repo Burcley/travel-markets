@@ -89,11 +89,12 @@ function getLocalOnboardingKey(userId: string) {
   return `travel_markets_onboarding_completed_${userId}`;
 }
 
-function normalizeRole(role?: string | null): OnboardingRole {
+function normalizeRole(role?: string | null): OnboardingRole | null {
   const value = String(role || "").toLowerCase();
 
   if (["host", "owner", "landlord"].includes(value)) return "host";
-  return "student";
+  if (value === "student") return "student";
+  return null;
 }
 
 function profileRole(role: OnboardingRole) {
@@ -134,7 +135,7 @@ function OnboardingWizard() {
     useState(true);
 
   const [step, setStep] = useState(0);
-  const [role, setRole] = useState<OnboardingRole>("student");
+  const [role, setRole] = useState<OnboardingRole | null>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
@@ -163,9 +164,6 @@ function OnboardingWizard() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const requestedStep = searchParams.get("step");
-    if (requestedStep === "role") setStep(0);
-    if (requestedStep === "profile") setStep(2);
     loadUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -224,10 +222,11 @@ function OnboardingWizard() {
 
     setUserId(user.id);
     setEmail(user.email || "");
-    setEmailVerified(Boolean(user.email_confirmed_at));
+    const nextEmailVerified = Boolean(user.email_confirmed_at);
+    setEmailVerified(nextEmailVerified);
 
-    if (localStorage.getItem(getLocalOnboardingKey(user.id)) === "true") {
-      router.replace("/dashboard");
+    if (!nextEmailVerified) {
+      router.replace("/onboarding/verify-email");
       return;
     }
 
@@ -254,11 +253,20 @@ function OnboardingWizard() {
         console.error("ONBOARDING PROFILE LOAD ERROR:", fallback.error);
         setErrorMessage("We are preparing your profile. You can keep going.");
       } else {
-        applyProfile(fallback.data as ExistingProfile | null);
+        const fallbackProfile = fallback.data as ExistingProfile | null;
+        applyProfile(fallbackProfile);
+        const nextRole = normalizeRole(fallbackProfile?.role);
+
+        if (!nextRole || searchParams.get("step") === "role") {
+          setStep(0);
+        } else if (searchParams.get("step") === "profile") {
+          setStep(2);
+        }
       }
 
       if (!fallback.data) {
         await ensureProfile(user.id, user.email || "");
+        setStep(0);
       }
 
       setLoading(false);
@@ -274,18 +282,37 @@ function OnboardingWizard() {
 
     if (!data) {
       await ensureProfile(user.id, user.email || "");
+      setStep(0);
       setLoading(false);
       return;
     }
 
     const profile = data as ExistingProfile;
+    const requestedStep = searchParams.get("step");
+    const nextRole = normalizeRole(profile.role);
 
-    if (profile.onboarding_completed_at || profile.onboarding_completed) {
+    if (!nextRole || requestedStep === "role") {
+      applyProfile(profile);
+      setStep(0);
+      setLoading(false);
+      return;
+    }
+
+    if (
+      profile.onboarding_completed_at ||
+      profile.onboarding_completed ||
+      localStorage.getItem(getLocalOnboardingKey(user.id)) === "true"
+    ) {
       router.replace("/dashboard");
       return;
     }
 
     applyProfile(profile);
+
+    if (requestedStep === "profile") {
+      setStep(2);
+    }
+
     setLoading(false);
   }
 
@@ -343,7 +370,6 @@ function OnboardingWizard() {
     const { error } = await supabase.from("profiles").insert({
       id: nextUserId,
       email: nextEmail,
-      role: "student",
       onboarding_completed: false,
       updated_at: new Date().toISOString(),
     });
@@ -360,9 +386,12 @@ function OnboardingWizard() {
       phone: phone.trim() || null,
       bio: bio.trim() || null,
       avatar_url: avatarUrl,
-      role: profileRole(role),
       updated_at: new Date().toISOString(),
     };
+
+    if (role) {
+      payload.role = profileRole(role);
+    }
 
     if (supportsOnboardingColumn) {
       payload.onboarding_completed = false;
@@ -437,6 +466,8 @@ function OnboardingWizard() {
 
   async function saveDraft({ quiet = false } = {}) {
     if (!userId) return true;
+
+    if (!role && quiet) return true;
 
     if (!quiet) {
       setSaving(true);
@@ -516,6 +547,10 @@ function OnboardingWizard() {
   }
 
   function validateCurrentStep() {
+    if (step === 0 && !role) {
+      return "Choose Student or Landlord / Property Owner to continue.";
+    }
+
     if (step === 2) {
       if (!fullName.trim()) return "Enter your full name to continue.";
       if (!phone.trim()) return "Enter your phone number to continue.";
@@ -672,14 +707,14 @@ function OnboardingWizard() {
                     active={role === "student"}
                     icon={<GraduationCap className="h-7 w-7" />}
                     title="Student"
-                    text="Find housing, message landlords, and book viewings."
+                    text="Looking for housing. Search, inquire, book viewings, and save listings."
                     onClick={() => setRole("student")}
                   />
                   <RoleCard
                     active={role === "host"}
                     icon={<Building2 className="h-7 w-7" />}
-                    title="Host"
-                    text="List a property, manage applicants, and coordinate viewings."
+                    title="Landlord / Property Owner"
+                    text="List or manage rental properties, inquiries, viewings, verification, and subscriptions."
                     onClick={() => setRole("host")}
                   />
                 </div>
@@ -782,7 +817,7 @@ function OnboardingWizard() {
               </WizardPanel>
             )}
 
-            {step === 3 && role !== "host" && (
+            {step === 3 && role === "student" && (
               <WizardPanel
                 icon={<GraduationCap className="h-7 w-7" />}
                 title="Set up your student profile"
@@ -863,7 +898,7 @@ function OnboardingWizard() {
                 text="Next, verify your email address. Email verification is mandatory before normal account access."
               >
                 <div className="grid gap-4 md:grid-cols-3">
-                  <SummaryCard title="Role" value={role === "host" ? "Host" : "Student"} />
+                  <SummaryCard title="Role" value={role === "host" ? "Landlord / Property Owner" : "Student"} />
                   <SummaryCard title="Profile" value={fullName ? "Required fields complete" : "Profile incomplete"} />
                   <SummaryCard title="Email" value={emailVerified ? "Verified" : "Verification pending"} />
                 </div>
@@ -893,7 +928,7 @@ function OnboardingWizard() {
                   <button
                     type="button"
                     onClick={() => goToStep(step + 1)}
-                    disabled={saving || avatarUploading}
+                    disabled={saving || avatarUploading || (step === 0 && !role)}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-7 py-3 text-sm font-black text-black shadow-lg shadow-white/10 transition hover:bg-zinc-200 disabled:opacity-50"
                   >
                     {saving ? "Saving..." : "Continue"}

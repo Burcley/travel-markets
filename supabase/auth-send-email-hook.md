@@ -12,7 +12,7 @@ default Auth email delivery with Resend.
 ## Sender
 
 ```text
-Travel Markets <no-reply@travelmarkets.ca>
+Travel Markets <noreply@travelmarkets.ca>
 ```
 
 ## Required Environment Variables
@@ -21,14 +21,18 @@ Set these in the production hosting environment:
 
 ```text
 RESEND_API_KEY=...
-AUTH_EMAIL_FROM=Travel Markets <no-reply@travelmarkets.ca>
+AUTH_EMAIL_FROM=Travel Markets <noreply@travelmarkets.ca>
 SUPABASE_AUTH_SEND_EMAIL_HOOK_SECRET=generate-a-long-random-secret
 NEXT_PUBLIC_SITE_URL=https://travelmarkets.ca
 ```
 
 `AUTH_EMAIL_FROM` is optional in code because the default is already
-`Travel Markets <no-reply@travelmarkets.ca>`, but setting it explicitly keeps
+`Travel Markets <noreply@travelmarkets.ca>`, but setting it explicitly keeps
 deployment configuration clear.
+
+`SUPABASE_AUTH_SEND_EMAIL_HOOK_SECRET` is required in production. The endpoint
+rejects unauthenticated production hook calls when this secret is missing or
+does not match the `Authorization` header configured in Supabase.
 
 ## Supabase Dashboard Steps
 

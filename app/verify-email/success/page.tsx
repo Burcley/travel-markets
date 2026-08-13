@@ -32,7 +32,7 @@ export default function EmailVerificationSuccessPage() {
         </div>
 
         <Link
-          href="/onboarding/verifications"
+          href="/onboarding?step=role"
           className="mt-8 inline-flex rounded-2xl bg-white px-7 py-3 text-sm font-black text-black shadow-lg shadow-white/10 transition hover:-translate-y-0.5 hover:bg-zinc-200"
         >
           Continue

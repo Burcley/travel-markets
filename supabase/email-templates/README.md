@@ -16,7 +16,7 @@ the Supabase Dashboard for each environment.
 
 2. Authentication -> SMTP Settings
    - Sender name: `Travel Markets`
-   - Sender email: `no-reply@travelmarkets.ca`
+   - Sender email: `noreply@travelmarkets.ca`
    - Provider: Resend or the configured production SMTP provider
 
 3. Authentication -> URL Configuration
@@ -35,4 +35,7 @@ the Supabase Dashboard for each environment.
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SITE_URL=https://travelmarkets.ca`
+- `RESEND_API_KEY` if using the app-side Auth Send Email Hook
+- `SUPABASE_AUTH_SEND_EMAIL_HOOK_SECRET` if using the app-side Auth Send Email Hook
 - Resend/SMTP credentials configured in Supabase Dashboard
