@@ -44,11 +44,10 @@ does not match the `Authorization` header configured in Supabase.
 https://travelmarkets.ca/api/auth/send-email-hook
 ```
 
-4. Configure the hook authorization header:
-
-```text
-Authorization: Bearer <SUPABASE_AUTH_SEND_EMAIL_HOOK_SECRET>
-```
+4. Click **Generate Secret** in the Supabase hook configuration and set the
+   same generated secret in Vercel as `SUPABASE_AUTH_SEND_EMAIL_HOOK_SECRET`.
+   Supabase signs HTTPS Auth Hook requests with Standard Webhooks headers. Do
+   not configure a bearer authorization header for this endpoint.
 
 5. Ensure Auth URL Configuration includes:
 
