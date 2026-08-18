@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canCreateOrActivateListing } from "@/lib/subscriptions/server";
+import { getPublicListingEligibility } from "@/lib/listings/public-visibility";
 
 const publishVerificationError =
   "Property verification is required before this listing can be published. Upload at least one document showing your ownership, management authority or authorization to advertise this property.";
@@ -133,33 +134,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!verification?.relationship_type) {
-    return NextResponse.json({ error: publishVerificationError }, { status: 400 });
-  }
+  // Legacy landlords who were already approved under the old account-level
+  // property verification flow must still be able to publish their historical
+  // listings. New listings continue to require listing-specific approval.
+  const legacyEligibility = await getPublicListingEligibility(listingId);
+  const legacyPropertyVerified = legacyEligibility.legacyPropertyVerified === true;
 
-  if (verification.status !== "verified") {
-    return NextResponse.json({ error: publishApprovalError }, { status: 400 });
-  }
+  if (!legacyPropertyVerified) {
+    if (!verification?.relationship_type) {
+      return NextResponse.json({ error: publishVerificationError }, { status: 400 });
+    }
 
-  if (
-    verification.relationship_type === "other" &&
-    !String(verification.other_relationship_explanation || "").trim()
-  ) {
-    return NextResponse.json(
-      { error: "Explain the other authorized relationship before publishing." },
-      { status: 400 }
-    );
-  }
+    if (verification.status !== "verified") {
+      return NextResponse.json({ error: publishApprovalError }, { status: 400 });
+    }
 
-  const { count: documentCount } = await admin
-    .from("listing_verification_documents")
-    .select("id", { count: "exact", head: true })
-    .eq("verification_id", verification.id)
-    .eq("uploader_id", user.id)
-    .eq("review_status", "accepted");
+    if (
+      verification.relationship_type === "other" &&
+      !String(verification.other_relationship_explanation || "").trim()
+    ) {
+      return NextResponse.json(
+        { error: "Explain the other authorized relationship before publishing." },
+        { status: 400 }
+      );
+    }
 
-  if (!documentCount) {
-    return NextResponse.json({ error: publishVerificationError }, { status: 400 });
+    const { count: documentCount } = await admin
+      .from("listing_verification_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("verification_id", verification.id)
+      .eq("uploader_id", user.id)
+      .eq("review_status", "accepted");
+
+    if (!documentCount) {
+      return NextResponse.json({ error: publishVerificationError }, { status: 400 });
+    }
   }
 
   const { error: updateError } = await supabase
@@ -178,12 +187,15 @@ export async function POST(request: NextRequest) {
 
   await admin.from("listing_verification_audit_events").insert({
     listing_id: listingId,
-    verification_id: verification.id,
+    verification_id: verification?.id || null,
     actor_id: user.id,
-    event_type: "listing_published_with_pending_verification",
+    event_type: legacyPropertyVerified
+      ? "listing_published_with_legacy_verification"
+      : "listing_published_with_verified_property",
     metadata: {
       previous_status: listing.status,
-      verification_status: verification.status,
+      verification_status: verification?.status || null,
+      legacy_property_verified: legacyPropertyVerified,
     },
   });
 
