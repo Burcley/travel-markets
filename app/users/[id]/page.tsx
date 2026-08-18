@@ -25,10 +25,15 @@ import {
   calculateTrustScore,
   isHostRole,
   normalizeVerificationStatus,
+  type VerificationStatus,
   trustScoreLabel,
   trustStars,
   verificationLabel,
 } from "@/lib/verification-center";
+import {
+  getPublicProfileTrustCards,
+  isPublicProfileFullyVerified,
+} from "@/lib/public-profile-verification-core.mjs";
 import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
 
 type Profile = {
@@ -41,9 +46,12 @@ type Profile = {
   identity_verified?: boolean | null;
   identity_verification_status?: string | null;
   identity_verified_at?: string | null;
+  email_verified_at?: string | null;
   student_verification_status?: string | null;
+  student_email_verified?: boolean | null;
   phone_verified_at?: string | null;
   phone_verified?: boolean | null;
+  phone_verification_status?: string | null;
   trust_score?: number | null;
   trust_level?: string | null;
   profile_completion_percentage?: number | null;
@@ -101,43 +109,72 @@ export default function PublicUserProfilePage() {
   const [images, setImages] = useState<ListingImage[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewers, setReviewers] = useState<Profile[]>([]);
-  const [hasVerifiedPropertyRelationship, setHasVerifiedPropertyRelationship] =
-    useState(false);
+  const [propertyRelationshipStatus, setPropertyRelationshipStatus] =
+    useState<VerificationStatus>("not_started");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [ownerPlan, setOwnerPlan] = useState("free");
   const [loading, setLoading] = useState(true);
 
   const isElite = ownerPlan === "elite" || ownerPlan === "legacy_premium";
   const isPremium = ownerPlan === "premium";
-  const profileCompletion = profile
-    ? profile.profile_completion_percentage ??
-      calculateProfileCompletion({
-        profile,
-        emailVerified: true,
-        propertyVerification: hasVerifiedPropertyRelationship
-          ? { status: "verified" }
-          : null,
-      })
-    : 0;
   const isHost = isHostRole(profile?.role);
   const identityStatus = normalizeVerificationStatus(
     profile?.identity_verification_status,
     Boolean(profile?.identity_verified || profile?.is_verified)
   );
-  const studentStatus = normalizeVerificationStatus(
-    profile?.student_verification_status
+  const emailStatus = normalizeVerificationStatus(
+    profile?.email_verified_at ? "verified" : null,
+    Boolean(profile?.email_verified_at)
   );
-  const roleSpecificStatus = isHost
-    ? normalizeVerificationStatus(hasVerifiedPropertyRelationship ? "verified" : null)
-    : studentStatus;
+  const phoneStatus = normalizeVerificationStatus(
+    profile?.phone_verification_status,
+    Boolean(profile?.phone_verified || profile?.phone_verified_at)
+  );
+  const studentStatus = normalizeVerificationStatus(
+    profile?.student_verification_status,
+    Boolean(profile?.student_email_verified)
+  );
+  const profileCompletion = profile
+    ? calculateProfileCompletion({
+        profile,
+        emailVerified: emailStatus === "verified",
+        propertyVerification: isHost
+          ? { status: propertyRelationshipStatus }
+          : null,
+      })
+    : 0;
+  const publicProfileVerified = isPublicProfileFullyVerified({
+    role: profile?.role,
+    identityStatus,
+    emailStatus,
+    phoneStatus,
+    studentStatus,
+    propertyRelationshipStatus,
+  });
+  const memberSinceLabel = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "short",
+      })
+    : null;
+  const trustCards = getPublicProfileTrustCards({
+    role: profile?.role,
+    identityStatus,
+    emailStatus,
+    phoneStatus,
+    studentStatus,
+    propertyRelationshipStatus,
+    profileCompletion,
+    memberSince: memberSinceLabel,
+  });
   const trustScore =
     profile?.trust_score ??
     (profile
       ? calculateTrustScore({
           profile,
-          emailVerified: true,
-          propertyVerification: hasVerifiedPropertyRelationship
-            ? { status: "verified" }
+          emailVerified: emailStatus === "verified",
+          propertyVerification: isHost
+            ? { status: propertyRelationshipStatus }
             : null,
           reviewCount: reviews.length,
           responseRate: reviews.length ? 75 : 0,
@@ -173,7 +210,7 @@ export default function PublicUserProfilePage() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, full_name, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, student_verification_status, phone_verified, phone_verified_at, profile_completion_percentage, created_at, country, school, institution_name, campus_name, program, program_name, host_type, property_management_company, trust_score, trust_level, is_founding_landlord, founding_landlord_number, founding_status")
+        .select("id, full_name, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, email_verified_at, student_verification_status, student_email_verified, phone_verified, phone_verified_at, phone_verification_status, profile_completion_percentage, created_at, country, school, institution_name, campus_name, program, program_name, host_type, property_management_company, trust_score, trust_level, is_founding_landlord, founding_landlord_number, founding_status")
         .eq("id", userId)
         .maybeSingle();
 
@@ -183,6 +220,26 @@ export default function PublicUserProfilePage() {
       }
 
       setProfile(profileData as Profile);
+      const publicProfileRole = (profileData as Profile).role;
+
+      if (isHostRole(publicProfileRole)) {
+        const verificationRes = await fetch(
+          `/api/users/${userId}/public-verification`
+        );
+
+        if (verificationRes.ok) {
+          const verificationData = await verificationRes.json();
+          setPropertyRelationshipStatus(
+            normalizeVerificationStatus(
+              verificationData.propertyRelationshipStatus
+            )
+          );
+        } else {
+          setPropertyRelationshipStatus("not_started");
+        }
+      } else {
+        setPropertyRelationshipStatus("not_started");
+      }
 
       const { data: listingsData } = await supabase
         .from("listings")
@@ -195,22 +252,6 @@ export default function PublicUserProfilePage() {
 
       const ownerListings = (listingsData || []) as Listing[];
       setListings(ownerListings);
-
-      if (ownerListings.length > 0) {
-        const { data: verificationData } = await supabase
-          .from("public_listing_verification_status")
-          .select("listing_id, status")
-          .in(
-            "listing_id",
-            ownerListings.map((listing) => listing.id)
-          )
-          .eq("status", "verified")
-          .limit(1);
-
-        setHasVerifiedPropertyRelationship(Boolean(verificationData?.length));
-      } else {
-        setHasVerifiedPropertyRelationship(false);
-      }
 
       if (ownerListings.length > 0) {
         const listingIds = ownerListings.map((listing) => listing.id);
@@ -367,7 +408,7 @@ export default function PublicUserProfilePage() {
                     </span>
                   )}
 
-                  {identityStatus === "verified" && (
+                  {publicProfileVerified && (
                     <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200">
                       <BadgeCheck size={16} />
                       Verified by Travel Markets
@@ -402,44 +443,17 @@ export default function PublicUserProfilePage() {
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <TrustIndicator
-                    label="Identity verified"
-                    active={identityStatus === "verified"}
-                    value={verificationLabel(identityStatus)}
-                  />
-                  <TrustIndicator label="Email verified" active value="Verified" />
-                  <TrustIndicator
-                    label="Phone verified"
-                    active={Boolean(profile.phone_verified_at)}
-                    value={profile.phone_verified_at ? "Verified" : "Not public"}
-                  />
-                  <TrustIndicator
-                    label="Student status verified"
-                    active={studentStatus === "verified"}
-                    value={verificationLabel(studentStatus)}
-                  />
-                  <TrustIndicator
-                    label="Property relationship verified"
-                    active={hasVerifiedPropertyRelationship}
-                    value={verificationLabel(roleSpecificStatus)}
-                  />
-                  <TrustIndicator
-                    label="Profile completeness"
-                    active={profileCompletion >= 70}
-                    value={`${profileCompletion}%`}
-                  />
-                  <TrustIndicator
-                    label="Member since"
-                    active={Boolean(profile.created_at)}
-                    value={
-                      profile.created_at
-                        ? new Date(profile.created_at).toLocaleDateString("en-CA", {
-                            year: "numeric",
-                            month: "short",
-                          })
-                        : "Not available"
-                    }
-                  />
+                  {trustCards.map((card) => (
+                    <TrustIndicator
+                      key={card.key}
+                      label={card.label}
+                      active={card.active}
+                      value={
+                        card.value ||
+                        (card.status ? verificationLabel(card.status) : undefined)
+                      }
+                    />
+                  ))}
                 </div>
 
                 <p className="mt-5 max-w-2xl leading-7 text-gray-300">
@@ -483,7 +497,7 @@ export default function PublicUserProfilePage() {
                 <ProfileStat label={t("reviews")} value={reviews.length} />
                 <ProfileStat
                   label={t("verifiedStat")}
-                  value={identityStatus === "verified" ? t("yes") : t("no")}
+                  value={publicProfileVerified ? t("yes") : t("no")}
                 />
               </div>
 
@@ -541,18 +555,20 @@ export default function PublicUserProfilePage() {
             </h2>
             <p className="mt-4 leading-7 text-gray-300">
               {profile.bio ||
-                t("aboutHostFallback")}
+                (isHost ? t("aboutHostFallback") : t("defaultBio"))}
             </p>
           </div>
 
           <div className="rounded-[2rem] border border-white/10 bg-[#070707] p-8 shadow-xl">
             <div className="mb-6 flex items-center gap-2">
               <ShieldCheck className="text-emerald-300" size={22} />
-              <h2 className="text-2xl font-bold">{t("hostHighlights")}</h2>
+              <h2 className="text-2xl font-bold">
+                {isHost ? t("hostHighlights") : "Profile highlights"}
+              </h2>
             </div>
 
             <div className="space-y-4">
-              {(isPremium || isElite) && (
+              {isHost && (isPremium || isElite) && (
                 <Highlight
                   icon={<Crown size={16} />}
                   label={isElite ? "Elite Property Manager" : "Premium Landlord"}
@@ -561,7 +577,7 @@ export default function PublicUserProfilePage() {
                 />
               )}
 
-              {profile.is_verified && (
+              {publicProfileVerified && (
                 <Highlight
                   icon={<BadgeCheck size={16} />}
                   label={t("verifiedProfile")}
@@ -570,12 +586,14 @@ export default function PublicUserProfilePage() {
                 />
               )}
 
-              <Highlight
-                icon={<Home size={16} />}
-                label={t("activeListings", { count: listings.length })}
-                text={t("activeListingsText")}
-                color="text-white"
-              />
+              {isHost && (
+                <Highlight
+                  icon={<Home size={16} />}
+                  label={t("activeListings", { count: listings.length })}
+                  text={t("activeListingsText")}
+                  color="text-white"
+                />
+              )}
 
               <Highlight
                 icon={<Star size={16} />}
@@ -593,14 +611,27 @@ export default function PublicUserProfilePage() {
                 />
               )}
 
-              <Highlight
-                icon={<LockKeyhole size={16} />}
-                label={t("addressProtectionShort")}
-                text={t("addressProtectionText")}
-                color="text-emerald-300"
-              />
+              {isHost ? (
+                <Highlight
+                  icon={<LockKeyhole size={16} />}
+                  label={t("addressProtectionShort")}
+                  text={t("addressProtectionText")}
+                  color="text-emerald-300"
+                />
+              ) : (
+                <Highlight
+                  icon={<GraduationCap size={16} />}
+                  label={
+                    profile.institution_name ||
+                    profile.school ||
+                    "Student profile"
+                  }
+                  text="Student verification and profile details help hosts recognize trusted renters."
+                  color="text-sky-300"
+                />
+              )}
 
-              {hasVerifiedPropertyRelationship && (
+              {isHost && propertyRelationshipStatus === "verified" && (
                 <Highlight
                   icon={<Zap size={16} />}
                   label={t("trustedHost")}
@@ -612,7 +643,7 @@ export default function PublicUserProfilePage() {
           </div>
         </section>
 
-        {featuredListings.length > 0 && (
+        {isHost && featuredListings.length > 0 && (
           <section>
             <div className="mb-5 flex items-end justify-between">
               <div>
@@ -637,37 +668,39 @@ export default function PublicUserProfilePage() {
           </section>
         )}
 
-        <section>
-          <div className="mb-5">
-            <h2 className="text-3xl font-bold">{t("currentListings")}</h2>
-            <p className="mt-2 text-sm text-gray-400">
-              {t("currentListingsText", { name: getDisplayName() })}
-            </p>
-          </div>
+        {isHost && (
+          <section>
+            <div className="mb-5">
+              <h2 className="text-3xl font-bold">{t("currentListings")}</h2>
+              <p className="mt-2 text-sm text-gray-400">
+                {t("currentListingsText", { name: getDisplayName() })}
+              </p>
+            </div>
 
-          {listings.length === 0 ? (
-            <div className="rounded-3xl border border-gray-800 bg-[#070707] p-8 text-gray-400">
-              {t("noListings")}
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-3">
-              {(featuredListings.length > 0 ? otherListings : listings).map(
-                (listing) => (
-                  <OwnerListingCard
-                    key={listing.id}
-                    listing={listing}
-                    image={getListingImage(listing.id)}
-                    ownerPlan={ownerPlan}
-                    featured={isFeaturedActive(
-                      listing.featured_until,
-                      listing.is_featured
-                    )}
-                  />
-                )
-              )}
-            </div>
-          )}
-        </section>
+            {listings.length === 0 ? (
+              <div className="rounded-3xl border border-gray-800 bg-[#070707] p-8 text-gray-400">
+                {t("noListings")}
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-3">
+                {(featuredListings.length > 0 ? otherListings : listings).map(
+                  (listing) => (
+                    <OwnerListingCard
+                      key={listing.id}
+                      listing={listing}
+                      image={getListingImage(listing.id)}
+                      ownerPlan={ownerPlan}
+                      featured={isFeaturedActive(
+                        listing.featured_until,
+                        listing.is_featured
+                      )}
+                    />
+                  )
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         <section>
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

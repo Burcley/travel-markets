@@ -37,7 +37,9 @@ export type PropertyVerificationRecord = {
 };
 
 export function isHostRole(role?: string | null) {
-  return ["owner", "landlord", "host"].includes(String(role || "").toLowerCase());
+  return ["owner", "landlord", "host", "property_manager"].includes(
+    String(role || "").toLowerCase()
+  );
 }
 
 export function normalizeVerificationStatus(
