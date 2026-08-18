@@ -37,6 +37,10 @@ import {
   type UtilityStatus,
 } from "@/lib/listing-transparency";
 import { generatePublicCoordinate } from "@/lib/location-privacy";
+import {
+  listingPropertyVerificationStatusLabel,
+  propertyVerificationDocumentSelectionMessage,
+} from "@/lib/listings/property-verification-ui-core.mjs";
 
 type ExistingImage = {
   id: string;
@@ -284,7 +288,7 @@ export default function EditListingPage() {
     (relationshipType !== "other" || Boolean(otherRelationshipExplanation.trim()));
   const progressItems = [
     { label: "Property relationship selected", complete: relationshipSelected },
-    { label: "Verification document uploaded", complete: supportingDocumentSelected },
+    { label: "Verification document selected", complete: supportingDocumentSelected },
     { label: "Living arrangement completed", complete: livingArrangementCompleted },
     {
       label: "Fair-housing acknowledgement accepted",
@@ -1664,9 +1668,10 @@ export default function EditListingPage() {
                 aria-live="polite"
               >
                 {verificationUploadError ||
-                  (supportingDocumentSelected
-                    ? "Supporting document uploaded successfully. Your listing can be submitted for review."
-                    : "Supporting document still required.")}
+                  propertyVerificationDocumentSelectionMessage({
+                    hasSelectedFiles: supportingDocumentSelected,
+                    persisted: false,
+                  })}
               </p>
             </div>
           </div>
@@ -2129,14 +2134,7 @@ function HelpField({
 }
 
 function formatVerificationStatus(status?: string | null) {
-  if (status === "verified" || status === "accepted") {
-    return "Verified property relationship";
-  }
-  if (status === "pending" || status === "submitted") return "Verification pending";
-  if (status === "more_information_required") return "More information required";
-  if (status === "declined" || status === "rejected") return "Verification declined";
-  if (status === "expired") return "Verification expired";
-  return "Not verified";
+  return listingPropertyVerificationStatusLabel(status);
 }
 
 function RequirementEditor({

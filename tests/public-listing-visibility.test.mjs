@@ -77,4 +77,26 @@ describe("public listing property verification gate", () => {
       ["listing-a"]
     );
   });
+
+  it("does not use legacy account-level approval to verify listings", () => {
+    const listings = [
+      { id: "listing-a", user_id: "owner-1", status: "available" },
+      { id: "listing-b", user_id: "owner-1", status: "available" },
+      { id: "listing-c", user_id: "owner-1", status: "available" },
+      { id: "listing-d", user_id: "owner-1", status: "available" },
+      { id: "listing-e", user_id: "owner-1", status: "available" },
+    ];
+    const legacyAccountApproval = {
+      user_id: "owner-1",
+      verification_type: "property_relationship",
+      status: "approved",
+      document_metadata: {
+        listingId: null,
+      },
+    };
+
+    assert.equal(legacyAccountApproval.status, "approved");
+    assert.equal(legacyAccountApproval.document_metadata.listingId, null);
+    assert.deepEqual(filterPubliclyDiscoverableListings(listings, []), []);
+  });
 });

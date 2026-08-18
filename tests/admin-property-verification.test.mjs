@@ -6,6 +6,12 @@ import {
   legacyRelationshipTypeForListingVerification,
   listingVerificationStatusForAdminAction,
 } from "../lib/admin-verification-review-core.mjs";
+import {
+  adminVerificationProfileState,
+  countActionableAdminReviewRecords,
+  mergeVerificationTypeKeys,
+  profileHasActionableAdminReviewRecords,
+} from "../lib/admin-verification-queue-core.mjs";
 
 describe("admin property/listing verification review", () => {
   it("maps admin actions onto existing listing verification statuses", () => {
@@ -92,5 +98,117 @@ describe("admin property/listing verification review", () => {
       }),
       false
     );
+  });
+
+  it("promotes a pending listing verification into the admin review queue even for admin-owned listings", () => {
+    const propertyRecord = {
+      id: "93eab93a-75ef-4605-b724-1f31faa053f9",
+      source: "listing_verifications",
+      verificationType: "property_relationship",
+      status: "pending",
+    };
+    const emailRecord = {
+      id: "owner:email",
+      source: "profile",
+      verificationType: "email",
+      status: "not_started",
+    };
+    const allRecords = [propertyRecord, emailRecord];
+    const applicableTypes = mergeVerificationTypeKeys(
+      ["email", "phone", "identity"],
+      allRecords
+    );
+    const recordsByType = {
+      property_relationship: propertyRecord,
+      email: emailRecord,
+    };
+    const state = adminVerificationProfileState({
+      recordsByType,
+      allRecords,
+      applicableTypes,
+    });
+
+    assert.deepEqual(applicableTypes, [
+      "email",
+      "phone",
+      "identity",
+      "property_relationship",
+    ]);
+    assert.equal(countActionableAdminReviewRecords(allRecords), 1);
+    assert.equal(profileHasActionableAdminReviewRecords({ allRecords }), true);
+    assert.equal(state.pendingCount, 1);
+    assert.equal(state.overallStatus, "needs_review");
+  });
+
+  it("removes the review action after a listing verification is approved", () => {
+    const propertyRecord = {
+      source: "listing_verifications",
+      verificationType: "property_relationship",
+      status: "approved",
+    };
+    const allRecords = [propertyRecord];
+    const applicableTypes = mergeVerificationTypeKeys(
+      ["email", "phone", "identity"],
+      allRecords
+    );
+    const state = adminVerificationProfileState({
+      recordsByType: {
+        property_relationship: propertyRecord,
+      },
+      allRecords,
+      applicableTypes,
+    });
+
+    assert.equal(countActionableAdminReviewRecords(allRecords), 0);
+    assert.equal(profileHasActionableAdminReviewRecords({ allRecords }), false);
+    assert.equal(state.pendingCount, 0);
+    assert.notEqual(state.overallStatus, "needs_review");
+  });
+
+  it("does not mark normal landlords as requiring review without actionable pending records", () => {
+    const allRecords = [
+      {
+        source: "profile",
+        verificationType: "email",
+        status: "approved",
+      },
+      {
+        source: "profile",
+        verificationType: "phone",
+        status: "not_started",
+      },
+    ];
+    const state = adminVerificationProfileState({
+      recordsByType: {
+        email: allRecords[0],
+        phone: allRecords[1],
+      },
+      allRecords,
+      applicableTypes: ["email", "phone", "identity", "property_relationship"],
+    });
+
+    assert.equal(state.pendingCount, 0);
+    assert.equal(state.overallStatus, "partially_verified");
+  });
+
+  it("keeps property manager listing verifications in the property review lane", () => {
+    const propertyRecord = {
+      source: "listing_verifications",
+      verificationType: "property_relationship",
+      status: "pending",
+    };
+    const allRecords = [propertyRecord];
+    const state = adminVerificationProfileState({
+      recordsByType: {
+        property_relationship: propertyRecord,
+      },
+      allRecords,
+      applicableTypes: ["email", "phone", "identity", "property_relationship"],
+    });
+
+    assert.equal(canReviewAdminVerificationRecord(propertyRecord), true);
+    assert.equal(profileHasActionableAdminReviewRecords({ allRecords }), true);
+    assert.equal(state.pendingCount, 1);
+    assert.equal(state.overallStatus, "needs_review");
   });
 });

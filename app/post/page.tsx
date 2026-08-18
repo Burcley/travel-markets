@@ -39,6 +39,7 @@ import {
   type UtilityStatus,
 } from "@/lib/listing-transparency";
 import { generatePublicCoordinate } from "@/lib/location-privacy";
+import { propertyVerificationDocumentSelectionMessage } from "@/lib/listings/property-verification-ui-core.mjs";
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 1,
@@ -200,7 +201,7 @@ export default function PostListingPage() {
     (relationshipType !== "other" || Boolean(otherRelationshipExplanation.trim()));
   const progressItems = [
     { label: "Property relationship selected", complete: relationshipSelected },
-    { label: "Verification document uploaded", complete: supportingDocumentSelected },
+    { label: "Verification document selected", complete: supportingDocumentSelected },
     { label: "Living arrangement completed", complete: livingArrangementCompleted },
     {
       label: "Fair-housing acknowledgement accepted",
@@ -625,7 +626,7 @@ export default function PostListingPage() {
           return;
         }
 
-        setUploadStatus("Property verification documents uploaded successfully.");
+        setUploadStatus("Property verification submitted and awaiting review.");
       }
 
       if (documentRequirementSelected) {
@@ -1112,9 +1113,10 @@ export default function PostListingPage() {
                     aria-live="polite"
                   >
                     {verificationUploadError ||
-                      (supportingDocumentSelected
-                        ? "Supporting document uploaded successfully. Your listing can be submitted for review."
-                        : "Supporting document still required.")}
+                      propertyVerificationDocumentSelectionMessage({
+                        hasSelectedFiles: supportingDocumentSelected,
+                        persisted: false,
+                      })}
                   </p>
                 </div>
               </div>

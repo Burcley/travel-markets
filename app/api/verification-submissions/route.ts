@@ -16,7 +16,9 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 function isHostRole(role?: string | null) {
-  return ["owner", "host", "landlord"].includes(String(role || "").toLowerCase());
+  return ["owner", "host", "landlord", "property_manager"].includes(
+    String(role || "").toLowerCase()
+  );
 }
 
 function clean(value: FormDataEntryValue | null) {

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
+import { profileHasActionableAdminReviewRecords } from "@/lib/admin-verification-queue-core.mjs";
 import {
   groupVerificationRecords,
   statusLabel,
@@ -185,7 +186,10 @@ export default function AdminVerificationsPage() {
 
     return profiles
       .filter((profile) => {
-        if (activeFilter === "needs_review" && profile.overallStatus !== "needs_review") {
+        if (
+          activeFilter === "needs_review" &&
+          !profileHasActionableAdminReviewRecords(profile)
+        ) {
           return false;
         }
         if (activeFilter === "fully_verified" && profile.overallStatus !== "fully_verified") {

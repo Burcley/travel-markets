@@ -1,3 +1,8 @@
+import {
+  adminVerificationProfileState,
+  mergeVerificationTypeKeys,
+} from "./admin-verification-queue-core.mjs";
+
 export type VerificationType =
   | "identity"
   | "student_status"
@@ -141,45 +146,6 @@ function latestActivity(records: UnifiedVerificationRecord[]) {
     .at(-1) || null;
 }
 
-function computeOverallStatus({
-  records,
-  applicableTypes,
-}: {
-  records: Partial<Record<VerificationType, UnifiedVerificationRecord>>;
-  applicableTypes: VerificationType[];
-}): OverallVerificationStatus {
-  const applicableRecords = applicableTypes
-    .map((type) => records[type])
-    .filter(Boolean) as UnifiedVerificationRecord[];
-  const manualRecords = applicableRecords.filter((record) =>
-    isManualVerification(record.verificationType)
-  );
-
-  if (manualRecords.some((record) => record.status === "pending")) {
-    return "needs_review";
-  }
-
-  if (applicableRecords.some((record) => record.status === "resubmission_required")) {
-    return "more_information_required";
-  }
-
-  if (applicableRecords.some((record) => record.status === "rejected")) {
-    return "rejected";
-  }
-
-  const hasStarted = applicableRecords.some(
-    (record) => record.status !== "not_started"
-  );
-  const allVerified = applicableTypes.every((type) => {
-    const status = records[type]?.status;
-    return status === "approved" || status === "verified";
-  });
-
-  if (allVerified) return "fully_verified";
-  if (hasStarted) return "partially_verified";
-  return "not_started";
-}
-
 export function groupVerificationRecords(
   records: UnifiedVerificationRecord[]
 ): UserVerificationProfile[] {
@@ -216,27 +182,33 @@ export function groupVerificationRecords(
       record
     );
     profile.allRecords.push(record);
-    profile.applicableTypes = applicableVerificationTypes(profile.role);
+    profile.applicableTypes = mergeVerificationTypeKeys(
+      applicableVerificationTypes(profile.role),
+      profile.allRecords
+    );
     profiles.set(record.userId, profile);
   }
 
   return Array.from(profiles.values())
     .map((profile) => {
-      const applicableRecords = profile.applicableTypes
-        .map((type) => profile.records[type])
-        .filter(Boolean) as UnifiedVerificationRecord[];
+      const applicableTypes = mergeVerificationTypeKeys(
+        applicableVerificationTypes(profile.role),
+        profile.allRecords
+      );
+      const state = adminVerificationProfileState({
+        recordsByType: profile.records,
+        allRecords: profile.allRecords,
+        applicableTypes,
+      }) as {
+        pendingCount: number;
+        overallStatus: OverallVerificationStatus;
+      };
 
       return {
         ...profile,
-        pendingCount: applicableRecords.filter(
-          (record) =>
-            isManualVerification(record.verificationType) &&
-            record.status === "pending"
-        ).length,
-        overallStatus: computeOverallStatus({
-          records: profile.records,
-          applicableTypes: profile.applicableTypes,
-        }),
+        applicableTypes,
+        pendingCount: state.pendingCount,
+        overallStatus: state.overallStatus,
         lastActivityAt: latestActivity(profile.allRecords),
       };
     })
