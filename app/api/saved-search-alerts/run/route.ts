@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +26,25 @@ export async function GET(request: NextRequest) {
       .eq("alerts_enabled", true);
 
     if (searchesError) throw searchesError;
+    const verifiedListingIds = await getVerifiedPublicListingIds(
+      supabaseAdmin as never
+    );
 
     let alertsCreated = 0;
+    if (verifiedListingIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        searchesChecked: searches?.length || 0,
+        alertsCreated,
+      });
+    }
 
     for (const search of searches || []) {
       let query = supabaseAdmin
         .from("listings")
         .select("id, title, price, city, campus, bedrooms, bathrooms, guests, created_at")
-        .eq("status", "available")
+        .eq("status", PUBLIC_LISTING_STATUS)
+        .in("id", verifiedListingIds)
         .order("created_at", { ascending: false })
         .limit(10);
 

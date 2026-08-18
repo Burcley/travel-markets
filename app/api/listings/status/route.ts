@@ -5,6 +5,8 @@ import { canCreateOrActivateListing } from "@/lib/subscriptions/server";
 
 const ACTIVE_STATUSES = new Set(["available", "pending"]);
 const ALLOWED_STATUSES = new Set(["draft", "available", "pending", "rented"]);
+const publicApprovalError =
+  "Property verification must be approved before this listing can go live.";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -66,6 +68,27 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 }
       );
+    }
+  }
+
+  if (status === "available") {
+    const { data: verification, error: verificationError } = await admin
+      .from("listing_verifications")
+      .select("id, status")
+      .eq("listing_id", listingId)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (verificationError) {
+      console.error("LISTING STATUS VERIFICATION READ ERROR:", verificationError);
+      return NextResponse.json(
+        { error: "We could not verify this listing status." },
+        { status: 500 }
+      );
+    }
+
+    if (verification?.status !== "verified") {
+      return NextResponse.json({ error: publicApprovalError }, { status: 400 });
     }
   }
 

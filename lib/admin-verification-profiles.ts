@@ -90,7 +90,7 @@ export function isStudentRole(role?: string | null) {
 
 export function isHostRole(role?: string | null) {
   const value = String(role || "").toLowerCase();
-  return ["host", "owner", "landlord"].includes(value);
+  return ["host", "owner", "landlord", "property_manager"].includes(value);
 }
 
 export function applicableVerificationTypes(role?: string | null): VerificationType[] {

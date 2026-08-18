@@ -3,13 +3,28 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { createClient } from "@/lib/supabase/client";
 
 type SimilarListingsProps = {
   currentListingId: string;
   city?: string | null;
   campus?: string | null;
   price?: number | null;
+};
+
+type SimilarListing = {
+  id: string;
+  title: string;
+  city?: string | null;
+  location?: string | null;
+  campus?: string | null;
+  price?: number | null;
+  image_url?: string | null;
+  cover_image_url?: string | null;
+  cover_image?: string | null;
+};
+
+type SimilarListingsResponse = {
+  listings?: SimilarListing[];
 };
 
 export default function SimilarListings({
@@ -19,67 +34,43 @@ export default function SimilarListings({
   price,
 }: SimilarListingsProps) {
   const t = useTranslations("similarListings");
-  const supabase = createClient();
-  const [listings, setListings] = useState<any[]>([]);
+  const [listings, setListings] = useState<SimilarListing[]>([]);
 
   useEffect(() => {
     async function loadSimilarListings() {
-      let query = supabase
-        .from("listings")
-        .select(`
-          id,
-          title,
-          city,
-          location,
-          campus,
-          price,
-          status,
-          listing_images (
-            image_url,
-            is_cover,
-            sort_order
-          )
-        `)
-        .neq("id", currentListingId)
-        .limit(4);
+      const params = new URLSearchParams({
+        page: "1",
+      });
 
       if (city) {
-        query = query.or(`city.ilike.%${city}%,location.ilike.%${city}%`);
+        params.set("city", city);
       }
 
       if (campus) {
-        query = query.ilike("campus", `%${campus}%`);
+        params.set("campus", campus);
       }
 
       if (price) {
-        query = query
-          .gte("price", Math.max(0, price - 300))
-          .lte("price", price + 300);
+        params.set("minPrice", String(Math.max(0, price - 300)));
+        params.set("maxPrice", String(price + 300));
       }
 
-      const { data, error } = await query;
+      const response = await fetch(`/api/search-listings?${params.toString()}`);
 
-      if (error) {
-        console.error("SIMILAR LISTINGS ERROR:", error);
+      if (!response.ok) {
+        console.error("SIMILAR LISTINGS ERROR:", response.status);
         return;
       }
 
+      const result = (await response.json()) as SimilarListingsResponse;
       const formatted =
-        data?.map((listing: any) => {
-          const images = listing.listing_images || [];
-
-          const cover =
-            images.find((img: any) => img.is_cover)?.image_url ||
-            images.sort(
-              (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
-            )[0]?.image_url ||
-            null;
-
-          return {
+        result.listings
+          ?.filter((listing) => listing.id !== currentListingId)
+          .slice(0, 4)
+          .map((listing) => ({
             ...listing,
-            cover_image: cover,
-          };
-        }) || [];
+            cover_image: listing.image_url || listing.cover_image_url || null,
+          })) || [];
 
       setListings(formatted);
     }

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSafePublicCoordinate } from "@/lib/location-privacy";
 import { createClient } from "@/lib/supabase/server";
 import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
+import {
   getOwnerBadgeLabel,
   getPlanEntitlements,
   normalizeOwnerPlan,
@@ -55,7 +59,45 @@ function getOwnerPlan(subscription?: { plan?: string | null; status?: string | n
   return normalizeOwnerPlan(subscription?.plan);
 }
 
-function getListingRankScore(listing: any) {
+type MapListingImage = {
+  image_url?: string | null;
+  is_cover?: boolean | null;
+  sort_order?: number | null;
+};
+
+type MapListingRow = {
+  id: string;
+  user_id?: string | null;
+  title?: string | null;
+  city?: string | null;
+  location?: string | null;
+  campus?: string | null;
+  price?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  guests?: number | null;
+  status?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  public_latitude?: number | null;
+  public_longitude?: number | null;
+  created_at?: string | null;
+  is_featured?: boolean | null;
+  featured_until?: string | null;
+  featured_rank?: number | null;
+  boost_until?: string | null;
+  boost_rank?: number | null;
+  listing_images?: MapListingImage[] | null;
+  owner_plan?: string | null;
+};
+
+type OwnerSubscriptionRow = {
+  user_id?: string | null;
+  plan?: string | null;
+  status?: string | null;
+};
+
+function getListingRankScore(listing: MapListingRow) {
   const activeFeatured =
     (Boolean(listing.is_featured) && isFeaturedActive(listing.featured_until)) ||
     isBoostActive(listing.boost_until);
@@ -95,6 +137,7 @@ function createListingQuery({
   q,
   city,
   campus,
+  verifiedListingIds,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   includePublicCoordinates: boolean;
@@ -105,6 +148,7 @@ function createListingQuery({
   q?: string;
   city?: string;
   campus?: string;
+  verifiedListingIds: string[];
 }) {
   let query = supabase
     .from("listings")
@@ -135,8 +179,8 @@ function createListingQuery({
       )
     `
     )
-    .neq("status", "rented")
-    .neq("status", "draft")
+    .eq("status", PUBLIC_LISTING_STATUS)
+    .in("id", verifiedListingIds)
     .limit(80);
 
   if (includePublicCoordinates) {
@@ -171,6 +215,14 @@ function createListingQuery({
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const verifiedListingIds = await getVerifiedPublicListingIds(
+      supabase as never
+    );
+
+    if (verifiedListingIds.length === 0) {
+      return NextResponse.json({ listings: [] });
+    }
+
     const searchParams = request.nextUrl.searchParams;
 
     const north = Number(searchParams.get("north"));
@@ -193,6 +245,7 @@ export async function GET(request: NextRequest) {
       q,
       city,
       campus,
+      verifiedListingIds,
     });
 
     if (error && isMissingPublicCoordinateColumn(error)) {
@@ -215,6 +268,7 @@ export async function GET(request: NextRequest) {
         q,
         city,
         campus,
+        verifiedListingIds,
       });
 
       data = legacyResult.data;
@@ -234,11 +288,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rawListings = data || [];
+    const rawListings = ((data || []) as MapListingRow[]);
 
     const ownerIds = Array.from(
-      new Set(rawListings.map((listing: any) => listing.user_id).filter(Boolean))
-    );
+      new Set(rawListings.map((listing) => listing.user_id).filter(Boolean))
+    ) as string[];
 
     let subscriptionMap = new Map<
       string,
@@ -256,12 +310,16 @@ export async function GET(request: NextRequest) {
       }
 
       subscriptionMap = new Map(
-        (subscriptions || []).map((sub: any) => [sub.user_id, sub])
+        ((subscriptions || []) as OwnerSubscriptionRow[])
+          .filter((sub) => Boolean(sub.user_id))
+          .map((sub) => [sub.user_id as string, sub])
       );
     }
 
-    const enrichedListings = rawListings.map((listing: any) => {
-      const ownerSubscription = subscriptionMap.get(listing.user_id);
+    const enrichedListings = rawListings.map((listing) => {
+      const ownerSubscription = listing.user_id
+        ? subscriptionMap.get(listing.user_id)
+        : undefined;
       const ownerPlan = getOwnerPlan(ownerSubscription);
 
       return {
@@ -271,20 +329,20 @@ export async function GET(request: NextRequest) {
     });
 
     const rankedListings = [...enrichedListings].sort(
-      (a: any, b: any) => getListingRankScore(b) - getListingRankScore(a)
+      (a, b) => getListingRankScore(b) - getListingRankScore(a)
     );
 
-    const listings = rankedListings.map((listing: any) => {
+    const listings = rankedListings.map((listing) => {
       const images = Array.isArray(listing.listing_images)
         ? listing.listing_images
         : [];
 
       const sortedImages = [...images].sort(
-        (a: any, b: any) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
+        (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
       );
 
       const cover =
-        images.find((img: any) => img.is_cover)?.image_url ||
+        images.find((img) => img.is_cover)?.image_url ||
         sortedImages[0]?.image_url ||
         null;
 

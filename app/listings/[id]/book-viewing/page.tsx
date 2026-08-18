@@ -152,6 +152,33 @@ export default function BookViewingPage() {
       return;
     }
 
+    if (safeListing.status !== "available") {
+      setError(t("notFound"));
+      setLoading(false);
+      return;
+    }
+
+    const { data: verificationData, error: verificationError } = await supabase
+      .from("public_listing_verification_status")
+      .select("status")
+      .eq("listing_id", safeListing.id)
+      .maybeSingle();
+
+    if (verificationError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("VIEWING BOOKING VERIFICATION ERROR:", verificationError);
+      }
+      setError(t("listingLoadError"));
+      setLoading(false);
+      return;
+    }
+
+    if (verificationData?.status !== "verified") {
+      setError(t("notFound"));
+      setLoading(false);
+      return;
+    }
+
     const { data: viewingData, error: viewingError } = await supabase
       .from("viewings")
       .select("id,status,requested_date,requested_time,viewing_type")

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
 
 function clean(value?: string | null) {
   if (!value) return "";
@@ -9,10 +13,13 @@ function clean(value?: string | null) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const verifiedListingIds = await getVerifiedPublicListingIds(
+      supabase as never
+    );
 
     const query = clean(request.nextUrl.searchParams.get("q"));
 
-    if (!query || query.length < 2) {
+    if (!query || query.length < 2 || verifiedListingIds.length === 0) {
       return NextResponse.json({
         suggestions: [],
       });
@@ -21,6 +28,8 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from("listings")
       .select("city, campus, title")
+      .eq("status", PUBLIC_LISTING_STATUS)
+      .in("id", verifiedListingIds)
       .or(
         `city.ilike.%${query}%,campus.ilike.%${query}%,title.ilike.%${query}%`
       )

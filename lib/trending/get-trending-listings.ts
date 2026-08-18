@@ -1,4 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
 
 type ListingImage = {
   image_url: string | null;
@@ -40,6 +44,17 @@ type TrendingListingResult = {
 
 export async function getTrendingListings() {
   const supabase = await createClient();
+  let verifiedListingIds: string[] = [];
+
+  try {
+    verifiedListingIds = await getVerifiedPublicListingIds(supabase as never);
+  } catch (error) {
+    console.error("TRENDING VERIFIED LISTING GATE ERROR:", error);
+    return [];
+  }
+
+  const verifiedListingIdSet = new Set(verifiedListingIds);
+  if (verifiedListingIdSet.size === 0) return [];
 
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -81,7 +96,13 @@ export async function getTrendingListings() {
   for (const row of rows) {
     const listing = row.listings;
 
-    if (!listing?.id) continue;
+    if (
+      !listing?.id ||
+      listing.status !== PUBLIC_LISTING_STATUS ||
+      !verifiedListingIdSet.has(listing.id)
+    ) {
+      continue;
+    }
 
     const existing = grouped.get(listing.id);
 

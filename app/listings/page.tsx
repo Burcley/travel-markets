@@ -7,6 +7,9 @@ import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import AdvancedListingFilters from "@/components/AdvancedListingFilters";
 
+const PUBLIC_LISTING_STATUS = "available";
+const VERIFIED_LISTING_STATUS = "verified";
+
 type ListingImage = {
   image_url: string;
   is_cover: boolean | null;
@@ -45,6 +48,26 @@ export default function ListingsPage() {
   useEffect(() => {
     async function fetchListings() {
       setLoading(true);
+      const { data: verifiedRows, error: verifiedError } = await supabase
+        .from("public_listing_verification_status")
+        .select("listing_id")
+        .eq("status", VERIFIED_LISTING_STATUS);
+
+      if (verifiedError) {
+        console.error("Error fetching verified listings:", verifiedError.message);
+        setListings([]);
+        setLoading(false);
+        return;
+      }
+
+      const verifiedListingIds =
+        verifiedRows?.map((row) => row.listing_id).filter(Boolean) || [];
+
+      if (verifiedListingIds.length === 0) {
+        setListings([]);
+        setLoading(false);
+        return;
+      }
 
       let query = supabase
         .from("listings")
@@ -67,8 +90,8 @@ export default function ListingsPage() {
           )
         `
         )
-        .neq("status", "draft")
-        .neq("status", "rented")
+        .eq("status", PUBLIC_LISTING_STATUS)
+        .in("id", verifiedListingIds)
         .order("created_at", { ascending: false });
 
       query = query.gte("price", filters.minPrice);
@@ -82,7 +105,13 @@ export default function ListingsPage() {
         query = query.gte("bathrooms", Number(filters.bathrooms));
       }
 
-      if (filters.status !== "any") {
+      if (filters.status !== "any" && filters.status !== PUBLIC_LISTING_STATUS) {
+        setListings([]);
+        setLoading(false);
+        return;
+      }
+
+      if (filters.status === PUBLIC_LISTING_STATUS) {
         query = query.eq("status", filters.status);
       }
 

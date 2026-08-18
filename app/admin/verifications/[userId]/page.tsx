@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
+import { canReviewAdminVerificationRecord } from "@/lib/admin-verification-review-core.mjs";
 import {
   groupVerificationRecords,
   isManualVerification,
@@ -68,6 +69,22 @@ function metadataEntries(record: UnifiedVerificationRecord) {
     if (typeof value === "object") return false;
     return String(value).trim().length > 0;
   });
+}
+
+function recordsForSection(
+  profile: UserVerificationProfile,
+  type: UnifiedVerificationRecord["verificationType"]
+) {
+  const records = profile.allRecords
+    .filter((record) => record.verificationType === type)
+    .sort((a, b) =>
+      String(b.submittedAt || b.reviewedAt || b.verifiedAt || "").localeCompare(
+        String(a.submittedAt || a.reviewedAt || a.verifiedAt || "")
+      )
+    );
+
+  if (records.length > 0) return records;
+  return [null];
 }
 
 export default function AdminVerificationProfilePage() {
@@ -289,19 +306,17 @@ export default function AdminVerificationProfilePage() {
         )}
 
         <section className="grid gap-4">
-          {sectionTypes.map((type) => {
-            const record = profile.records[type];
-            const status = record?.status || "not_started";
-            const canReview =
-              record &&
-              record.source === "verification_submissions" &&
-              isManualVerification(type);
+          {sectionTypes.flatMap((type) =>
+            recordsForSection(profile, type).map((record, index) => {
+              const status = record?.status || "not_started";
+              const canReview = canReviewAdminVerificationRecord(record);
+              const typeRecordCount = recordsForSection(profile, type).length;
 
-            return (
-              <article
-                key={type}
-                className="rounded-[2rem] border border-white/10 bg-zinc-950 p-6"
-              >
+              return (
+                <article
+                  key={record ? `${type}:${record.source}:${record.id}` : type}
+                  className="rounded-[2rem] border border-white/10 bg-zinc-950 p-6"
+                >
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
@@ -315,6 +330,13 @@ export default function AdminVerificationProfilePage() {
                       <div>
                         <h2 className="text-xl font-black">
                           {verificationTypeLabel(type)}
+                          {record &&
+                            type === "property_relationship" &&
+                            typeRecordCount > 1 && (
+                              <span className="ml-2 text-sm font-semibold text-zinc-500">
+                                #{index + 1}
+                              </span>
+                            )}
                         </h2>
                         <p className="mt-1 text-sm text-zinc-500">
                           {isManualVerification(type)
@@ -394,7 +416,7 @@ export default function AdminVerificationProfilePage() {
                   )}
                 </div>
 
-                {canReview && (
+                {canReview && record && (
                   <div className="mt-5 rounded-2xl border border-pink-500/20 bg-pink-500/10 p-4">
                     <p className="font-black text-pink-100">Review action</p>
                     <textarea
@@ -412,7 +434,15 @@ export default function AdminVerificationProfilePage() {
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button
                         type="button"
-                        onClick={() => review(record, "approve")}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Approve this property verification for the associated listing?"
+                            )
+                          ) {
+                            void review(record, "approve");
+                          }
+                        }}
                         disabled={workingId === record.id}
                         className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-black disabled:opacity-50"
                       >
@@ -420,7 +450,15 @@ export default function AdminVerificationProfilePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => review(record, "resubmission")}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Request more information for this property verification?"
+                            )
+                          ) {
+                            void review(record, "resubmission");
+                          }
+                        }}
                         disabled={workingId === record.id}
                         className="rounded-2xl border border-blue-500/25 bg-blue-500/10 px-5 py-3 text-sm font-bold text-blue-100 disabled:opacity-50"
                       >
@@ -428,7 +466,15 @@ export default function AdminVerificationProfilePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => review(record, "reject")}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Reject this property verification submission?"
+                            )
+                          ) {
+                            void review(record, "reject");
+                          }
+                        }}
                         disabled={workingId === record.id}
                         className="rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-100 disabled:opacity-50"
                       >
@@ -437,9 +483,10 @@ export default function AdminVerificationProfilePage() {
                     </div>
                   </div>
                 )}
-              </article>
-            );
-          })}
+                </article>
+              );
+            })
+          )}
         </section>
 
         <section className="rounded-[2rem] border border-white/10 bg-zinc-950 p-6">

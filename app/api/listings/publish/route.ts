@@ -5,6 +5,8 @@ import { canCreateOrActivateListing } from "@/lib/subscriptions/server";
 
 const publishVerificationError =
   "Property verification is required before this listing can be published. Upload at least one document showing your ownership, management authority or authorization to advertise this property.";
+const publishApprovalError =
+  "Property verification must be approved before this listing can go live.";
 
 function livingArrangementComplete(listing: Record<string, unknown>) {
   return [
@@ -135,6 +137,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: publishVerificationError }, { status: 400 });
   }
 
+  if (verification.status !== "verified") {
+    return NextResponse.json({ error: publishApprovalError }, { status: 400 });
+  }
+
   if (
     verification.relationship_type === "other" &&
     !String(verification.other_relationship_explanation || "").trim()
@@ -150,7 +156,7 @@ export async function POST(request: NextRequest) {
     .select("id", { count: "exact", head: true })
     .eq("verification_id", verification.id)
     .eq("uploader_id", user.id)
-    .in("review_status", ["pending", "accepted"]);
+    .eq("review_status", "accepted");
 
   if (!documentCount) {
     return NextResponse.json({ error: publishVerificationError }, { status: 400 });

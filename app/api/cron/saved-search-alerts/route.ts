@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { resend } from "@/lib/email/resend";
 import { savedSearchAlertTemplate } from "@/lib/email/templates/saved-search-alert";
+import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,14 +29,24 @@ export async function GET(request: NextRequest) {
       .eq("alerts_enabled", true);
 
     if (searchError) throw searchError;
+    const verifiedListingIds = await getVerifiedPublicListingIds(
+      supabaseAdmin as never
+    );
 
     let sentCount = 0;
+    if (verifiedListingIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        sentCount,
+      });
+    }
 
     for (const search of savedSearches || []) {
       let query = supabaseAdmin
         .from("listings")
         .select("id, title, price, city, campus, bedrooms, bathrooms, guests, created_at")
-        .neq("status", "rented")
+        .eq("status", PUBLIC_LISTING_STATUS)
+        .in("id", verifiedListingIds)
         .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(3);
@@ -81,11 +95,12 @@ export async function GET(request: NextRequest) {
       success: true,
       sentCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("SAVED SEARCH ALERT ERROR:", error);
+    const message = error instanceof Error ? error.message : "Failed to send saved search alerts";
 
     return NextResponse.json(
-      { error: error?.message || "Failed to send saved search alerts" },
+      { error: message },
       { status: 500 }
     );
   }

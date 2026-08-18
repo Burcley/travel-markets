@@ -12,13 +12,25 @@ import Testimonials from "../components/home/Testimonials";
 import FinalCTA from "../components/home/FinalCTA";
 import HomeFooter from "../components/home/HomeFooter";
 import { createClient } from "../lib/supabase/server";
+import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
 
 export default async function HomePage() {
   const supabase = await createClient();
+  let verifiedListingIds: string[] = [];
 
-  const { data: listings } = await supabase
-    .from("listings")
-    .select(`
+  try {
+    verifiedListingIds = await getVerifiedPublicListingIds(supabase as never);
+  } catch (error) {
+    console.error("HOME FEATURED VERIFIED LISTING GATE ERROR:", error);
+  }
+
+  const { data: listings } = verifiedListingIds.length
+    ? await supabase
+        .from("listings")
+        .select(`
       id,
       title,
       city,
@@ -34,10 +46,12 @@ export default async function HomePage() {
         sort_order
       )
     `)
-    .eq("status", "available")
-    .order("is_featured", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(6);
+        .eq("status", PUBLIC_LISTING_STATUS)
+        .in("id", verifiedListingIds)
+        .order("is_featured", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(6)
+    : { data: [] };
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">

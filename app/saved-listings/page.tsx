@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
+const PUBLIC_LISTING_STATUS = "available";
+const VERIFIED_LISTING_STATUS = "verified";
+
 type SavedRow = {
   id: string;
   user_id: string;
@@ -80,10 +83,31 @@ export default function SavedListingsPage() {
         return;
       }
 
+      const { data: verifiedRows, error: verifiedError } = await supabase
+        .from("public_listing_verification_status")
+        .select("listing_id")
+        .eq("status", VERIFIED_LISTING_STATUS)
+        .in("listing_id", listingIds);
+
+      if (verifiedError) {
+        alert(verifiedError.message);
+        return;
+      }
+
+      const verifiedListingIds =
+        verifiedRows?.map((row) => row.listing_id).filter(Boolean) || [];
+
+      if (verifiedListingIds.length === 0) {
+        setListings([]);
+        setImages([]);
+        return;
+      }
+
       const { data: listingData, error: listingError } = await supabase
         .from("listings")
         .select("id, user_id, title, price, description, created_at")
-        .in("id", listingIds);
+        .eq("status", PUBLIC_LISTING_STATUS)
+        .in("id", verifiedListingIds);
 
       if (listingError) {
         alert(listingError.message);
@@ -95,7 +119,7 @@ export default function SavedListingsPage() {
       const { data: imageData } = await supabase
         .from("listing_images")
         .select("listing_id, image_url, sort_order, is_cover")
-        .in("listing_id", listingIds);
+        .in("listing_id", verifiedListingIds);
 
       setImages((imageData || []) as ListingImage[]);
     } finally {

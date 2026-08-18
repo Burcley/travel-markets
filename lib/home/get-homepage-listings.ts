@@ -1,6 +1,34 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSafePublicCoordinate } from "@/lib/location-privacy";
 import { HomeListing } from "@/types/home-listing";
+import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
+
+type HomepageListingImage = {
+  image_url?: string | null;
+  sort_order?: number | null;
+  is_cover?: boolean | null;
+};
+
+type HomepageListingRow = {
+  id: string;
+  title?: string | null;
+  price?: number | null;
+  city?: string | null;
+  campus?: string | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  guests?: number | null;
+  status?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  public_latitude?: number | null;
+  public_longitude?: number | null;
+  created_at?: string | null;
+  listing_images?: HomepageListingImage[] | null;
+};
 
 function isMissingPublicCoordinateColumn(error: unknown) {
   const typedError = error as { code?: string | null; message?: string | null };
@@ -15,6 +43,16 @@ function isMissingPublicCoordinateColumn(error: unknown) {
 
 export async function getHomepageListings(): Promise<HomeListing[]> {
   const supabase = await createClient();
+  let verifiedListingIds: string[] = [];
+
+  try {
+    verifiedListingIds = await getVerifiedPublicListingIds(supabase as never);
+  } catch (error) {
+    console.error("HOMEPAGE VERIFIED LISTING GATE ERROR:", error);
+    return [];
+  }
+
+  if (verifiedListingIds.length === 0) return [];
 
   const {
     data: { user },
@@ -43,8 +81,8 @@ export async function getHomepageListings(): Promise<HomeListing[]> {
         )
       `
       )
-      .neq("status", "rented")
-      .neq("status", "draft")
+      .eq("status", PUBLIC_LISTING_STATUS)
+      .in("id", verifiedListingIds)
       .order("created_at", { ascending: false })
       .limit(80);
   }
@@ -82,12 +120,12 @@ export async function getHomepageListings(): Promise<HomeListing[]> {
   }
 
   return (
-    listings?.map((listing: any) => {
+    ((listings || []) as HomepageListingRow[]).map((listing) => {
       const images = listing.listing_images || [];
 
       const cover =
-        images.find((img: any) => img.is_cover)?.image_url ||
-        images.sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0]
+        images.find((img) => img.is_cover)?.image_url ||
+        images.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0]
           ?.image_url ||
         null;
       const safeCoordinate = getSafePublicCoordinate({
@@ -100,17 +138,17 @@ export async function getHomepageListings(): Promise<HomeListing[]> {
 
       return {
         id: listing.id,
-        title: listing.title,
-        price: listing.price,
-        city: listing.city,
-        campus: listing.campus,
-        bedrooms: listing.bedrooms,
-        bathrooms: listing.bathrooms,
-        guests: listing.guests,
-        status: listing.status,
+        title: listing.title || "Untitled listing",
+        price: listing.price ?? null,
+        city: listing.city ?? null,
+        campus: listing.campus ?? null,
+        bedrooms: listing.bedrooms ?? null,
+        bathrooms: listing.bathrooms ?? null,
+        guests: listing.guests ?? null,
+        status: listing.status ?? null,
         latitude: safeCoordinate.latitude ?? null,
         longitude: safeCoordinate.longitude ?? null,
-        created_at: listing.created_at,
+        created_at: listing.created_at || new Date(0).toISOString(),
         image_url: cover,
         is_saved: savedIds.has(listing.id),
       };

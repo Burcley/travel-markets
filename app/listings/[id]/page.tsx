@@ -241,13 +241,55 @@ export default function ListingDetailsPage() {
 
       const safeListing = listingData as Listing;
 
-      if (safeListing.status === "draft" && user?.id !== safeListing.user_id) {
+      const isOwner = user?.id === safeListing.user_id;
+      let isAdmin = false;
+
+      if (user?.id && !isOwner) {
+        const { data: currentProfile, error: currentProfileError } = await supabase
+          .from("profiles")
+          .select("is_admin, role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (currentProfileError) {
+          console.error("CURRENT PROFILE FETCH ERROR:", currentProfileError);
+        }
+
+        isAdmin =
+          currentProfile?.is_admin === true || currentProfile?.role === "admin";
+      }
+
+      const { data: verificationData, error: verificationError } =
+        await supabase
+          .from("public_listing_verification_status")
+          .select(
+            "listing_id, status, relationship_type, reviewed_at, expires_at, owner_visible_reason"
+          )
+          .eq("listing_id", safeListing.id)
+          .maybeSingle();
+
+      if (verificationError) {
+        console.error("VERIFICATION STATUS FETCH ERROR:", verificationError);
+      }
+
+      const safeVerificationStatus =
+        (verificationData as ListingVerificationStatus) || null;
+      const canManageListing = Boolean(isOwner || isAdmin);
+
+      if (safeListing.status === "draft" && !canManageListing) {
+        setPageError(t("errors.notFound"));
+        setListing(null);
+        return;
+      }
+
+      if (safeVerificationStatus?.status !== "verified" && !canManageListing) {
         setPageError(t("errors.notFound"));
         setListing(null);
         return;
       }
 
       setListing(safeListing);
+      setVerificationStatus(safeVerificationStatus);
 
       if (user?.id && user.id !== safeListing.user_id) {
         trackRecentlyViewed(safeListing.id);
@@ -349,23 +391,6 @@ export default function ListingDetailsPage() {
       );
 
       setImages(sortedImages);
-
-      const { data: verificationData, error: verificationError } =
-        await supabase
-          .from("public_listing_verification_status")
-          .select(
-            "listing_id, status, relationship_type, reviewed_at, expires_at, owner_visible_reason"
-          )
-          .eq("listing_id", safeListing.id)
-          .maybeSingle();
-
-      if (verificationError) {
-        console.error("VERIFICATION STATUS FETCH ERROR:", verificationError);
-      }
-
-      setVerificationStatus(
-        (verificationData as ListingVerificationStatus) || null
-      );
 
       const { data: requirementData, error: requirementError } = await supabase
         .from("listing_document_requirements")

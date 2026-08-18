@@ -36,6 +36,9 @@ import {
 } from "@/lib/public-profile-verification-core.mjs";
 import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
 
+const PUBLIC_LISTING_STATUS = "available";
+const VERIFIED_LISTING_STATUS = "verified";
+
 type Profile = {
   id: string;
   full_name: string | null;
@@ -241,14 +244,25 @@ export default function PublicUserProfilePage() {
         setPropertyRelationshipStatus("not_started");
       }
 
-      const { data: listingsData } = await supabase
-        .from("listings")
-        .select(
-          "id, user_id, title, price, city, campus, address, status, is_featured, featured_until, created_at"
-        )
-        .eq("user_id", userId)
-        .neq("status", "rented")
-        .order("created_at", { ascending: false });
+      const { data: verifiedRows } = await supabase
+        .from("public_listing_verification_status")
+        .select("listing_id")
+        .eq("status", VERIFIED_LISTING_STATUS);
+
+      const verifiedListingIds =
+        verifiedRows?.map((row) => row.listing_id).filter(Boolean) || [];
+
+      const { data: listingsData } = verifiedListingIds.length
+        ? await supabase
+            .from("listings")
+            .select(
+              "id, user_id, title, price, city, campus, address, status, is_featured, featured_until, created_at"
+            )
+            .eq("user_id", userId)
+            .eq("status", PUBLIC_LISTING_STATUS)
+            .in("id", verifiedListingIds)
+            .order("created_at", { ascending: false })
+        : { data: [] };
 
       const ownerListings = (listingsData || []) as Listing[];
       setListings(ownerListings);

@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { getSafePublicCoordinate } from "@/lib/location-privacy";
 import {
+  getVerifiedPublicListingIds,
+  PUBLIC_LISTING_STATUS,
+} from "@/lib/listings/public-visibility";
+import {
   getOwnerBadgeLabel,
   getPlanEntitlements,
   normalizeOwnerPlan,
@@ -215,6 +219,20 @@ function compareByTrust(a: EnrichedSearchListing, b: EnrichedSearchListing) {
 
 export async function searchListings(params: ListingSearchParams) {
   const supabase = await createClient();
+  let verifiedListingIds: string[] = [];
+
+  try {
+    verifiedListingIds = await getVerifiedPublicListingIds(supabase as never);
+  } catch (error) {
+    console.error("SEARCH VERIFIED LISTING GATE ERROR:", error);
+    return {
+      listings: [],
+      count: 0,
+      page: Math.max(toNumber(params.page) || 1, 1),
+      pageSize: PAGE_SIZE,
+      hasMore: false,
+    };
+  }
 
   const page = Math.max(toNumber(params.page) || 1, 1);
   const from = (page - 1) * PAGE_SIZE;
@@ -236,6 +254,16 @@ export async function searchListings(params: ListingSearchParams) {
   const trustFilter = clean(extendedParams.trust);
 
   const sort = normalizeSort(clean(params.sort));
+
+  if (verifiedListingIds.length === 0) {
+    return {
+      listings: [],
+      count: 0,
+      page,
+      pageSize: PAGE_SIZE,
+      hasMore: false,
+    };
+  }
 
   function createListingQuery(includePublicCoordinates: boolean) {
     let query = supabase
@@ -268,8 +296,8 @@ export async function searchListings(params: ListingSearchParams) {
       `,
         { count: "exact" }
       )
-      .neq("status", "rented")
-      .neq("status", "draft");
+      .eq("status", PUBLIC_LISTING_STATUS)
+      .in("id", verifiedListingIds);
 
     if (q) {
       const safeQ = escapeSearchValue(q);
@@ -288,7 +316,9 @@ export async function searchListings(params: ListingSearchParams) {
       query = query.ilike("campus", `%${safeCampus}%`);
     }
 
-    if (status && status !== "rented") query = query.eq("status", status);
+    if (status && status !== PUBLIC_LISTING_STATUS) {
+      query = query.eq("status", "__not_public__");
+    }
     if (minPrice !== undefined) query = query.gte("price", minPrice);
     if (maxPrice !== undefined) query = query.lte("price", maxPrice);
     if (bedrooms !== undefined) query = query.gte("bedrooms", bedrooms);
