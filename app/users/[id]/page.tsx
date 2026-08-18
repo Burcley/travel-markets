@@ -37,7 +37,6 @@ import {
 import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
 
 const PUBLIC_LISTING_STATUS = "available";
-const VERIFIED_LISTING_STATUS = "verified";
 
 type Profile = {
   id: string;
@@ -244,13 +243,14 @@ export default function PublicUserProfilePage() {
         setPropertyRelationshipStatus("not_started");
       }
 
-      const { data: verifiedRows } = await supabase
-        .from("public_listing_verification_status")
-        .select("listing_id")
-        .eq("status", VERIFIED_LISTING_STATUS);
-
+      const eligibilityResponse = await fetch("/api/listings/public-eligible-ids", {
+        cache: "no-store",
+      });
+      const eligibilityData = await eligibilityResponse.json().catch(() => null);
       const verifiedListingIds =
-        verifiedRows?.map((row) => row.listing_id).filter(Boolean) || [];
+        eligibilityResponse.ok && Array.isArray(eligibilityData?.listingIds)
+          ? eligibilityData.listingIds.filter(Boolean)
+          : [];
 
       const { data: listingsData } = verifiedListingIds.length
         ? await supabase

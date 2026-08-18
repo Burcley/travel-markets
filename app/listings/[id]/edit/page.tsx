@@ -38,6 +38,7 @@ import {
 } from "@/lib/listing-transparency";
 import { generatePublicCoordinate } from "@/lib/location-privacy";
 import {
+  legacyAccountVerificationNotice,
   listingPropertyVerificationStatusLabel,
   propertyVerificationDocumentSelectionMessage,
 } from "@/lib/listings/property-verification-ui-core.mjs";
@@ -251,6 +252,8 @@ export default function EditListingPage() {
   const [occupancyNotes, setOccupancyNotes] = useState("");
   const [verificationRecord, setVerificationRecord] =
     useState<VerificationRecord | null>(null);
+  const [hasApprovedLegacyPropertyVerification, setHasApprovedLegacyPropertyVerification] =
+    useState(false);
   const [relationshipType, setRelationshipType] = useState("");
   const [otherRelationshipExplanation, setOtherRelationshipExplanation] =
     useState("");
@@ -302,6 +305,10 @@ export default function EditListingPage() {
   const verificationUploadError = verificationFiles
     .map((file) => validateSecureDocumentFile(file))
     .find(Boolean);
+  const legacyVerificationNotice = legacyAccountVerificationNotice({
+    hasListingVerification: Boolean(verificationRecord),
+    hasApprovedLegacyPropertyVerification,
+  });
 
   useEffect(() => {
     loadListing();
@@ -492,6 +499,17 @@ export default function EditListingPage() {
     setOtherRelationshipExplanation(
       nextVerification?.other_relationship_explanation || ""
     );
+
+    const { data: legacyVerification } = await supabase
+      .from("verification_submissions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("verification_type", "property_relationship")
+      .eq("status", "approved")
+      .limit(1)
+      .maybeSingle();
+
+    setHasApprovedLegacyPropertyVerification(Boolean(legacyVerification));
 
     const { data: requirementData } = await supabase
       .from("listing_document_requirements")
@@ -1586,6 +1604,23 @@ export default function EditListingPage() {
             />
           )}
           <VerificationDisclaimer />
+          {legacyVerificationNotice && (
+            <div className="space-y-3">
+              <ContextHelpBox
+                tone="warning"
+                title={legacyVerificationNotice.title}
+                description={legacyVerificationNotice.description}
+                bullets={[
+                  "Your account-level verification remains valid as a trust signal.",
+                  "Each property now needs its own listing-specific verification record.",
+                  "Submitting this form creates review for this listing only.",
+                ]}
+              />
+              <p className="text-sm font-bold text-pink-200">
+                {legacyVerificationNotice.actionLabel}
+              </p>
+            </div>
+          )}
           <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <p className="text-sm font-bold uppercase tracking-wide text-zinc-500">
               Current verification status

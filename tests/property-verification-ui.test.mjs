@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  legacyAccountVerificationNotice,
   listingPropertyVerificationState,
   listingPropertyVerificationStatusLabel,
   propertyVerificationDocumentSelectionMessage,
@@ -49,5 +50,56 @@ describe("listing property verification UI state", () => {
       description: "Property verification submitted and awaiting review.",
       actionLabel: null,
     });
+  });
+
+  it("shows legacy account approval as not-submitted for a specific listing", () => {
+    assert.deepEqual(
+      legacyAccountVerificationNotice({
+        hasListingVerification: false,
+        hasApprovedLegacyPropertyVerification: true,
+      }),
+      {
+        title: "Property verification not submitted",
+        description:
+          "Your landlord account was previously verified, but this specific property has not yet been verified.",
+        actionLabel: "Submit property verification",
+      }
+    );
+    assert.deepEqual(listingPropertyVerificationState(null), {
+      label: "Not submitted",
+      description: "Property verification has not been submitted for this listing.",
+      actionLabel: "Submit property verification",
+    });
+  });
+
+  it("does not show legacy account approval as a pending listing review", () => {
+    assert.equal(
+      legacyAccountVerificationNotice({
+        hasListingVerification: true,
+        hasApprovedLegacyPropertyVerification: true,
+      }),
+      null
+    );
+    assert.equal(listingPropertyVerificationStatusLabel("approved"), "Not submitted");
+  });
+
+  it("keeps multiple legacy listings independent as one is submitted and approved", () => {
+    const listingStates = {
+      a: null,
+      b: null,
+      c: null,
+      d: null,
+      e: null,
+    };
+
+    listingStates.a = "pending";
+    assert.equal(listingPropertyVerificationStatusLabel(listingStates.a), "Pending review");
+    assert.equal(listingPropertyVerificationStatusLabel(listingStates.b), "Not submitted");
+    assert.equal(listingPropertyVerificationStatusLabel(listingStates.c), "Not submitted");
+
+    listingStates.a = "verified";
+    assert.equal(listingPropertyVerificationStatusLabel(listingStates.a), "Verified");
+    assert.equal(listingPropertyVerificationStatusLabel(listingStates.d), "Not submitted");
+    assert.equal(listingPropertyVerificationStatusLabel(listingStates.e), "Not submitted");
   });
 });

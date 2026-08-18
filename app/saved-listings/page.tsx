@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 const PUBLIC_LISTING_STATUS = "available";
-const VERIFIED_LISTING_STATUS = "verified";
 
 type SavedRow = {
   id: string;
@@ -83,19 +82,24 @@ export default function SavedListingsPage() {
         return;
       }
 
-      const { data: verifiedRows, error: verifiedError } = await supabase
-        .from("public_listing_verification_status")
-        .select("listing_id")
-        .eq("status", VERIFIED_LISTING_STATUS)
-        .in("listing_id", listingIds);
+      const eligibilityResponse = await fetch("/api/listings/public-eligible-ids", {
+        cache: "no-store",
+      });
+      const eligibilityData = await eligibilityResponse.json().catch(() => null);
 
-      if (verifiedError) {
-        alert(verifiedError.message);
+      if (!eligibilityResponse.ok) {
+        alert("We could not load saved listing visibility right now.");
         return;
       }
 
-      const verifiedListingIds =
-        verifiedRows?.map((row) => row.listing_id).filter(Boolean) || [];
+      const publicEligibleSet = new Set(
+        Array.isArray(eligibilityData?.listingIds)
+          ? eligibilityData.listingIds.filter(Boolean)
+          : []
+      );
+      const verifiedListingIds = listingIds.filter((id) =>
+        publicEligibleSet.has(id)
+      );
 
       if (verifiedListingIds.length === 0) {
         setListings([]);

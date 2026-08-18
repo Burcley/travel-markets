@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 import AdvancedListingFilters from "@/components/AdvancedListingFilters";
 
 const PUBLIC_LISTING_STATUS = "available";
-const VERIFIED_LISTING_STATUS = "verified";
 
 type ListingImage = {
   image_url: string;
@@ -48,20 +47,21 @@ export default function ListingsPage() {
   useEffect(() => {
     async function fetchListings() {
       setLoading(true);
-      const { data: verifiedRows, error: verifiedError } = await supabase
-        .from("public_listing_verification_status")
-        .select("listing_id")
-        .eq("status", VERIFIED_LISTING_STATUS);
+      const eligibilityResponse = await fetch("/api/listings/public-eligible-ids", {
+        cache: "no-store",
+      });
+      const eligibilityData = await eligibilityResponse.json().catch(() => null);
 
-      if (verifiedError) {
-        console.error("Error fetching verified listings:", verifiedError.message);
+      if (!eligibilityResponse.ok) {
+        console.error("Error fetching public listing eligibility");
         setListings([]);
         setLoading(false);
         return;
       }
 
-      const verifiedListingIds =
-        verifiedRows?.map((row) => row.listing_id).filter(Boolean) || [];
+      const verifiedListingIds = Array.isArray(eligibilityData?.listingIds)
+        ? eligibilityData.listingIds.filter(Boolean)
+        : [];
 
       if (verifiedListingIds.length === 0) {
         setListings([]);

@@ -15,6 +15,10 @@ type Listing = {
   verification_status?: string | null;
 };
 
+type PublicListingEligibility = {
+  publiclyEligible?: boolean;
+};
+
 type InquiryRow = {
   id: string;
   status: "pending" | "accepted" | "declined";
@@ -158,22 +162,16 @@ export default function BookViewingPage() {
       return;
     }
 
-    const { data: verificationData, error: verificationError } = await supabase
-      .from("public_listing_verification_status")
-      .select("status")
-      .eq("listing_id", safeListing.id)
-      .maybeSingle();
+    const eligibilityResponse = await fetch(
+      `/api/listings/${safeListing.id}/public-eligibility`,
+      { cache: "no-store" }
+    );
+    const eligibilityData =
+      (await eligibilityResponse.json().catch(() => null)) as
+        | PublicListingEligibility
+        | null;
 
-    if (verificationError) {
-      if (process.env.NODE_ENV !== "production") {
-        console.error("VIEWING BOOKING VERIFICATION ERROR:", verificationError);
-      }
-      setError(t("listingLoadError"));
-      setLoading(false);
-      return;
-    }
-
-    if (verificationData?.status !== "verified") {
+    if (!eligibilityResponse.ok || !eligibilityData?.publiclyEligible) {
       setError(t("notFound"));
       setLoading(false);
       return;

@@ -111,6 +111,10 @@ type ListingVerificationStatus = {
   owner_visible_reason: string | null;
 };
 
+type PublicListingEligibility = {
+  publiclyEligible?: boolean;
+};
+
 type ListingDocumentRequirement = {
   id: string;
   document_type: string;
@@ -282,10 +286,21 @@ export default function ListingDetailsPage() {
         return;
       }
 
-      if (safeVerificationStatus?.status !== "verified" && !canManageListing) {
-        setPageError(t("errors.notFound"));
-        setListing(null);
-        return;
+      if (!canManageListing) {
+        const eligibilityResponse = await fetch(
+          `/api/listings/${safeListing.id}/public-eligibility`,
+          { cache: "no-store" }
+        );
+        const eligibilityData =
+          (await eligibilityResponse.json().catch(() => null)) as
+            | PublicListingEligibility
+            | null;
+
+        if (!eligibilityResponse.ok || !eligibilityData?.publiclyEligible) {
+          setPageError(t("errors.notFound"));
+          setListing(null);
+          return;
+        }
       }
 
       setListing(safeListing);
