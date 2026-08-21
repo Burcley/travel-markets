@@ -131,16 +131,6 @@ export default async function VerificationCenterPage() {
   };
   const host = isHostRole(safeProfile.role);
 
-  const { data: propertyVerification } = host
-    ? await supabase
-        .from("listing_verifications")
-        .select("status, reviewed_at, submitted_at, owner_visible_reason")
-        .eq("owner_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    : { data: null };
-
   const { data: submissions, error: submissionsError } = await supabase
     .from("verification_submissions")
     .select("verification_type, status, submitted_at, reviewed_at, rejection_reason")
@@ -189,9 +179,7 @@ export default async function VerificationCenterPage() {
     studentSubmission?.status || safeProfile.student_verification_status,
     Boolean(safeProfile.student_email_verified)
   );
-  const hostStatus = normalizeVerificationStatus(
-    propertySubmission?.status || propertyVerification?.status
-  );
+  const hostStatus = normalizeVerificationStatus(propertySubmission?.status);
   const profileForScore = {
     ...safeProfile,
     identity_verification_status:
@@ -206,7 +194,7 @@ export default async function VerificationCenterPage() {
         submitted_at: propertySubmission.submitted_at,
         owner_visible_reason: propertySubmission.rejection_reason,
       }
-    : propertyVerification;
+    : null;
   const completion = calculateProfileCompletion({
     profile: profileForScore,
     emailVerified,
@@ -268,17 +256,19 @@ export default async function VerificationCenterPage() {
 
   if (host) {
     cards.push({
-      title: "Property Relationship Verification",
-      explanation: "Show that you own, manage, or are authorized to advertise a property.",
+      title: "Landlord Verification",
+      explanation:
+        "Show that you are a landlord, property manager, or authorized rental operator.",
       status: hostStatus,
-      cta: "Upload Property Ownership",
+      cta: "Upload Landlord Document",
       href: "/verify-identity?type=property_relationship",
       estimatedReviewTime: "Usually 1-3 business days",
-      security: "Students cannot view your uploaded property documents.",
-      why: "Verified property relationships help students trust that listings are legitimate.",
-      verifiedAt: propertySubmission?.reviewed_at || propertyVerification?.reviewed_at,
-      rejectedReason:
-        propertySubmission?.rejection_reason || propertyVerification?.owner_visible_reason,
+      security:
+        "Students cannot view your uploaded landlord or property-management documents.",
+      why:
+        "Landlord verification helps students trust the person behind the listings.",
+      verifiedAt: propertySubmission?.reviewed_at,
+      rejectedReason: propertySubmission?.rejection_reason,
       icon: Building2,
     });
   } else {

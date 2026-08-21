@@ -143,18 +143,8 @@ export default function OnboardingVerificationsPage() {
     );
 
     if (isHostRole(nextRole)) {
-      const { data: propertyVerification } = await supabase
-        .from("listing_verifications")
-        .select("status")
-        .eq("owner_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
       setPropertyStatus(
-        normalizeVerificationStatus(
-          submissionsByType.property_relationship?.status || propertyVerification?.status
-        )
+        normalizeVerificationStatus(submissionsByType.property_relationship?.status)
       );
     }
 
@@ -246,14 +236,15 @@ export default function OnboardingVerificationsPage() {
 
   if (isHostRole(role)) {
     cards.push({
-      title: "Property Relationship Verification",
-      explanation: "Verify ownership, management authority, or authorization to advertise.",
-      why: "Students can trust that listings are connected to a real authorized host.",
-      security: "Property documents are private and never shown publicly.",
+      title: "Landlord Verification",
+      explanation:
+        "Verify your landlord, property-management, or authorized rental operator role once.",
+      why: "Students can trust the person or company behind your listings.",
+      security: "Uploaded landlord documents are private and never shown publicly.",
       reviewTime: "1-3 business days",
       status: propertyStatus,
       href: "/verify-identity?type=property_relationship",
-      action: "Upload Property Ownership",
+      action: "Upload Landlord Document",
       icon: <Building2 className="h-6 w-6" />,
     });
   } else {

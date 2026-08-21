@@ -50,12 +50,12 @@ const copy = {
   },
   property_relationship: {
     icon: Building2,
-    eyebrow: "Property Relationship Verification",
-    title: "Upload property authorization",
+    eyebrow: "Landlord Verification",
+    title: "Upload landlord or property-manager document",
     subtitle:
-      "Hosts can verify ownership, management authority, or authorization to advertise a property.",
-    documentLabel: "Ownership or authorization document",
-    button: "Submit property verification",
+      "Verify your landlord or property-management role once so you can publish and manage listings without repeating property verification for every listing.",
+    documentLabel: "Landlord, business, management, attestation, or authorization document",
+    button: "Submit landlord verification",
   },
 } satisfies Record<VerificationType, {
   icon: typeof IdCard;
@@ -324,22 +324,47 @@ function VerifyIdentityContent() {
           {verificationType === "property_relationship" && (
             <>
               <SelectField
-                label="Relationship to property"
+                label="Landlord or management role"
                 value={relationshipType}
                 onChange={setRelationshipType}
                 options={[
-                  ["owner", "Owner"],
-                  ["authorized_property_manager", "Authorized property manager"],
-                  ["agent", "Agent"],
-                  ["representative", "Representative"],
+                  ["owner", "Landlord / owner"],
+                  ["property_manager", "Property manager"],
+                  ["business_operator", "Property-management business"],
+                  ["authorized_representative", "Authorized representative"],
+                  ["attestation", "Signed landlord/property-manager attestation"],
+                  ["other", "Other supporting document"],
                 ]}
               />
               <Field
-                label="Listing ID or property reference (optional)"
+                label="Company or reference note (optional)"
                 value={listingId}
                 onChange={setListingId}
-                placeholder="Paste a listing ID if this belongs to a specific listing"
+                placeholder="Example: company name, management role, or context for admin review"
               />
+              <details className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-zinc-300">
+                <summary className="cursor-pointer font-bold text-white">
+                  Why we ask for this
+                </summary>
+                <p className="mt-3 leading-6 text-zinc-400">
+                  Travel Markets reviews one account-level document so students
+                  can trust that listings are posted by a legitimate landlord,
+                  property manager, or authorized rental operator.
+                </p>
+              </details>
+              <details className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-zinc-300">
+                <summary className="cursor-pointer font-bold text-white">
+                  Privacy & document guidance
+                </summary>
+                <p className="mt-3 leading-6 text-zinc-400">
+                  Upload a relevant supporting document, such as a property
+                  management agreement, business registration showing rental
+                  management activity, authorization to manage/rent, signed
+                  attestation, or ownership-related document if you choose.
+                  Redact banking details, mortgage balances, SINs, complete
+                  account numbers, and unrelated private information.
+                </p>
+              </details>
               <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/50 p-4 text-sm text-zinc-300">
                 <input
                   type="checkbox"
@@ -348,8 +373,10 @@ function VerifyIdentityContent() {
                   className="mt-1"
                 />
                 <span>
-                  I confirm I am authorized to advertise this property on Travel
-                  Markets and that the submitted documents are accurate.
+                  I confirm I am authorized to advertise rental housing on Travel
+                  Markets and understand a signed attestation is supporting
+                  information for admin review, not automatic legal proof of
+                  ownership.
                 </span>
               </label>
             </>

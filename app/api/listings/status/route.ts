@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { canCreateOrActivateListing } from "@/lib/subscriptions/server";
+import { getLandlordAccountEligibility } from "@/lib/landlord-account-eligibility";
 
 const ACTIVE_STATUSES = new Set(["available", "pending"]);
 const ALLOWED_STATUSES = new Set(["draft", "available", "pending", "rented"]);
-const publicApprovalError =
-  "Property verification must be approved before this listing can go live.";
+const publicApprovalError = "Complete landlord verification to publish listings.";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -72,23 +72,46 @@ export async function POST(request: NextRequest) {
   }
 
   if (status === "available") {
-    const { data: verification, error: verificationError } = await admin
-      .from("listing_verifications")
-      .select("id, status")
-      .eq("listing_id", listingId)
-      .eq("owner_id", user.id)
-      .maybeSingle();
+    const [{ data: profile, error: profileError }, { data: submissions, error }] =
+      await Promise.all([
+        admin
+          .from("profiles")
+          .select(
+            "id, role, is_admin, account_status, status, identity_verified, is_verified, identity_verification_status"
+          )
+          .eq("id", user.id)
+          .maybeSingle(),
+        admin
+          .from("verification_submissions")
+          .select("verification_type, status")
+          .eq("user_id", user.id),
+      ]);
 
-    if (verificationError) {
-      console.error("LISTING STATUS VERIFICATION READ ERROR:", verificationError);
+    if (profileError || error) {
+      console.error("LISTING STATUS ACCOUNT VERIFICATION READ ERROR:", {
+        profileError,
+        submissionError: error,
+      });
       return NextResponse.json(
         { error: "We could not verify this listing status." },
         { status: 500 }
       );
     }
 
-    if (verification?.status !== "verified") {
-      return NextResponse.json({ error: publicApprovalError }, { status: 400 });
+    const eligibility = getLandlordAccountEligibility({
+      profile,
+      submissions: submissions || [],
+    });
+
+    if (!eligibility.canPublishListings) {
+      return NextResponse.json(
+        {
+          error: publicApprovalError,
+          code: eligibility.reason,
+          verificationUrl: "/dashboard/verification",
+        },
+        { status: 403 }
+      );
     }
   }
 

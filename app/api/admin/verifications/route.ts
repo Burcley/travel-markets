@@ -6,7 +6,6 @@ import {
 } from "@/lib/admin-verification-profiles";
 import {
   documentReviewStatusForAdminAction,
-  legacyRelationshipTypeForListingVerification,
   listingVerificationStatusForAdminAction,
 } from "@/lib/admin-verification-review-core.mjs";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -506,77 +505,21 @@ export async function POST(request: Request) {
     await admin.from("profiles").update(profileUpdate).eq("id", submission.user_id);
   }
 
-  if (submission.verification_type === "property_relationship") {
-    const metadata = (submission.document_metadata || {}) as Record<string, unknown>;
-    const listingId =
-      typeof metadata.listingId === "string" && metadata.listingId.trim()
-        ? metadata.listingId.trim()
-        : "";
+  if (
+    nextStatus === "approved" &&
+    ["identity", "property_relationship"].includes(submission.verification_type)
+  ) {
+    const { error: foundingError } = await admin.rpc("evaluate_founding_landlord", {
+      p_user_id: submission.user_id,
+    });
 
-    if (listingId) {
-      const { data: listing } = await admin
-        .from("listings")
-        .select("id, user_id")
-        .eq("id", listingId)
-        .eq("user_id", submission.user_id)
-        .maybeSingle();
-      const relationshipType = legacyRelationshipTypeForListingVerification(
-        typeof metadata.relationshipType === "string"
-          ? metadata.relationshipType
-          : null
-      );
-      const listingStatus = listingVerificationStatusForAdminAction(action);
-
-      if (listing && relationshipType && listingStatus) {
-        const { data: existingListingVerification } = await admin
-          .from("listing_verifications")
-          .select("id, status")
-          .eq("listing_id", listing.id)
-          .maybeSingle();
-
-        const verificationId =
-          existingListingVerification?.id || crypto.randomUUID();
-
-        const { error: listingVerificationError } = await admin
-          .from("listing_verifications")
-          .upsert(
-            {
-              id: verificationId,
-              listing_id: listing.id,
-              owner_id: submission.user_id,
-              relationship_type: relationshipType,
-              status: listingStatus,
-              submitted_at: now,
-              reviewed_at: now,
-              reviewed_by: user.id,
-              owner_visible_reason:
-                listingStatus === "verified" ? null : reason,
-              updated_at: now,
-            },
-            { onConflict: "listing_id" }
-          );
-
-        if (listingVerificationError) {
-          console.error("LEGACY PROPERTY SUBMISSION LISTING SYNC ERROR:", {
-            submissionId: submission.id,
-            listingId: listing.id,
-            error: listingVerificationError,
-          });
-        } else {
-          await admin.from("listing_verification_audit_events").insert({
-            listing_id: listing.id,
-            verification_id: verificationId,
-            actor_id: user.id,
-            event_type: `legacy_property_submission_${listingStatus}`,
-            metadata: {
-              submissionId: submission.id,
-              action,
-              reason,
-              previous_submission_status: submission.status,
-            },
-          });
-        }
-      }
+    if (foundingError) {
+      console.error("FOUNDING EVALUATION AFTER VERIFICATION ERROR:", {
+        userId: submission.user_id,
+        verificationType: submission.verification_type,
+        code: foundingError.code,
+        message: foundingError.message,
+      });
     }
   }
 

@@ -7,21 +7,14 @@ import { createClient } from "@/lib/supabase/client";
 import {
   appliesWhenOptions,
   documentTypes,
-  getPropertyVerificationDocumentTypesForRelationship,
-  propertyVerificationDocumentTypes,
-  relationshipGuidance,
-  relationshipTypes,
   requirementLevelGuidance,
   requirementLevels,
-  validateSecureDocumentFile,
 } from "@/lib/trust/document-types";
 import {
   FairHousingNotice,
   OntarioOccupancyNotice,
-  VerificationDisclaimer,
 } from "@/components/trust/TrustDisclaimers";
 import ContextHelpBox from "@/components/trust/ContextHelpBox";
-import TrustSetupProgress from "@/components/trust/TrustSetupProgress";
 import { geocodeListingAddressWithMapbox } from "@/lib/listing-address-geocode";
 import {
   amenityItems,
@@ -37,11 +30,6 @@ import {
   type UtilityStatus,
 } from "@/lib/listing-transparency";
 import { generatePublicCoordinate } from "@/lib/location-privacy";
-import {
-  legacyAccountVerificationNotice,
-  listingPropertyVerificationStatusLabel,
-  propertyVerificationDocumentSelectionMessage,
-} from "@/lib/listings/property-verification-ui-core.mjs";
 
 type ExistingImage = {
   id: string;
@@ -57,22 +45,6 @@ type NewImage = {
   localId: string;
   file: File;
   previewUrl: string;
-};
-
-type VerificationDocument = {
-  id: string;
-  original_filename: string | null;
-  review_status: string;
-  created_at: string;
-};
-
-type VerificationRecord = {
-  id: string;
-  status: string;
-  relationship_type: string | null;
-  owner_visible_reason: string | null;
-  other_relationship_explanation?: string | null;
-  listing_verification_documents?: VerificationDocument[];
 };
 
 type RequirementEditorItem = {
@@ -250,17 +222,6 @@ export default function EditListingPage() {
   const [estimatedOtherOccupantCount, setEstimatedOtherOccupantCount] =
     useState("");
   const [occupancyNotes, setOccupancyNotes] = useState("");
-  const [verificationRecord, setVerificationRecord] =
-    useState<VerificationRecord | null>(null);
-  const [hasApprovedLegacyPropertyVerification, setHasApprovedLegacyPropertyVerification] =
-    useState(false);
-  const [relationshipType, setRelationshipType] = useState("");
-  const [otherRelationshipExplanation, setOtherRelationshipExplanation] =
-    useState("");
-  const [verificationDocumentType, setVerificationDocumentType] = useState("");
-  const [verificationFiles, setVerificationFiles] = useState<File[]>([]);
-  const [verificationDisclaimerAcknowledged, setVerificationDisclaimerAcknowledged] =
-    useState(false);
   const [fairHousingAcknowledged, setFairHousingAcknowledged] = useState(false);
   const [requirements, setRequirements] = useState<RequirementEditorItem[]>([]);
   const sharedWithOwner =
@@ -274,24 +235,8 @@ export default function EditListingPage() {
     selfContainedUnit,
     otherOccupantsPresent,
   ].every((value) => value !== "");
-  const existingVerificationDocumentUploaded = Boolean(
-    verificationRecord?.listing_verification_documents?.some(
-      (document) => document.review_status !== "rejected"
-    )
-  );
-  const relationshipSelected = Boolean(relationshipType);
-  const supportingDocumentSelected =
-    existingVerificationDocumentUploaded || verificationFiles.length > 0;
-  const readyToPublish =
-    relationshipSelected &&
-    supportingDocumentSelected &&
-    verificationDisclaimerAcknowledged &&
-    livingArrangementCompleted &&
-    fairHousingAcknowledged &&
-    (relationshipType !== "other" || Boolean(otherRelationshipExplanation.trim()));
+  const readyToPublish = livingArrangementCompleted && fairHousingAcknowledged;
   const progressItems = [
-    { label: "Property relationship selected", complete: relationshipSelected },
-    { label: "Verification document selected", complete: supportingDocumentSelected },
     { label: "Living arrangement completed", complete: livingArrangementCompleted },
     {
       label: "Fair-housing acknowledgement accepted",
@@ -299,16 +244,6 @@ export default function EditListingPage() {
     },
     { label: "Ready to publish", complete: readyToPublish },
   ];
-  const selectedRelationshipGuidance = relationshipGuidance[relationshipType];
-  const verificationDocumentTypeOptions =
-    getPropertyVerificationDocumentTypesForRelationship(relationshipType);
-  const verificationUploadError = verificationFiles
-    .map((file) => validateSecureDocumentFile(file))
-    .find(Boolean);
-  const legacyVerificationNotice = legacyAccountVerificationNotice({
-    hasListingVerification: Boolean(verificationRecord),
-    hasApprovedLegacyPropertyVerification,
-  });
 
   useEffect(() => {
     loadListing();
@@ -447,9 +382,6 @@ export default function EditListingPage() {
       listing.estimated_other_occupant_count?.toString() || ""
     );
     setOccupancyNotes(listing.occupancy_notes || "");
-    setVerificationDisclaimerAcknowledged(
-      Boolean(listing.verification_disclaimer_acknowledged)
-    );
     setFairHousingAcknowledged(Boolean(listing.fair_housing_acknowledged));
 
     const { data: images } = await supabase
@@ -465,51 +397,6 @@ export default function EditListingPage() {
     });
 
     setExistingImages(sortedImages);
-
-    const { data: verification, error: verificationError } = await supabase
-      .from("listing_verifications")
-      .select(
-        "id, status, relationship_type, owner_visible_reason, other_relationship_explanation, listing_verification_documents (id, original_filename, review_status, created_at)"
-      )
-      .eq("listing_id", listingId)
-      .maybeSingle();
-
-    let nextVerification = verification as VerificationRecord | null;
-
-    if (verificationError) {
-      console.error("LISTING VERIFICATION LOAD ERROR:", verificationError);
-
-      const { data: fallbackVerification, error: fallbackError } = await supabase
-        .from("listing_verifications")
-        .select(
-          "id, status, relationship_type, owner_visible_reason, listing_verification_documents (id, original_filename, review_status, created_at)"
-        )
-        .eq("listing_id", listingId)
-        .maybeSingle();
-
-      if (fallbackError) {
-        console.error("LISTING VERIFICATION FALLBACK LOAD ERROR:", fallbackError);
-      } else {
-        nextVerification = fallbackVerification as VerificationRecord | null;
-      }
-    }
-
-    setVerificationRecord(nextVerification);
-    setRelationshipType(nextVerification?.relationship_type || "");
-    setOtherRelationshipExplanation(
-      nextVerification?.other_relationship_explanation || ""
-    );
-
-    const { data: legacyVerification } = await supabase
-      .from("verification_submissions")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("verification_type", "property_relationship")
-      .eq("status", "approved")
-      .limit(1)
-      .maybeSingle();
-
-    setHasApprovedLegacyPropertyVerification(Boolean(legacyVerification));
 
     const { data: requirementData } = await supabase
       .from("listing_document_requirements")
@@ -958,7 +845,7 @@ export default function EditListingPage() {
         utilities_details: buildUtilitiesDetails(),
         amenities_details: buildAmenitiesDetails(),
         lease_conditions: buildLeaseConditions(),
-        verification_disclaimer_acknowledged: verificationDisclaimerAcknowledged,
+        verification_disclaimer_acknowledged: true,
         fair_housing_acknowledged: fairHousingAcknowledged,
         owner_occupies_property: toNullableBoolean(ownerOccupiesProperty),
         owner_family_occupies_property: toNullableBoolean(
@@ -1000,61 +887,17 @@ export default function EditListingPage() {
         }
       }
 
-      const criticalAddressChanged =
-        Boolean(previousListing) &&
-        (addressChanged ||
-          relationshipType !== (verificationRecord?.relationship_type || ""));
-
-      if (criticalAddressChanged) {
-        const { error: verificationStateError } = await supabase
-          .from("listing_verifications")
-          .update({
-            status: verificationFiles.length > 0 ? "pending" : "more_information_required",
-            relationship_type: relationshipType || null,
-            other_relationship_explanation:
-              relationshipType === "other"
-                ? otherRelationshipExplanation.trim()
-                : null,
-            owner_visible_reason:
-              "Verification needs renewed review because key listing address or relationship details changed.",
-          })
-          .eq("listing_id", listingId);
-
-        if (verificationStateError) {
-          logListingEditError(
-            "Listing edit verification metadata update failed",
-            verificationStateError,
-            { listingId }
-          );
-          throw new Error(
-            clientSaveMessage(
-              "Your listing changes were saved, but the verification details could not be updated.",
-              verificationStateError
-            )
-          );
-        }
-
-        const { error: auditError } = await supabase.from("listing_verification_audit_events").insert({
+      if (previousListing && addressChanged) {
+        await supabase.from("listing_verification_audit_events").insert({
           listing_id: listingId,
-          verification_id: verificationRecord?.id || null,
+          verification_id: null,
           actor_id: user.id,
-          event_type: "critical_listing_change_requires_review",
+          event_type: "listing_address_updated_by_verified_landlord",
           metadata: {
             changed_by_owner: true,
+            account_level_landlord_flow: true,
           },
         });
-
-        if (auditError) {
-          logListingEditError("Listing edit verification audit insert failed", auditError, {
-            listingId,
-          });
-          throw new Error(
-            clientSaveMessage(
-              "Your listing changes were saved, but the verification details could not be updated.",
-              auditError
-            )
-          );
-        }
       }
 
       const { error: deleteRequirementsError } = await supabase
@@ -1115,48 +958,6 @@ export default function EditListingPage() {
             )
           );
         }
-      }
-
-      if (verificationFiles.length > 0 && relationshipType) {
-        const invalidFile = verificationFiles
-          .map((file) => validateSecureDocumentFile(file))
-          .find(Boolean);
-
-        if (invalidFile) throw new Error(invalidFile);
-
-        if (!verificationDocumentType) {
-          throw new Error("Choose what your verification document is before saving.");
-        }
-
-        if (relationshipType === "other" && !otherRelationshipExplanation.trim()) {
-          throw new Error("Explain the other authorized relationship before saving.");
-        }
-
-        const formData = new FormData();
-        formData.set("listingId", listingId);
-        formData.set("relationshipType", relationshipType);
-        formData.set("documentType", verificationDocumentType);
-        formData.set(
-          "otherRelationshipExplanation",
-          otherRelationshipExplanation.trim()
-        );
-        verificationFiles.forEach((file) => formData.append("files", file));
-
-        const response = await fetch("/api/listing-verifications", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          console.error("LISTING VERIFICATION UPDATE ERROR:", data);
-          throw new Error(
-            data?.error ||
-              "Your listing changes were saved, but the new verification document could not be uploaded."
-          );
-        }
-
-        setVerificationFiles([]);
       }
 
       if (shouldPublishDraft) {
@@ -1271,7 +1072,7 @@ export default function EditListingPage() {
         <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
           <div className="space-y-8">
             <div className="lg:hidden">
-              <TrustSetupProgress items={progressItems} />
+              <ListingCompletionProgress items={progressItems} />
             </div>
 
         <section className="grid gap-5 md:grid-cols-2">
@@ -1552,235 +1353,6 @@ export default function EditListingPage() {
             <textarea value={additionalFees} onChange={(event) => setAdditionalFees(event.target.value)} placeholder="Additional fees" rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white" />
             <textarea value={leaseConditionsNotes} onChange={(event) => setLeaseConditionsNotes(event.target.value)} placeholder="Additional lease notes" rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white" />
           </div>
-        </section>
-
-        <section className="space-y-5 rounded-3xl border border-pink-500/20 bg-pink-500/5 p-6">
-          <div>
-            <h2 className="text-2xl font-bold text-pink-200">
-              Property and Listing Verification
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Update the relationship and supporting documents when ownership,
-              authorization, or address details change.
-            </p>
-          </div>
-          <ContextHelpBox
-            title="Why property verification is required"
-            description="Travel Markets requires supporting documents before a listing can be published. The documents help our team review whether your account appears connected to the property or authorized to advertise it."
-            bullets={[
-              "Your document is stored privately.",
-              "Students cannot view your uploaded verification documents.",
-              "Your listing will show “Verification pending” until an admin completes review.",
-              "Verification does not guarantee ownership, legality, safety, availability or property condition.",
-              "Remove unnecessary financial and personal information before uploading.",
-            ]}
-          />
-          {verificationRecord?.status === "verified" && (
-            <ContextHelpBox
-              tone="warning"
-              title="Changes may require re-verification"
-              description="Editing key property address, relationship or verification details may move this listing back into review until Travel Markets can confirm the updated information."
-            />
-          )}
-          {verificationRecord?.status === "more_information_required" && (
-            <ContextHelpBox
-              tone="warning"
-              title="More information requested"
-              description={
-                verificationRecord.owner_visible_reason ||
-                "Travel Markets needs more information before this listing can be approved."
-              }
-            />
-          )}
-          {(verificationRecord?.status === "declined" ||
-            verificationRecord?.status === "rejected") && (
-            <ContextHelpBox
-              tone="warning"
-              title="Review the reason below, correct the information and submit updated documents."
-              description={
-                verificationRecord.owner_visible_reason ||
-                "Travel Markets could not approve the current verification details."
-              }
-            />
-          )}
-          <VerificationDisclaimer />
-          {legacyVerificationNotice && (
-            <div className="space-y-3">
-              <ContextHelpBox
-                tone="warning"
-                title={legacyVerificationNotice.title}
-                description={legacyVerificationNotice.description}
-                bullets={[
-                  "Your account-level verification remains valid as a trust signal.",
-                  "Each property now needs its own listing-specific verification record.",
-                  "Submitting this form creates review for this listing only.",
-                ]}
-              />
-              <p className="text-sm font-bold text-pink-200">
-                {legacyVerificationNotice.actionLabel}
-              </p>
-            </div>
-          )}
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-            <p className="text-sm font-bold uppercase tracking-wide text-zinc-500">
-              Current verification status
-            </p>
-            <p className="mt-2 text-lg font-black text-white">
-              {formatVerificationStatus(verificationRecord?.status)}
-            </p>
-            {verificationRecord?.owner_visible_reason && (
-              <p className="mt-2 text-sm leading-6 text-amber-100/80">
-                {verificationRecord.owner_visible_reason}
-              </p>
-            )}
-          </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <SelectField
-              label="Relationship type *"
-              value={relationshipType}
-              setValue={(value) => {
-                setRelationshipType(value);
-                setVerificationDocumentType("");
-                if (value !== "other") setOtherRelationshipExplanation("");
-              }}
-              options={[
-                ["", "Select relationship"],
-                ...relationshipTypes.map((item) => [item.value, item.label]),
-              ]}
-            />
-            <SelectField
-              label="Verification document type *"
-              value={verificationDocumentType}
-              setValue={setVerificationDocumentType}
-              options={[
-                ["", "Select document type"],
-                ...(relationshipType
-                  ? verificationDocumentTypeOptions
-                  : propertyVerificationDocumentTypes
-                ).map((item) => [item.value, item.label]),
-              ]}
-            />
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Upload additional documents{" "}
-                <span className="text-xs text-pink-300">
-                  Required to publish
-                </span>
-              </label>
-              <ContextHelpBox
-                title="Before uploading"
-                description="Upload a clear PDF or image showing your relationship to the property."
-                bullets={[
-                  "Maximum file size: 10 MB",
-                  "Accepted formats: PDF, JPG, PNG and WEBP",
-                  "Cover account numbers, mortgage balances and banking details",
-                  "Do not upload unrelated personal documents",
-                  "Upload at least one valid supporting document before publishing",
-                ]}
-                className="mb-3"
-              />
-              <input
-                type="file"
-                multiple
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                disabled={!verificationDocumentType}
-                onChange={(event) =>
-                  setVerificationFiles((current) => [
-                    ...current,
-                    ...Array.from(event.target.files || []),
-                  ])
-                }
-                className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              <p
-                className={`mt-3 rounded-2xl border p-3 text-sm font-semibold ${
-                  verificationUploadError
-                    ? "border-red-500/20 bg-red-500/10 text-red-200"
-                    : supportingDocumentSelected
-                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-                      : "border-white/10 bg-white/[0.03] text-zinc-400"
-                }`}
-                aria-live="polite"
-              >
-                {verificationUploadError ||
-                  propertyVerificationDocumentSelectionMessage({
-                    hasSelectedFiles: supportingDocumentSelected,
-                    persisted: false,
-                  })}
-              </p>
-            </div>
-          </div>
-          {relationshipType === "other" && (
-            <textarea
-              value={otherRelationshipExplanation}
-              onChange={(event) =>
-                setOtherRelationshipExplanation(event.target.value)
-              }
-              placeholder="Explain the other authorized relationship"
-              rows={3}
-              className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
-            />
-          )}
-          {selectedRelationshipGuidance && (
-            <ContextHelpBox
-              title={selectedRelationshipGuidance.title}
-              description={selectedRelationshipGuidance.description}
-              bullets={selectedRelationshipGuidance.examples}
-            />
-          )}
-          <div className="grid gap-3">
-            {verificationRecord?.listing_verification_documents?.map((document) => (
-              <div
-                key={document.id}
-                className="rounded-2xl border border-white/10 bg-black/40 p-4"
-              >
-                <p className="font-bold text-white">
-                  {document.original_filename || "Verification document"}
-                </p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Review status: {formatVerificationStatus(document.review_status)}
-                </p>
-              </div>
-            ))}
-            {verificationFiles.map((file, index) => (
-              <div
-                key={`${file.name}-${index}`}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4"
-              >
-                <div>
-                  <p className="font-bold text-white">{file.name}</p>
-                  <p className="text-sm text-zinc-400">
-                    New upload • {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setVerificationFiles((current) =>
-                      current.filter((_, fileIndex) => fileIndex !== index)
-                    )
-                  }
-                  className="rounded-xl border border-white/10 px-3 py-2 text-sm hover:bg-white/10"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-          <label className="flex items-start gap-3 text-sm leading-6 text-zinc-300">
-            <input
-              type="checkbox"
-              checked={verificationDisclaimerAcknowledged}
-              onChange={(event) =>
-                setVerificationDisclaimerAcknowledged(event.target.checked)
-              }
-              className="mt-1 h-4 w-4 accent-pink-500"
-            />
-            <span>I acknowledge the verification disclaimer.</span>
-            <span className="font-semibold text-pink-200">
-              Required to publish.
-            </span>
-          </label>
         </section>
 
         <section className="space-y-5 rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
@@ -2086,7 +1658,7 @@ export default function EditListingPage() {
 
           <aside className="hidden lg:block">
             <div className="sticky top-28">
-              <TrustSetupProgress items={progressItems} />
+              <ListingCompletionProgress items={progressItems} />
             </div>
           </aside>
         </div>
@@ -2168,8 +1740,43 @@ function HelpField({
   );
 }
 
-function formatVerificationStatus(status?: string | null) {
-  return listingPropertyVerificationStatusLabel(status);
+function ListingCompletionProgress({
+  items,
+}: {
+  items: Array<{ label: string; complete: boolean }>;
+}) {
+  const completeCount = items.filter((item) => item.complete).length;
+  const percent = Math.round((completeCount / items.length) * 100);
+
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-black text-white">Listing completion</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Keep the essentials ready before publishing.
+          </p>
+        </div>
+        <p className="text-sm font-black text-pink-200">{percent}%</p>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-pink-400 transition-all"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <div className="mt-4 space-y-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-zinc-300">{item.label}</span>
+            <span className={item.complete ? "text-emerald-300" : "text-zinc-500"}>
+              {item.complete ? "Done" : "Needed"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function RequirementEditor({

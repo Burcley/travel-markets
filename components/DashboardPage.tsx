@@ -761,7 +761,6 @@ function FoundingLandlordPanel({
   );
   const profile = foundingLandlord.profile;
   const status = profile?.founding_status || "not_eligible";
-  const number = profile?.founding_landlord_number;
   const confirmed = status === "confirmed" && profile?.is_founding_landlord;
   const expirationLabel = profile?.founding_reservation_expires_at
     ? formatDate(profile.founding_reservation_expires_at, "Not available")
@@ -773,11 +772,11 @@ function FoundingLandlordPanel({
       done: status !== "not_eligible" && status !== "disqualified",
     },
     {
-      label: "Identity or landlord verification approved",
+      label: "Identity and landlord verification approved",
       done: foundingLandlord.progress.hasLandlordVerification,
     },
     {
-      label: "At least one verified active listing",
+      label: "Founder benefits ready",
       done: foundingLandlord.progress.hasApprovedPublishedListing,
     },
   ];
@@ -818,8 +817,8 @@ function FoundingLandlordPanel({
                 Founding Landlord Program
               </p>
               <h2 className="text-2xl font-black sm:text-3xl">
-                {confirmed && number
-                  ? `Founding Landlord #${number} of ${foundingLandlord.stats.maxPositions}`
+                {confirmed
+                  ? "Founding Landlord benefits active"
                   : "Reserve one of the first 30 founder spots"}
               </h2>
             </div>

@@ -217,8 +217,8 @@ export async function getFoundingProgress(userId: string) {
 
   const [
     { count: activeListings },
-    { count: verifiedListings },
-    { count: approvedVerificationSubmissions },
+    { count: approvedIdentitySubmissions },
+    { count: approvedLandlordSubmissions },
     { count: assistanceRequests },
     { count: feedbackItems },
     { count: monthlyBoostsUsed },
@@ -230,15 +230,16 @@ export async function getFoundingProgress(userId: string) {
       .eq("user_id", userId)
       .in("status", ["available", "pending"]),
     admin
-      .from("listing_verifications")
+      .from("verification_submissions")
       .select("id", { count: "exact", head: true })
-      .eq("owner_id", userId)
-      .eq("status", "verified"),
+      .eq("user_id", userId)
+      .eq("verification_type", "identity")
+      .eq("status", "approved"),
     admin
       .from("verification_submissions")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
-      .in("verification_type", ["identity", "property_relationship"])
+      .eq("verification_type", "property_relationship")
       .eq("status", "approved"),
     admin
       .from("founding_landlord_assistance_requests")
@@ -260,13 +261,15 @@ export async function getFoundingProgress(userId: string) {
       .eq("referrer_id", userId)
       .eq("status", "rewarded"),
   ]);
+  const accountVerified =
+    (approvedIdentitySubmissions || 0) > 0 &&
+    (approvedLandlordSubmissions || 0) > 0;
 
   return {
-    hasLandlordVerification:
-      (verifiedListings || 0) > 0 || (approvedVerificationSubmissions || 0) > 0,
-    hasApprovedPublishedListing: (verifiedListings || 0) > 0,
+    hasLandlordVerification: accountVerified,
+    hasApprovedPublishedListing: accountVerified,
     activeListings: activeListings || 0,
-    verifiedListings: verifiedListings || 0,
+    verifiedListings: 0,
     assistanceRequests: assistanceRequests || 0,
     feedbackItems: feedbackItems || 0,
     monthlyBoostsUsed: monthlyBoostsUsed || 0,

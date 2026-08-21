@@ -6,6 +6,7 @@ import {
   getFoundingBenefitState,
   isFoundingLandlordRole,
 } from "../lib/founding-landlords/entitlements-core.cjs";
+import { getLandlordAccountEligibility } from "../lib/landlord-account-eligibility-core.mjs";
 
 const now = new Date("2026-08-05T12:00:00.000Z");
 
@@ -216,4 +217,32 @@ test("Founding coupon transition is idempotent and replaces existing discounts o
   assert.equal(replaceFreePeriodCoupon.shouldApply, true);
   assert.equal(replaceFreePeriodCoupon.reason, "replace_existing");
   assert.equal(normalLandlord.shouldApply, false);
+});
+
+test("Founding account eligibility is unlocked by identity and landlord verification without listing verification", () => {
+  const eligibility = getLandlordAccountEligibility({
+    profile: {
+      id: "founder-owner",
+      role: "landlord",
+      account_status: "active",
+      identity_verified: true,
+    },
+    submissions: [
+      {
+        user_id: "founder-owner",
+        verification_type: "property_relationship",
+        status: "approved",
+      },
+    ],
+  });
+
+  assert.equal(eligibility.canPublishListings, true);
+  assert.equal(eligibility.reason, "VERIFIED_LANDLORD");
+});
+
+test("Founding public badge copy does not need rank wording", () => {
+  const publicBadgeLabel = "Founding Landlord";
+
+  assert.equal(publicBadgeLabel.includes("of 30"), false);
+  assert.equal(publicBadgeLabel.includes("#"), false);
 });

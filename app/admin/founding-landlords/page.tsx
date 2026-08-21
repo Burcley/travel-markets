@@ -190,8 +190,8 @@ export default function AdminFoundingLandlordsPage() {
                         </p>
                         <p className="mt-1 text-xs text-pink-200">
                           {profile.founding_landlord_number
-                            ? `#${profile.founding_landlord_number} of 30`
-                            : "No number"}
+                            ? "Internal founder position assigned"
+                            : "No internal position"}
                         </p>
                       </td>
                       <td className="border-y border-white/10 px-4 py-4 text-xs text-zinc-400">

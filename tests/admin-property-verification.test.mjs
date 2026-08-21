@@ -51,10 +51,21 @@ describe("admin property/listing verification review", () => {
     assert.equal(legacyRelationshipTypeForListingVerification("student"), null);
   });
 
-  it("allows admins to review pending listing-specific property submissions", () => {
+  it("keeps listing-specific property submissions as historical records", () => {
     assert.equal(
       canReviewAdminVerificationRecord({
         source: "listing_verifications",
+        verificationType: "property_relationship",
+        status: "pending",
+      }),
+      false
+    );
+  });
+
+  it("allows admins to review pending account-level landlord submissions", () => {
+    assert.equal(
+      canReviewAdminVerificationRecord({
+        source: "verification_submissions",
         verificationType: "property_relationship",
         status: "pending",
       }),
@@ -100,10 +111,10 @@ describe("admin property/listing verification review", () => {
     );
   });
 
-  it("promotes a pending listing verification into the admin review queue even for admin-owned listings", () => {
+  it("promotes a pending account-level landlord verification into the admin review queue", () => {
     const propertyRecord = {
       id: "93eab93a-75ef-4605-b724-1f31faa053f9",
-      source: "listing_verifications",
+      source: "verification_submissions",
       verificationType: "property_relationship",
       status: "pending",
     };
@@ -140,9 +151,9 @@ describe("admin property/listing verification review", () => {
     assert.equal(state.overallStatus, "needs_review");
   });
 
-  it("removes the review action after a listing verification is approved", () => {
+  it("removes the review action after account-level landlord verification is approved", () => {
     const propertyRecord = {
-      source: "listing_verifications",
+      source: "verification_submissions",
       verificationType: "property_relationship",
       status: "approved",
     };
@@ -191,9 +202,9 @@ describe("admin property/listing verification review", () => {
     assert.equal(state.overallStatus, "partially_verified");
   });
 
-  it("keeps property manager listing verifications in the property review lane", () => {
+  it("keeps property manager account verifications in the property review lane", () => {
     const propertyRecord = {
-      source: "listing_verifications",
+      source: "verification_submissions",
       verificationType: "property_relationship",
       status: "pending",
     };

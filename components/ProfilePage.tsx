@@ -184,14 +184,22 @@ export default function ProfilePage() {
 
     if (isHostRole(profile.role)) {
       const { data: verification } = await supabase
-        .from("listing_verifications")
-        .select("status, reviewed_at, submitted_at, owner_visible_reason")
-        .eq("owner_id", profile.id)
-        .order("updated_at", { ascending: false })
+        .from("verification_submissions")
+        .select("status, reviewed_at, submitted_at, rejection_reason")
+        .eq("user_id", profile.id)
+        .eq("verification_type", "property_relationship")
+        .order("submitted_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      latestPropertyVerification = verification as PropertyVerificationRecord | null;
+      latestPropertyVerification = verification
+        ? {
+            status: verification.status,
+            reviewed_at: verification.reviewed_at,
+            submitted_at: verification.submitted_at,
+            owner_visible_reason: verification.rejection_reason,
+          }
+        : null;
     }
 
     setPropertyVerification(latestPropertyVerification);

@@ -19,7 +19,6 @@ import {
   UnverifiedListingNotice,
   VerificationDisclaimer,
 } from "@/components/trust/TrustDisclaimers";
-import TrustVerificationPrompt from "@/components/trust/TrustVerificationPrompt";
 import { getDocumentTypeLabel } from "@/lib/trust/document-types";
 import {
   getAmenityLabel,
@@ -113,6 +112,7 @@ type ListingVerificationStatus = {
 
 type PublicListingEligibility = {
   publiclyEligible?: boolean;
+  ownerAccountEligible?: boolean;
 };
 
 type ListingDocumentRequirement = {
@@ -148,6 +148,7 @@ export default function ListingDetailsPage() {
   const [reviewers, setReviewers] = useState<Profile[]>([]);
   const [verificationStatus, setVerificationStatus] =
     useState<ListingVerificationStatus | null>(null);
+  const [ownerAccountEligible, setOwnerAccountEligible] = useState(false);
   const [documentRequirements, setDocumentRequirements] = useState<
     ListingDocumentRequirement[]
   >([]);
@@ -301,6 +302,13 @@ export default function ListingDetailsPage() {
           setListing(null);
           return;
         }
+
+        setOwnerAccountEligible(
+          Boolean(
+            eligibilityData.ownerAccountEligible ||
+              eligibilityData.publiclyEligible
+          )
+        );
       }
 
       setListing(safeListing);
@@ -681,8 +689,12 @@ export default function ListingDetailsPage() {
   }
 
   function getVerificationLabel() {
+    if (ownerAccountEligible) {
+      return "Landlord verified";
+    }
+
     if (verificationStatus?.status === "verified") {
-      return "Verified property relationship";
+      return "Historical property verification";
     }
 
     if (verificationStatus?.status === "pending") {
@@ -705,7 +717,7 @@ export default function ListingDetailsPage() {
   }
 
   function getVerificationClassName() {
-    if (verificationStatus?.status === "verified") {
+    if (ownerAccountEligible || verificationStatus?.status === "verified") {
       return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
     }
 
@@ -841,18 +853,11 @@ export default function ListingDetailsPage() {
 
         <section className="grid gap-8 lg:grid-cols-[1fr_420px]">
           <div className="space-y-8">
-            {isOwner && verificationStatus?.status !== "verified" && (
-              <TrustVerificationPrompt
-                kind="listing_relationship"
-                storageKey={`listing-relationship-${listing.id}`}
-              />
-            )}
-
             <div className="rounded-3xl border border-gray-800 bg-[#070707] p-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
-                    Property verification
+                    Landlord verification
                   </p>
                   <h2 className="mt-2 text-2xl font-bold">
                     {getVerificationLabel()}
@@ -866,7 +871,7 @@ export default function ListingDetailsPage() {
               </div>
 
               <div className="mt-5">
-                {verificationStatus?.status === "verified" ? (
+                {ownerAccountEligible || verificationStatus?.status === "verified" ? (
                   <VerificationDisclaimer />
                 ) : (
                   <UnverifiedListingNotice />
