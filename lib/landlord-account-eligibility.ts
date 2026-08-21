@@ -8,7 +8,6 @@ type ProfileRow = {
   role?: string | null;
   is_admin?: boolean | null;
   account_status?: string | null;
-  status?: string | null;
   identity_verified?: boolean | null;
   is_verified?: boolean | null;
   identity_verification_status?: string | null;
@@ -59,7 +58,7 @@ export async function getLandlordAccountEligibilityForUser(userId: string) {
       admin
         .from("profiles")
         .select(
-          "id, role, is_admin, account_status, status, identity_verified, is_verified, identity_verification_status"
+          "id, role, is_admin, account_status, identity_verified, is_verified, identity_verification_status"
         )
         .eq("id", userId)
         .maybeSingle(),

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   const { data: profile } = await admin
     .from("profiles")
     .select(
-      "id, role, is_admin, account_status, status, identity_verified, is_verified, identity_verification_status"
+      "id, role, is_admin, account_status, identity_verified, is_verified, identity_verification_status"
     )
     .eq("id", user.id)
     .maybeSingle();
