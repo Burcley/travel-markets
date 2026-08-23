@@ -5,6 +5,7 @@ import { Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import DeleteListingButton from "@/components/DeleteListingButton";
 import ListingStatusControls from "@/components/ListingStatusControls";
+import DuplicateListingButton from "@/components/DuplicateListingButton";
 
 type Listing = {
   id: string;
@@ -276,6 +277,8 @@ export default async function MyListingsPage() {
                       >
                         {t("edit")}
                       </Link>
+
+                      <DuplicateListingButton listingId={listing.id} />
 
                       <DeleteListingButton
                         listingId={listing.id}

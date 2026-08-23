@@ -7,18 +7,6 @@ import { getLandlordAccountEligibility } from "@/lib/landlord-account-eligibilit
 const landlordVerificationError =
   "Complete landlord verification to publish listings.";
 
-function livingArrangementComplete(listing: Record<string, unknown>) {
-  return [
-    "owner_occupies_property",
-    "owner_family_occupies_property",
-    "shared_kitchen_with_owner",
-    "shared_bathroom_with_owner",
-    "private_bedroom",
-    "self_contained_unit",
-    "other_occupants_present",
-  ].every((key) => listing[key] !== null && listing[key] !== undefined);
-}
-
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -84,9 +72,7 @@ export async function POST(request: NextRequest) {
 
   const { data: listing } = await admin
     .from("listings")
-    .select(
-      "id, user_id, status, owner_occupies_property, owner_family_occupies_property, shared_kitchen_with_owner, shared_bathroom_with_owner, private_bedroom, self_contained_unit, other_occupants_present, verification_disclaimer_acknowledged, fair_housing_acknowledged"
-    )
+    .select("id, user_id, status")
     .eq("id", listingId)
     .maybeSingle();
 
@@ -128,20 +114,6 @@ export async function POST(request: NextRequest) {
         verificationUrl: "/dashboard/verification",
       },
       { status: 403 }
-    );
-  }
-
-  if (!listing.fair_housing_acknowledged) {
-    return NextResponse.json(
-      { error: "Acknowledge the fair-housing document notice before publishing." },
-      { status: 400 }
-    );
-  }
-
-  if (!livingArrangementComplete(listing)) {
-    return NextResponse.json(
-      { error: "Complete the living-arrangement questions before publishing." },
-      { status: 400 }
     );
   }
 

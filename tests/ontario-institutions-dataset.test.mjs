@@ -55,6 +55,43 @@ test("centralized Ontario university dataset includes recognized public and asso
   ].forEach((id) => assert.equal(universityIds.has(id), true, id));
 });
 
+test("centralized Ontario college dataset includes major public colleges used for landlord campus search", () => {
+  const collegeIds = new Set(
+    institutionIds
+      .filter((institution) =>
+        ["college", "polytechnic"].includes(institution.type)
+      )
+      .map((institution) => institution.id)
+  );
+
+  [
+    "durham-college",
+    "george-brown-college",
+    "humber-college",
+    "seneca-polytechnic",
+    "sheridan-college",
+    "conestoga-college",
+    "centennial-college",
+    "fanshawe-college",
+    "niagara-college",
+    "mohawk-college",
+    "georgian-college",
+    "algonquin-college",
+    "st-lawrence-college",
+    "fleming-college",
+    "loyalist-college",
+    "canadore-college",
+    "cambrian-college",
+    "confederation-college",
+    "sault-college",
+    "lambton-college",
+    "st-clair-college",
+    "northern-college",
+    "college-boreal",
+    "la-cite",
+  ].forEach((id) => assert.equal(collegeIds.has(id), true, id));
+});
+
 test("institution and campus ids are unique and every campus belongs to an institution", () => {
   const allInstitutionIds = institutionIds.map((institution) => institution.id);
   assert.equal(new Set(allInstitutionIds).size, allInstitutionIds.length);
