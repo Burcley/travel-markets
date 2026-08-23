@@ -52,9 +52,9 @@ export function UnverifiedListingNotice() {
       title="Independent review recommended"
       tone="warning"
     >
-      Travel Markets has not completed verification of this account&apos;s
-      relationship to the property. Independently verify the listing and the
-      person you are dealing with before sending money or sensitive information.
+      Travel Markets has not yet completed verification of this landlord
+      account. Independently verify the listing and the person you are dealing
+      with before sending money or sensitive information.
     </Notice>
   );
 }

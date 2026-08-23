@@ -20,6 +20,7 @@ import {
   VerificationDisclaimer,
 } from "@/components/trust/TrustDisclaimers";
 import { getDocumentTypeLabel } from "@/lib/trust/document-types";
+import { getListingLandlordVerificationDisplay } from "@/lib/listings/landlord-verification-display-core.mjs";
 import {
   getAmenityLabel,
   getLeaseTypeLabel,
@@ -287,28 +288,27 @@ export default function ListingDetailsPage() {
         return;
       }
 
-      if (!canManageListing) {
-        const eligibilityResponse = await fetch(
-          `/api/listings/${safeListing.id}/public-eligibility`,
-          { cache: "no-store" }
-        );
-        const eligibilityData =
-          (await eligibilityResponse.json().catch(() => null)) as
-            | PublicListingEligibility
-            | null;
+      const eligibilityResponse = await fetch(
+        `/api/listings/${safeListing.id}/public-eligibility`,
+        { cache: "no-store" }
+      );
+      const eligibilityData =
+        (await eligibilityResponse.json().catch(() => null)) as
+          | PublicListingEligibility
+          | null;
 
+      if (eligibilityResponse.ok && eligibilityData) {
+        setOwnerAccountEligible(Boolean(eligibilityData.ownerAccountEligible));
+      } else {
+        setOwnerAccountEligible(false);
+      }
+
+      if (!canManageListing) {
         if (!eligibilityResponse.ok || !eligibilityData?.publiclyEligible) {
           setPageError(t("errors.notFound"));
           setListing(null);
           return;
         }
-
-        setOwnerAccountEligible(
-          Boolean(
-            eligibilityData.ownerAccountEligible ||
-              eligibilityData.publiclyEligible
-          )
-        );
       }
 
       setListing(safeListing);
@@ -688,45 +688,9 @@ export default function ListingDetailsPage() {
     );
   }
 
-  function getVerificationLabel() {
-    if (ownerAccountEligible) {
-      return "Landlord verified";
-    }
-
-    if (verificationStatus?.status === "verified") {
-      return "Historical property verification";
-    }
-
-    if (verificationStatus?.status === "pending") {
-      return "Verification pending";
-    }
-
-    if (verificationStatus?.status === "more_information_required") {
-      return "More information required";
-    }
-
-    if (verificationStatus?.status === "declined") {
-      return "Verification declined";
-    }
-
-    if (verificationStatus?.status === "expired") {
-      return "Verification expired";
-    }
-
-    return "Not verified";
-  }
-
-  function getVerificationClassName() {
-    if (ownerAccountEligible || verificationStatus?.status === "verified") {
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
-    }
-
-    if (verificationStatus?.status === "pending") {
-      return "border-amber-500/20 bg-amber-500/10 text-amber-300";
-    }
-
-    return "border-gray-800 bg-white/5 text-gray-300";
-  }
+  const landlordVerificationDisplay = getListingLandlordVerificationDisplay({
+    ownerAccountEligible,
+  });
 
   function formatBoolean(value: boolean | null | undefined) {
     if (value === true) return "Yes";
@@ -838,9 +802,9 @@ export default function ListingDetailsPage() {
             </span>
 
             <span
-              className={`rounded-full border px-3 py-1 text-sm font-semibold ${getVerificationClassName()}`}
+              className={`rounded-full border px-3 py-1 text-sm font-semibold ${landlordVerificationDisplay.className}`}
             >
-              {getVerificationLabel()}
+              {landlordVerificationDisplay.label}
             </span>
 
             <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm font-semibold text-cyan-200">
@@ -860,18 +824,18 @@ export default function ListingDetailsPage() {
                     Landlord verification
                   </p>
                   <h2 className="mt-2 text-2xl font-bold">
-                    {getVerificationLabel()}
+                    {landlordVerificationDisplay.label}
                   </h2>
                 </div>
                 <span
-                  className={`rounded-full border px-3 py-1 text-sm font-semibold ${getVerificationClassName()}`}
+                  className={`rounded-full border px-3 py-1 text-sm font-semibold ${landlordVerificationDisplay.className}`}
                 >
-                  {getVerificationLabel()}
+                  {landlordVerificationDisplay.label}
                 </span>
               </div>
 
               <div className="mt-5">
-                {ownerAccountEligible || verificationStatus?.status === "verified" ? (
+                {landlordVerificationDisplay.verified ? (
                   <VerificationDisclaimer />
                 ) : (
                   <UnverifiedListingNotice />
