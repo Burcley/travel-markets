@@ -951,7 +951,7 @@ export default function PostListingPage() {
           </Link>
         </div>
 
-        <div className="overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/40">
+        <div className="overflow-visible rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/40">
           <div className="border-b border-white/10 px-5 py-6 sm:px-8">
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-pink-300">
               Post a property
@@ -1203,7 +1203,7 @@ function LocationStep({
                 key={suggestion.id}
                 type="button"
                 onClick={() => selectAddressSuggestion(suggestion)}
-                className="w-full rounded-2xl px-4 py-3 text-left text-sm text-zinc-200 hover:bg-white/10"
+                className="w-full cursor-pointer rounded-2xl px-4 py-3 text-left text-sm text-zinc-200 transition hover:bg-white/10"
               >
                 {suggestion.label}
               </button>
@@ -1242,7 +1242,7 @@ function LocationStep({
                     patchDraft({ city });
                     setCityQuery("");
                   }}
-                  className="w-full rounded-2xl px-4 py-3 text-left text-sm text-zinc-200 hover:bg-white/10"
+                  className="w-full cursor-pointer rounded-2xl px-4 py-3 text-left text-sm text-zinc-200 transition hover:bg-white/10"
                 >
                   {city}
                 </button>
@@ -1277,7 +1277,7 @@ function LocationStep({
                 key={campus.id}
                 type="button"
                 onClick={() => selectCampus(campus)}
-                className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/10"
+                className="w-full cursor-pointer rounded-2xl px-4 py-3 text-left transition hover:bg-white/10"
               >
                 <span className="block text-sm font-bold text-white">{campus.officialName}</span>
                 <span className="text-xs text-zinc-400">{campus.city} • {campus.address}</span>
@@ -1520,7 +1520,7 @@ function ReviewStep({
 
 function SuggestionPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-2xl border border-pink-400/20 bg-zinc-950 p-2 shadow-2xl shadow-black/40">
+    <div className="absolute left-0 right-0 z-[60] mt-2 max-h-80 w-full overflow-y-auto overscroll-contain rounded-2xl border border-pink-400/20 bg-zinc-950 p-2 shadow-2xl shadow-black/50 ring-1 ring-white/10">
       {children}
     </div>
   );

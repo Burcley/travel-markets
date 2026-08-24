@@ -46,6 +46,15 @@ test("listing wizard uses full address geocoding, Mapbox autocomplete, and centr
   assert.match(postPageSource, /onKeyDown/);
 });
 
+test("location autocomplete suggestions are visible and scrollable", () => {
+  assert.match(postPageSource, /overflow-visible rounded-\[2rem\]/);
+  assert.match(postPageSource, /z-\[60\]/);
+  assert.match(postPageSource, /max-h-80/);
+  assert.match(postPageSource, /overflow-y-auto/);
+  assert.match(postPageSource, /overscroll-contain/);
+  assert.match(postPageSource, /cursor-pointer/);
+});
+
 test("optional listing details are presented as collapsible sections", () => {
   assert.match(postPageSource, /CollapsibleSection/);
   assert.match(postPageSource, /Add amenities/);
