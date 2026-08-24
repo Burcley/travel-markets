@@ -2,7 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
@@ -36,13 +44,104 @@ type Props = {
   initialPage: number;
   hasMore: boolean;
   totalCount: number;
-  trendingListings?: any[];
-  trendingCities?: any[];
+  trendingListings?: TrendingListing[];
+  trendingCities?: TrendingCity[];
+};
+type TrendingListing = HomeListing & {
+  view_count: number;
+};
+type TrendingCity = {
+  name: string;
+  count: number;
 };
 
 type SortOption = "newest" | "price-low" | "price-high" | "trust-high";
 type VerifiedOption = "" | "true";
 type TrustOption = "" | "elite" | "trusted" | "basic" | "new";
+type SearchListing = HomeListing & {
+  trust_score?: number | null;
+  trust_level?: string | null;
+  owner_trust_score?: number | null;
+  owner_trust_level?: string | null;
+  owner_is_verified?: boolean | null;
+  is_verified?: boolean | null;
+  identity_verified?: boolean | null;
+  owner_plan?: string | null;
+  owner_badge?: string | null;
+  profiles?: {
+    trust_score?: number | null;
+    trust_level?: string | null;
+    is_verified?: boolean | null;
+  } | null;
+};
+type TrustData = {
+  score: number | null;
+  level: string;
+  verified: boolean;
+  label: string;
+  className: string;
+};
+type StringSetter = Dispatch<SetStateAction<string>>;
+type SearchInputProps = {
+  query: string;
+  setQuery: StringSetter;
+  isPending: boolean;
+  loadingSuggestions: boolean;
+  suggestions: string[];
+  suggestionsOpen: boolean;
+  setSuggestionsOpen: Dispatch<SetStateAction<boolean>>;
+  selectSuggestion: (suggestion: string) => void;
+  handleSearch: () => void;
+};
+type FiltersProps = {
+  bedrooms: string;
+  setBedrooms: StringSetter;
+  bathrooms: string;
+  setBathrooms: StringSetter;
+  guests: string;
+  setGuests: StringSetter;
+  sort: SortOption;
+  setSort: Dispatch<SetStateAction<SortOption>>;
+  verifiedOnly: VerifiedOption;
+  setVerifiedOnly: Dispatch<SetStateAction<VerifiedOption>>;
+  trustLevel: TrustOption;
+  setTrustLevel: Dispatch<SetStateAction<TrustOption>>;
+  handleReset: () => void;
+  saveSearch: () => void;
+  savingSearch: boolean;
+};
+type MobileFiltersProps = FiltersProps & {
+  city: string;
+  setCity: StringSetter;
+  campus: string;
+  setCampus: StringSetter;
+  maxPrice: string;
+  setMaxPrice: StringSetter;
+  close: () => void;
+  handleSearch: () => void;
+};
+type FilterSelectProps = {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+};
+type ListingCardProps = {
+  listing: SearchListing;
+  index: number;
+  trust: TrustData;
+  ownerBadge: string | null;
+  isFeatured: boolean;
+  ownerPlan: string;
+  activeListingId: string | null;
+  setActiveListingId: Dispatch<SetStateAction<string | null>>;
+  toggleSave: (listingId: string, saved?: boolean) => Promise<void>;
+};
+type MobileInputProps = {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  type?: string;
+};
 
 export default function TravelMarketsHome({
   initialListings,
@@ -60,7 +159,7 @@ export default function TravelMarketsHome({
   const [isPending, startTransition] = useTransition();
   const hasMounted = useRef(false);
 
-  const [listings, setListings] = useState(initialListings);
+  const [listings, setListings] = useState<SearchListing[]>(initialListings);
   const [page, setPage] = useState(initialPage);
   const [loadingMore, setLoadingMore] = useState(false);
   const [canLoadMore, setCanLoadMore] = useState(hasMore);
@@ -124,8 +223,8 @@ export default function TravelMarketsHome({
         const data = await response.json();
         setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
         setSuggestionsOpen(true);
-      } catch (error: any) {
-        if (error?.name !== "AbortError") {
+      } catch (error: unknown) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
           console.error("SUGGESTIONS ERROR:", error);
         }
       } finally {
@@ -338,7 +437,7 @@ export default function TravelMarketsHome({
     }
   }
 
-  function getOwnerBadge(listing: any) {
+  function getOwnerBadge(listing: SearchListing) {
     if (listing.owner_badge) return listing.owner_badge;
     if (listing.owner_plan === "elite" || listing.owner_plan === "legacy_premium") {
       return "Elite Property Manager";
@@ -347,7 +446,7 @@ export default function TravelMarketsHome({
     return null;
   }
 
-  function getTrustData(listing: any) {
+  function getTrustData(listing: SearchListing): TrustData {
     const score =
       listing.owner_trust_score ??
       listing.trust_score ??
@@ -516,10 +615,10 @@ export default function TravelMarketsHome({
           ) : (
             <div className="grid gap-5">
               {listings.map((listing, index) => {
-                const trust = getTrustData(listing as any);
-                const ownerBadge = getOwnerBadge(listing as any);
-                const isFeatured = Boolean((listing as any).is_featured);
-                const ownerPlan = (listing as any).owner_plan || "free";
+                const trust = getTrustData(listing);
+                const ownerBadge = getOwnerBadge(listing);
+                const isFeatured = Boolean(listing.is_featured);
+                const ownerPlan = listing.owner_plan || "free";
 
                 return (
                   <motion.article
@@ -527,144 +626,149 @@ export default function TravelMarketsHome({
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.025 }}
-                    className="overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/[0.035]"
+                    className="group relative overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/[0.035] transition duration-200 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.06] focus-within:border-pink-300/60"
                   >
-                    <div className="relative aspect-[1.18/1] overflow-hidden bg-white/5">
-                      <Link href={`/listings/${listing.id}`}>
+                    <Link
+                      href={`/listings/${listing.id}`}
+                      className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
+                      aria-label={`Open listing ${listing.title || t("fallbackTitle")}`}
+                    >
+                      <div className="relative aspect-[1.18/1] overflow-hidden bg-white/5">
                         {listing.image_url ? (
                           <Image
                             src={listing.image_url}
                             alt={listing.title || "Travel Markets listing"}
                             fill
                             sizes="100vw"
-                            className="object-cover"
+                            className="object-cover transition duration-200 group-hover:scale-[1.02]"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-white/35">
                             {t("noImage")}
                           </div>
                         )}
-                      </Link>
 
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          toggleSave(listing.id, listing.is_saved);
-                        }}
-                        className="absolute right-3 top-3 rounded-full bg-black/55 p-2.5 backdrop-blur"
-                      >
-                        <Heart
-                          size={19}
-                          className={
-                            listing.is_saved
-                              ? "fill-white text-white"
-                              : "text-white"
-                          }
-                        />
-                      </button>
-
-                      <div className="absolute left-3 top-3 flex max-w-[75%] flex-wrap gap-1.5">
-                        {isFeatured && (
-                          <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-black">
-                            {t("featured")}
-                          </span>
-                        )}
-
-                        <span className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur">
-                          {listing.status || t("available")}
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
-                        <div className="min-w-0">
-                          {ownerBadge && (
-                            <div
-                              className={`mb-1 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${
-                                ownerPlan === "premium"
-                                  ? "bg-yellow-400 text-black"
-                                  : "bg-purple-500 text-white"
-                              }`}
-                            >
-                              {ownerPlan === "premium" ? (
-                                <Crown size={11} />
-                              ) : (
-                                <Sparkles size={11} />
-                              )}
-                              <span className="truncate">{ownerBadge}</span>
-                            </div>
+                        <div className="absolute left-3 top-3 flex max-w-[75%] flex-wrap gap-1.5">
+                          {isFeatured && (
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-black">
+                              {t("featured")}
+                            </span>
                           )}
 
-                          <div
-                            className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${trust.className}`}
-                          >
-                            {trust.verified ? (
-                              <ShieldCheck size={11} />
-                            ) : (
-                              <Star size={11} />
+                          <span className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur">
+                            {listing.status || t("available")}
+                          </span>
+                        </div>
+
+                        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+                          <div className="min-w-0">
+                            {ownerBadge && (
+                              <div
+                                className={`mb-1 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${
+                                  ownerPlan === "premium"
+                                    ? "bg-yellow-400 text-black"
+                                    : "bg-purple-500 text-white"
+                                }`}
+                              >
+                                {ownerPlan === "premium" ? (
+                                  <Crown size={11} />
+                                ) : (
+                                  <Sparkles size={11} />
+                                )}
+                                <span className="truncate">{ownerBadge}</span>
+                              </div>
                             )}
-                            <span className="truncate">{trust.label}</span>
-                            {trust.score !== null && (
-                              <span>{trust.score}/100</span>
-                            )}
+
+                            <div
+                              className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${trust.className}`}
+                            >
+                              {trust.verified ? (
+                                <ShieldCheck size={11} />
+                              ) : (
+                                <Star size={11} />
+                              )}
+                              <span className="truncate">{trust.label}</span>
+                              {trust.score !== null && (
+                                <span>{trust.score}/100</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-black text-black shadow-lg">
+                            {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
+                            /mo
                           </div>
                         </div>
-
-                        <div className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-black text-black shadow-lg">
-                          {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
-                          /mo
-                        </div>
                       </div>
-                    </div>
 
-                    <Link href={`/listings/${listing.id}`} className="block p-3.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h2 className="line-clamp-1 text-[15px] font-bold leading-tight">
-                            {listing.title || t("fallbackTitle")}
-                          </h2>
+                      <div className="p-3.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h2 className="line-clamp-1 text-[15px] font-bold leading-tight">
+                              {listing.title || t("fallbackTitle")}
+                            </h2>
 
-                          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-white/55">
-                            <MapPin size={13} className="shrink-0" />
-                            <span className="truncate">
-                              {listing.city || t("cityHidden")}
-                              {listing.campus ? ` • ${listing.campus}` : ""}
+                            <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-white/55">
+                              <MapPin size={13} className="shrink-0" />
+                              <span className="truncate">
+                                {listing.city || t("cityHidden")}
+                                {listing.campus ? ` • ${listing.campus}` : ""}
+                              </span>
+                            </p>
+                          </div>
+
+                          {trust.verified && (
+                            <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
+                              ✓
                             </span>
-                          </p>
+                          )}
                         </div>
 
-                        {trust.verified && (
-                          <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
-                            ✓
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-white/65">
+                          <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+                            <BedDouble size={13} />
+                            <span className="truncate">{t("bed", { count: listing.bedrooms ?? 0 })}</span>
                           </span>
-                        )}
+
+                          <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+                            <Bath size={13} />
+                            <span className="truncate">{t("bath", { count: listing.bathrooms ?? 0 })}</span>
+                          </span>
+
+                          <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+                            <Users size={13} />
+                            <span className="truncate">{t("guest", { count: listing.guests ?? 0 })}</span>
+                          </span>
+                        </div>
+
+                        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-white/40">
+                          <Building2 size={13} className="shrink-0" />
+                          <span className="truncate">
+                            {t("addressUnlocks")}
+                          </span>
+                        </p>
                       </div>
-
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-white/65">
-                        <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-                          <BedDouble size={13} />
-                          <span className="truncate">{t("bed", { count: listing.bedrooms ?? 0 })}</span>
-                        </span>
-
-                        <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-                          <Bath size={13} />
-                          <span className="truncate">{t("bath", { count: listing.bathrooms ?? 0 })}</span>
-                        </span>
-
-                        <span className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-                          <Users size={13} />
-                          <span className="truncate">{t("guest", { count: listing.guests ?? 0 })}</span>
-                        </span>
-                      </div>
-
-                      <p className="mt-3 flex items-center gap-1.5 text-[11px] text-white/40">
-                        <Building2 size={13} className="shrink-0" />
-                        <span className="truncate">
-                          {t("addressUnlocks")}
-                        </span>
-                      </p>
                     </Link>
+
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        toggleSave(listing.id, listing.is_saved);
+                      }}
+                      className="absolute right-3 top-3 z-10 rounded-full bg-black/55 p-2.5 backdrop-blur transition hover:bg-black/80"
+                      aria-label={listing.is_saved ? "Remove saved listing" : "Save listing"}
+                    >
+                      <Heart
+                        size={19}
+                        className={
+                          listing.is_saved
+                            ? "fill-white text-white"
+                            : "text-white"
+                        }
+                      />
+                    </button>
                   </motion.article>
                 );
               })}
@@ -807,10 +911,10 @@ export default function TravelMarketsHome({
 
           <div className="grid gap-5 sm:grid-cols-2">
             {listings.map((listing, index) => {
-              const trust = getTrustData(listing as any);
-              const ownerBadge = getOwnerBadge(listing as any);
-              const isFeatured = Boolean((listing as any).is_featured);
-              const ownerPlan = (listing as any).owner_plan || "free";
+              const trust = getTrustData(listing);
+              const ownerBadge = getOwnerBadge(listing);
+              const isFeatured = Boolean(listing.is_featured);
+              const ownerPlan = listing.owner_plan || "free";
 
               return (
                 <DesktopListingCard
@@ -927,7 +1031,7 @@ function SearchInput({
   setSuggestionsOpen,
   selectSuggestion,
   handleSearch,
-}: any) {
+}: SearchInputProps) {
   const t = useTranslations("home.search");
 
   return (
@@ -976,7 +1080,7 @@ function SearchInput({
   );
 }
 
-function DesktopFilters(props: any) {
+function DesktopFilters(props: FiltersProps) {
   const t = useTranslations("home.search.filters");
 
   return (
@@ -1002,7 +1106,7 @@ function DesktopFilters(props: any) {
           <option value="3">{t("guestThree")}</option>
         </FilterSelect>
 
-        <FilterSelect value={props.sort} onChange={props.setSort}>
+        <FilterSelect value={props.sort} onChange={(value) => props.setSort(value as SortOption)}>
           <option value="newest">{t("newest")}</option>
           <option value="trust-high">{t("highestTrust")}</option>
           <option value="price-low">{t("priceLowHigh")}</option>
@@ -1011,12 +1115,12 @@ function DesktopFilters(props: any) {
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto]">
-        <FilterSelect value={props.verifiedOnly} onChange={props.setVerifiedOnly}>
+        <FilterSelect value={props.verifiedOnly} onChange={(value) => props.setVerifiedOnly(value as VerifiedOption)}>
           <option value="">{t("allOwners")}</option>
           <option value="true">{t("verifiedOwnersOnly")}</option>
         </FilterSelect>
 
-        <FilterSelect value={props.trustLevel} onChange={props.setTrustLevel}>
+        <FilterSelect value={props.trustLevel} onChange={(value) => props.setTrustLevel(value as TrustOption)}>
           <option value="">{t("allTrustLevels")}</option>
           <option value="elite">{t("eliteOwners")}</option>
           <option value="trusted">{t("trustedOwners")}</option>
@@ -1049,7 +1153,7 @@ function DesktopFilters(props: any) {
   );
 }
 
-function FilterSelect({ value, onChange, children }: any) {
+function FilterSelect({ value, onChange, children }: FilterSelectProps) {
   return (
     <select
       value={value}
@@ -1071,7 +1175,7 @@ function DesktopListingCard({
   activeListingId,
   setActiveListingId,
   toggleSave,
-}: any) {
+}: ListingCardProps) {
   const t = useTranslations("home.search");
 
   return (
@@ -1081,7 +1185,7 @@ function DesktopListingCard({
       transition={{ delay: index * 0.03 }}
       onMouseEnter={() => setActiveListingId(listing.id)}
       onMouseLeave={() => setActiveListingId(null)}
-      className={`group overflow-hidden rounded-3xl border bg-white/[0.04] transition duration-300 hover:-translate-y-1 hover:bg-white/[0.07] ${
+      className={`group relative overflow-hidden rounded-3xl border bg-white/[0.04] transition duration-200 hover:-translate-y-1 hover:bg-white/[0.07] focus-within:border-pink-300/60 ${
         activeListingId === listing.id
           ? "border-white/35"
           : isFeatured
@@ -1093,125 +1197,132 @@ function DesktopListingCard({
           : "border-white/10"
       }`}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-white/5">
-        {listing.image_url ? (
-          <Image
-            src={listing.image_url}
-            alt={listing.title || "Travel Markets listing"}
-            fill
-            sizes="(max-width: 1024px) 50vw, 33vw"
-            className="object-cover transition duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-white/30">
-            {t("noImage")}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            toggleSave(listing.id, listing.is_saved);
-          }}
-          className="absolute right-3 top-3 rounded-full bg-black/55 p-2 backdrop-blur hover:bg-black/80"
-        >
-          <Heart
-            size={19}
-            className={listing.is_saved ? "fill-white text-white" : "text-white"}
-          />
-        </button>
-
-        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          {isFeatured && (
-            <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black shadow-lg">
-              ⭐ {t("featured")}
-            </span>
-          )}
-
-          <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white backdrop-blur">
-            {listing.status || t("available")}
-          </span>
-        </div>
-
-        <div className="absolute bottom-12 left-3 flex max-w-[92%] flex-wrap gap-2">
-          {ownerBadge && (
-            <div
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black shadow-lg ${
-                ownerPlan === "premium"
-                  ? "bg-yellow-400 text-black"
-                  : "bg-purple-500 text-white"
-              }`}
-            >
-              {ownerPlan === "premium" ? <Crown size={14} /> : <Sparkles size={14} />}
-              {ownerBadge}
+      <Link
+        href={`/listings/${listing.id}`}
+        className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300"
+        aria-label={`Open listing ${listing.title || t("fallbackTitle")}`}
+      >
+        <div className="relative aspect-[4/3] overflow-hidden bg-white/5">
+          {listing.image_url ? (
+            <Image
+              src={listing.image_url}
+              alt={listing.title || "Travel Markets listing"}
+              fill
+              sizes="(max-width: 1024px) 50vw, 33vw"
+              className="object-cover transition duration-200 group-hover:scale-[1.02]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-white/30">
+              {t("noImage")}
             </div>
           )}
 
-          <div
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black shadow-lg ${trust.className}`}
-          >
-            {trust.verified ? <ShieldCheck size={14} /> : <Star size={14} />}
-            {trust.label}
-            {trust.score !== null && <span>{trust.score}/100</span>}
+          <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+            {isFeatured && (
+              <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black shadow-lg">
+                ⭐ {t("featured")}
+              </span>
+            )}
+
+            <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white backdrop-blur">
+              {listing.status || t("available")}
+            </span>
+          </div>
+
+          <div className="absolute bottom-12 left-3 flex max-w-[92%] flex-wrap gap-2">
+            {ownerBadge && (
+              <div
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black shadow-lg ${
+                  ownerPlan === "premium"
+                    ? "bg-yellow-400 text-black"
+                    : "bg-purple-500 text-white"
+                }`}
+              >
+                {ownerPlan === "premium" ? <Crown size={14} /> : <Sparkles size={14} />}
+                {ownerBadge}
+              </div>
+            )}
+
+            <div
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black shadow-lg ${trust.className}`}
+            >
+              {trust.verified ? <ShieldCheck size={14} /> : <Star size={14} />}
+              {trust.label}
+              {trust.score !== null && <span>{trust.score}/100</span>}
+            </div>
+          </div>
+
+          <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-lg">
+            {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
+            /mo
           </div>
         </div>
 
-        <div className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-lg">
-          {listing.price == null ? t("ask") : <Money amountCAD={listing.price} />}
-          /mo
-        </div>
-      </div>
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="line-clamp-1 text-base font-semibold">
+              {listing.title}
+            </h3>
 
-      <Link href={`/listings/${listing.id}`} className="block p-4">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-1 text-base font-semibold">
-            {listing.title}
-          </h3>
+            {trust.verified && (
+              <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
+                ✓ {t("verified")}
+              </span>
+            )}
+          </div>
 
-          {trust.verified && (
-            <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
-              ✓ {t("verified")}
+          <div className="mt-2 flex items-center gap-2 text-sm text-white/50">
+            <MapPin size={15} />
+            <span className="line-clamp-1">
+              {listing.city || t("cityHidden")}
+              {listing.campus ? ` • ${listing.campus}` : ""}
             </span>
-          )}
-        </div>
+          </div>
 
-        <div className="mt-2 flex items-center gap-2 text-sm text-white/50">
-          <MapPin size={15} />
-          <span className="line-clamp-1">
-            {listing.city || t("cityHidden")}
-            {listing.campus ? ` • ${listing.campus}` : ""}
-          </span>
-        </div>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-white/60">
+            <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+              <BedDouble size={14} />
+              {t("bed", { count: listing.bedrooms ?? 0 })}
+            </span>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-white/60">
-          <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-            <BedDouble size={14} />
-            {t("bed", { count: listing.bedrooms ?? 0 })}
-          </span>
+            <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+              <Bath size={14} />
+              {t("bath", { count: listing.bathrooms ?? 0 })}
+            </span>
 
-          <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-            <Bath size={14} />
-            {t("bath", { count: listing.bathrooms ?? 0 })}
-          </span>
+            <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
+              <Users size={14} />
+              {listing.guests ?? "-"}
+            </span>
+          </div>
 
-          <span className="inline-flex items-center gap-1 rounded-xl bg-white/5 px-2 py-2">
-            <Users size={14} />
-            {listing.guests ?? "-"}
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
-          <Building2 size={14} />
-          {t("exactAddressUnlocks")}
+          <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
+            <Building2 size={14} />
+            {t("exactAddressUnlocks")}
+          </div>
         </div>
       </Link>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleSave(listing.id, listing.is_saved);
+        }}
+        className="absolute right-3 top-3 z-10 rounded-full bg-black/55 p-2 backdrop-blur transition hover:bg-black/80"
+        aria-label={listing.is_saved ? "Remove saved listing" : "Save listing"}
+      >
+        <Heart
+          size={19}
+          className={listing.is_saved ? "fill-white text-white" : "text-white"}
+        />
+      </button>
     </motion.div>
   );
 }
 
-function MobileFilters(props: any) {
+function MobileFilters(props: MobileFiltersProps) {
   const t = useTranslations("home.search.filters");
 
   return (
@@ -1259,19 +1370,19 @@ function MobileFilters(props: any) {
             <option value="3">{t("guestThree")}</option>
           </FilterSelect>
 
-          <FilterSelect value={props.sort} onChange={props.setSort}>
+          <FilterSelect value={props.sort} onChange={(value) => props.setSort(value as SortOption)}>
             <option value="newest">{t("newest")}</option>
             <option value="trust-high">{t("highestTrust")}</option>
             <option value="price-low">{t("priceLowHigh")}</option>
             <option value="price-high">{t("priceHighLow")}</option>
           </FilterSelect>
 
-          <FilterSelect value={props.verifiedOnly} onChange={props.setVerifiedOnly}>
+          <FilterSelect value={props.verifiedOnly} onChange={(value) => props.setVerifiedOnly(value as VerifiedOption)}>
             <option value="">{t("allOwners")}</option>
             <option value="true">{t("verifiedOwnersOnly")}</option>
           </FilterSelect>
 
-          <FilterSelect value={props.trustLevel} onChange={props.setTrustLevel}>
+          <FilterSelect value={props.trustLevel} onChange={(value) => props.setTrustLevel(value as TrustOption)}>
             <option value="">{t("allTrustLevels")}</option>
             <option value="elite">{t("eliteOwners")}</option>
             <option value="trusted">{t("trustedOwners")}</option>
@@ -1313,7 +1424,7 @@ function MobileFilters(props: any) {
   );
 }
 
-function MobileInput({ value, onChange, placeholder, type = "text" }: any) {
+function MobileInput({ value, onChange, placeholder, type = "text" }: MobileInputProps) {
   return (
     <input
       value={value}

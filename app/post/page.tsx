@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ChangeEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Building2,
   Check,
+  ChevronDown,
   ImagePlus,
   Loader2,
   MapPin,
@@ -188,6 +189,37 @@ const steps: Array<{ id: StepId; title: string; eyebrow: string }> = [
   { id: "review", title: "Review & publish", eyebrow: "Final check" },
 ];
 
+const stepCopy: Record<StepId, { heading: string; subheading: string }> = {
+  basics: {
+    heading: "Tell us about your property",
+    subheading: "Start with the essentials students scan first: title, rent, and room count.",
+  },
+  location: {
+    heading: "Where is your property located?",
+    subheading: "Students will only see the approximate location until a viewing is approved.",
+  },
+  photos: {
+    heading: "Add photos students can trust",
+    subheading: "Upload clear photos now. You can choose the cover photo before publishing.",
+  },
+  details: {
+    heading: "Describe the space",
+    subheading: "Keep it practical: layout, transit access, furnishing, utilities, and what makes the home work for students.",
+  },
+  amenities: {
+    heading: "Add optional amenities",
+    subheading: "Skip this if you are moving quickly. Amenities help students compare listings later.",
+  },
+  rental: {
+    heading: "Add optional rental details",
+    subheading: "These details are helpful, but they are not required to save your draft.",
+  },
+  review: {
+    heading: "Review your listing",
+    subheading: "Check the summary, make quick edits, then publish when everything looks right.",
+  },
+};
+
 function loadStoredDraft() {
   if (typeof window === "undefined") return defaultDraftState();
 
@@ -268,6 +300,8 @@ export default function PostListingPage() {
   const [checkingLimit, setCheckingLimit] = useState(true);
 
   const activeStep = steps[draft.activeStep] || steps[0];
+  const activeStepCopy = stepCopy[activeStep.id];
+  const progressPercent = Math.round(((draft.activeStep + 1) / steps.length) * 100);
   const listingLimit = PLAN_LIMITS[plan] || 1;
   const listingLimitLabel = listingLimit === Infinity ? "Unlimited" : String(listingLimit);
   const matchingCampuses = useMemo(() => {
@@ -287,8 +321,27 @@ export default function PostListingPage() {
           .toLowerCase();
         return haystack.includes(query);
       })
+      .sort((first, second) => {
+        if (draft.latitude == null || draft.longitude == null) return 0;
+
+        const firstDistance = calculateDistanceKm(
+          draft.latitude,
+          draft.longitude,
+          first.latitude,
+          first.longitude
+        );
+        const secondDistance = calculateDistanceKm(
+          draft.latitude,
+          draft.longitude,
+          second.latitude,
+          second.longitude
+        );
+
+        return (firstDistance ?? Number.POSITIVE_INFINITY) -
+          (secondDistance ?? Number.POSITIVE_INFINITY);
+      })
       .slice(0, 12);
-  }, [campusQuery]);
+  }, [campusQuery, draft.latitude, draft.longitude]);
   const matchingCities = useMemo(() => {
     const query = cityQuery.trim().toLowerCase();
     if (!query) return commonCities.slice(0, 8);
@@ -881,9 +934,9 @@ export default function PostListingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 py-8 text-white">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:flex-row md:items-center md:justify-between">
+    <main className="min-h-screen bg-black px-4 py-6 pb-32 text-white sm:py-10">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-5 flex flex-col gap-4 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <Sparkles className="text-pink-300" />
             <div>
@@ -898,50 +951,56 @@ export default function PostListingPage() {
           </Link>
         </div>
 
-        <div className="overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl">
-          <div className="border-b border-white/10 p-6">
-            <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/40">
+          <div className="border-b border-white/10 px-5 py-6 sm:px-8">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-pink-300">
+              Post a property
+            </p>
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.22em] text-pink-300">
-                  Post a property
+                <p className="text-sm font-semibold text-zinc-400">
+                  Step {draft.activeStep + 1} of {steps.length}
                 </p>
-                <h1 className="mt-2 text-4xl font-black">Create a student-ready listing</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                  One focused step at a time. Save and exit whenever you need.
+                <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                  {activeStepCopy.heading}
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+                  {activeStepCopy.subheading}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => saveListing("draft")}
-                disabled={saving}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white hover:bg-white/10 disabled:opacity-50"
-              >
-                <Save size={16} />
-                Save & Exit
-              </button>
+              <p className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-zinc-300">
+                {activeStep.title}
+              </p>
             </div>
-            <div className="mt-6 grid gap-2 md:grid-cols-7">
+
+            <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-pink-400 transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
+            <div className="mt-4 hidden gap-2 lg:grid lg:grid-cols-7">
               {steps.map((step, index) => (
                 <button
                   key={step.id}
                   type="button"
                   onClick={() => goToStep(index)}
-                  className={`rounded-2xl border p-3 text-left transition ${
+                  className={`rounded-full px-3 py-2 text-center text-[11px] font-bold transition ${
                     index === draft.activeStep
-                      ? "border-pink-400/40 bg-pink-500/15"
+                      ? "bg-white text-black"
                       : index < draft.activeStep
-                        ? "border-emerald-400/20 bg-emerald-500/10"
-                        : "border-white/10 bg-black/30"
+                        ? "bg-emerald-400/10 text-emerald-200"
+                        : "bg-white/[0.04] text-zinc-500 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <p className="text-xs font-black text-white">{index + 1}</p>
-                  <p className="mt-1 line-clamp-1 text-xs text-zinc-400">{step.title}</p>
+                  {index + 1}. {step.title}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="p-6 md:p-8">
+          <div className="mx-auto max-w-3xl px-5 py-7 sm:px-8 sm:py-9">
             {formError && (
               <div role="alert" className="mb-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-200">
                 {formError}
@@ -957,7 +1016,7 @@ export default function PostListingPage() {
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-pink-300">
                 {activeStep.eyebrow}
               </p>
-              <h2 className="mt-2 text-3xl font-black">{activeStep.title}</h2>
+              <h2 className="mt-2 text-2xl font-black">{activeStep.title}</h2>
               <div className="mt-8">
                 {activeStep.id === "basics" && (
                   <BasicsStep draft={draft} patchDraft={patchDraft} />
@@ -1005,51 +1064,55 @@ export default function PostListingPage() {
                 )}
               </div>
             </section>
+          </div>
+        </div>
+      </div>
 
-            <div className="mt-10 flex flex-col-reverse gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/85 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => goToStep(draft.activeStep - 1)}
+            disabled={draft.activeStep === 0 || saving}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm font-bold text-zinc-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ArrowLeft size={18} />
+            Back
+          </button>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => saveListing("draft")}
+              disabled={saving}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-zinc-200 hover:bg-white/10 disabled:opacity-50 sm:px-4"
+            >
+              <Save size={16} className="shrink-0" />
+              <span className="hidden sm:inline">Save & Exit</span>
+              <span className="sm:hidden">Save</span>
+            </button>
+
+            {activeStep.id === "review" ? (
               <button
                 type="button"
-                onClick={() => goToStep(draft.activeStep - 1)}
-                disabled={draft.activeStep === 0 || saving}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => saveListing("publish")}
+                disabled={saving}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg shadow-white/10 hover:bg-zinc-200 disabled:opacity-50 sm:px-6"
               >
-                <ArrowLeft size={18} />
-                Back
+                {saving ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                Publish Listing
               </button>
-
-              {activeStep.id === "review" ? (
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => saveListing("draft")}
-                    disabled={saving}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10 disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                    Save draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => saveListing("publish")}
-                    disabled={saving}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 font-black text-black hover:bg-zinc-200 disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                    Publish Listing
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={goNext}
-                  disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 font-black text-black hover:bg-zinc-200 disabled:opacity-50"
-                >
-                  Continue
-                  <ArrowRight size={18} />
-                </button>
-              )}
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={saving}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg shadow-white/10 hover:bg-zinc-200 disabled:opacity-50 sm:px-6"
+              >
+                Continue
+                <ArrowRight size={18} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1066,12 +1129,19 @@ function BasicsStep({
 }) {
   return (
     <div className="grid gap-5 md:grid-cols-2">
-      <Input label="Listing title" value={draft.title} set={(title) => patchDraft({ title })} />
+      <div className="md:col-span-2">
+        <Input
+          label="Listing title"
+          value={draft.title}
+          set={(title) => patchDraft({ title })}
+          placeholder="Bright room near Durham College"
+        />
+      </div>
       <SelectField label="Property type" value={draft.propertyType} set={(propertyType) => patchDraft({ propertyType })} options={[["", "Choose type"], ...propertyTypes.map((item) => [item, item])]} />
-      <Input label="Monthly rent" value={draft.price} set={(price) => patchDraft({ price })} type="number" />
-      <Input label="Bedrooms" value={draft.bedrooms} set={(bedrooms) => patchDraft({ bedrooms })} type="number" required={false} />
-      <Input label="Bathrooms" value={draft.bathrooms} set={(bathrooms) => patchDraft({ bathrooms })} type="number" required={false} />
-      <Input label="Rooms / rentable rooms" value={draft.roommates} set={(roommates) => patchDraft({ roommates })} type="number" required={false} />
+      <Input label="Monthly rent" value={draft.price} set={(price) => patchDraft({ price })} type="number" placeholder="850" />
+      <Input label="Bedrooms" value={draft.bedrooms} set={(bedrooms) => patchDraft({ bedrooms })} type="number" required={false} placeholder="2" />
+      <Input label="Bathrooms" value={draft.bathrooms} set={(bathrooms) => patchDraft({ bathrooms })} type="number" required={false} placeholder="1" />
+      <Input label="Rooms / rentable rooms" value={draft.roommates} set={(roommates) => patchDraft({ roommates })} type="number" required={false} placeholder="1" />
     </div>
   );
 }
@@ -1116,6 +1186,15 @@ function LocationStep({
             setAddressSearchOpen(true);
           }}
           icon={<MapPin size={18} />}
+          placeholder="Search your property address"
+          onFocus={() => setAddressSearchOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && addressSuggestions[0]) {
+              event.preventDefault();
+              selectAddressSuggestion(addressSuggestions[0]);
+            }
+            if (event.key === "Escape") setAddressSearchOpen(false);
+          }}
         />
         {addressSearchOpen && addressSuggestions.length > 0 && (
           <SuggestionPanel>
@@ -1133,7 +1212,7 @@ function LocationStep({
         )}
       </div>
       <div className="grid gap-5 md:grid-cols-3">
-        <Input label="Unit / apartment" value={draft.unit} set={(unit) => patchDraft({ unit })} required={false} />
+        <Input label="Unit / apartment" value={draft.unit} set={(unit) => patchDraft({ unit })} required={false} placeholder="Basement, Unit 2, Room A" />
         <div className="relative">
           <Input
             label="City"
@@ -1143,6 +1222,15 @@ function LocationStep({
               setCityQuery(city);
             }}
             icon={<Search size={18} />}
+            placeholder="Start typing a city"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && matchingCities[0]) {
+                event.preventDefault();
+                patchDraft({ city: matchingCities[0] });
+                setCityQuery("");
+              }
+              if (event.key === "Escape") setCityQuery("");
+            }}
           />
           {cityQuery && matchingCities.length > 0 && (
             <SuggestionPanel>
@@ -1162,9 +1250,9 @@ function LocationStep({
             </SuggestionPanel>
           )}
         </div>
-        <Input label="Postal code" value={draft.postalCode} set={(postalCode) => patchDraft({ postalCode })} required={false} />
+        <Input label="Postal code" value={draft.postalCode} set={(postalCode) => patchDraft({ postalCode })} required={false} placeholder="L1G 0C5" />
       </div>
-      <Input label="Province" value={draft.province} set={(province) => patchDraft({ province })} />
+      <Input label="Province" value={draft.province} set={(province) => patchDraft({ province })} placeholder="Ontario" />
       <div className="relative">
         <Input
           label="Nearest campus"
@@ -1174,6 +1262,13 @@ function LocationStep({
             patchDraft({ nearestCampusName: value, campus: value, campusId: "" });
           }}
           icon={<Building2 size={18} />}
+          placeholder="Search by school, campus, or city"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && matchingCampuses[0]) {
+              event.preventDefault();
+              selectCampus(matchingCampuses[0]);
+            }
+          }}
         />
         {matchingCampuses.length > 0 && (
           <SuggestionPanel>
@@ -1208,17 +1303,34 @@ function PhotosStep({
 }) {
   return (
     <div className="space-y-5">
-      <label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-700 bg-black/40 p-8 text-center hover:border-pink-300">
-        <ImagePlus className="text-pink-300" size={34} />
-        <span className="mt-3 text-lg font-bold text-white">Upload listing photos</span>
-        <span className="mt-1 text-sm text-zinc-400">Add multiple images. The first image is the cover unless you choose another.</span>
+      <label className="flex min-h-60 cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border border-dashed border-zinc-700 bg-black/40 p-8 text-center transition hover:border-pink-300 hover:bg-pink-500/5">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-pink-500/15 text-pink-200">
+          <ImagePlus size={30} />
+        </span>
+        <span className="mt-4 text-xl font-black text-white">Drag photos here or choose files</span>
+        <span className="mt-2 max-w-md text-sm leading-6 text-zinc-400">
+          Add multiple photos. Your first photo is marked as the cover, and you can choose a different cover before publishing.
+        </span>
         <input type="file" multiple accept="image/*" onChange={handlePhotoSelection} className="sr-only" />
       </label>
+      <p className="text-sm font-semibold text-zinc-400">
+        {photos.length} photo{photos.length === 1 ? "" : "s"} selected
+      </p>
       {photos.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {photos.map((photo) => (
+          {photos.map((photo, index) => (
             <div key={photo.id} className="overflow-hidden rounded-3xl border border-white/10 bg-black">
-              <img src={photo.url} alt="" className="h-48 w-full object-cover" />
+              <div className="relative">
+                <img src={photo.url} alt="" className="h-48 w-full object-cover" />
+                {photo.isCover && (
+                  <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-black text-black">
+                    Cover photo
+                  </span>
+                )}
+                <span className="absolute bottom-3 left-3 rounded-full bg-black/65 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                  Photo {index + 1}
+                </span>
+              </div>
               <div className="flex items-center justify-between gap-2 p-3">
                 <button type="button" onClick={() => setCoverPhoto(photo.id)} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-white">
                   {photo.isCover ? "Cover photo" : "Make cover"}
@@ -1244,20 +1356,23 @@ function DetailsStep({
 }) {
   return (
     <div className="space-y-5">
+      <label className="block">
+        <span className="mb-2 block text-sm font-semibold text-zinc-300">Description</span>
       <textarea
         value={draft.description}
         onChange={(event) => patchDraft({ description: event.target.value })}
         placeholder="Describe the space, layout, transit access, and who it is best for."
         rows={6}
-        className="w-full rounded-2xl border border-zinc-800 bg-black p-4 outline-none focus:border-white"
+          className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20"
       />
+      </label>
       <div className="grid gap-5 md:grid-cols-2">
         <SelectField label="Furnished" value={draft.furnished} set={(furnished) => patchDraft({ furnished })} options={[["", "Choose"], ["furnished", "Furnished"], ["unfurnished", "Unfurnished"], ["partially_furnished", "Partially furnished"]]} />
         <SelectField label="Utilities included" value={draft.utilitiesIncluded} set={(utilitiesIncluded) => patchDraft({ utilitiesIncluded })} options={[["", "Ask landlord"], ["included", "Included"], ["partial", "Partially included"], ["not_included", "Not included"]]} />
-        <Input label="Parking availability" value={draft.parkingDetails} set={(parkingDetails) => patchDraft({ parkingDetails })} required={false} />
-        <Input label="Laundry" value={draft.laundryDetails} set={(laundryDetails) => patchDraft({ laundryDetails })} required={false} />
-        <Input label="Internet / Wi-Fi" value={draft.internetDetails} set={(internetDetails) => patchDraft({ internetDetails })} required={false} />
-        <Input label="Pet policy" value={draft.petDetails} set={(petDetails) => patchDraft({ petDetails })} required={false} />
+        <Input label="Parking availability" value={draft.parkingDetails} set={(parkingDetails) => patchDraft({ parkingDetails })} required={false} placeholder="Driveway, street, paid nearby" />
+        <Input label="Laundry" value={draft.laundryDetails} set={(laundryDetails) => patchDraft({ laundryDetails })} required={false} placeholder="In-unit, shared, nearby laundromat" />
+        <Input label="Internet / Wi-Fi" value={draft.internetDetails} set={(internetDetails) => patchDraft({ internetDetails })} required={false} placeholder="Included, tenant arranged, shared" />
+        <Input label="Pet policy" value={draft.petDetails} set={(petDetails) => patchDraft({ petDetails })} required={false} placeholder="No pets, cats considered" />
       </div>
     </div>
   );
@@ -1270,26 +1385,36 @@ function AmenitiesStep({
   draft: DraftState;
   toggleAmenity: (value: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div>
-      <p className="mb-5 text-sm text-zinc-400">Optional. Choose what helps students quickly understand the space.</p>
+    <CollapsibleSection
+      title="Add amenities"
+      optionalLabel={`${draft.selectedAmenities.length} selected`}
+      open={open}
+      setOpen={setOpen}
+    >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {amenityItems.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => toggleAmenity(key)}
-            className={`rounded-2xl border p-4 text-left text-sm font-semibold transition ${
-              draft.selectedAmenities.includes(key)
-                ? "border-pink-400/40 bg-pink-500/15 text-pink-100"
-                : "border-white/10 bg-black/40 text-zinc-300 hover:bg-white/10"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+        {amenityItems.map(([key, label]) => {
+          const selected = draft.selectedAmenities.includes(key);
+
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleAmenity(key)}
+              className={`min-h-12 rounded-2xl border p-4 text-left text-sm font-semibold transition ${
+                selected
+                  ? "border-pink-400/50 bg-pink-500/15 text-pink-100"
+                  : "border-white/10 bg-black/40 text-zinc-300 hover:bg-white/10"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -1300,12 +1425,54 @@ function RentalStep({
   draft: DraftState;
   patchDraft: (update: Partial<DraftState>) => void;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="grid gap-5 md:grid-cols-2">
-      <SelectField label="Does the owner live at the property?" value={draft.ownerOccupiesProperty} set={(ownerOccupiesProperty) => patchDraft({ ownerOccupiesProperty })} options={[["", "Prefer not to say"], ["true", "Yes"], ["false", "No"]]} />
-      <SelectField label="Tenant shares kitchen or bathroom with owner?" value={draft.sharedKitchenOrBathroom} set={(sharedKitchenOrBathroom) => patchDraft({ sharedKitchenOrBathroom })} options={[["", "Prefer not to say"], ["true", "Yes"], ["false", "No"]]} />
-      <Input label="Available / move-in date" value={draft.moveInDate} set={(moveInDate) => patchDraft({ moveInDate })} type="date" required={false} />
-      <SelectField label="Lease length" value={draft.leaseType} set={(leaseType) => patchDraft({ leaseType })} options={leaseTypeOptions.map((item) => [item[0], item[1]])} />
+    <CollapsibleSection
+      title="Add lease and living arrangement details"
+      optionalLabel="Optional"
+      open={open}
+      setOpen={setOpen}
+    >
+      <div className="grid gap-5 md:grid-cols-2">
+        <SelectField label="Does the owner live at the property?" value={draft.ownerOccupiesProperty} set={(ownerOccupiesProperty) => patchDraft({ ownerOccupiesProperty })} options={[["", "Prefer not to say"], ["true", "Yes"], ["false", "No"]]} />
+        <SelectField label="Tenant shares kitchen or bathroom with owner?" value={draft.sharedKitchenOrBathroom} set={(sharedKitchenOrBathroom) => patchDraft({ sharedKitchenOrBathroom })} options={[["", "Prefer not to say"], ["true", "Yes"], ["false", "No"]]} />
+        <Input label="Available / move-in date" value={draft.moveInDate} set={(moveInDate) => patchDraft({ moveInDate })} type="date" required={false} />
+        <SelectField label="Lease length" value={draft.leaseType} set={(leaseType) => patchDraft({ leaseType })} options={leaseTypeOptions.map((item) => [item[0], item[1]])} />
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  optionalLabel,
+  open,
+  setOpen,
+  children,
+}: {
+  title: string;
+  optionalLabel: string;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-white/10 bg-black/35">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between gap-4 p-5 text-left"
+      >
+        <span>
+          <span className="block text-base font-black text-white">{title}</span>
+          <span className="mt-1 block text-sm text-zinc-500">{optionalLabel}</span>
+        </span>
+        <span className={`rounded-full border border-white/10 bg-white/[0.04] p-2 text-zinc-300 transition ${open ? "rotate-180" : ""}`}>
+          <ChevronDown size={18} />
+        </span>
+      </button>
+      {open && <div className="border-t border-white/10 p-5 pt-4">{children}</div>}
     </div>
   );
 }
@@ -1320,34 +1487,32 @@ function ReviewStep({
   goToStep: (index: number) => void;
 }) {
   const cards = [
-    ["Basic information", `${draft.title || "Untitled"} • $${draft.price || "0"}`, 0],
-    ["Location", [draft.city, draft.nearestCampusName].filter(Boolean).join(" • ") || "Not complete", 1],
-    ["Photos", `${photos.length} new photo${photos.length === 1 ? "" : "s"}`, 2],
-    ["Property details", draft.description || "No description yet", 3],
+    ["Property", `${draft.bedrooms || "0"} bedrooms • ${draft.bathrooms || "0"} bathrooms • $${draft.price || "0"}/month`, 0],
+    ["Location", [draft.addressLine, draft.city, draft.nearestCampusName].filter(Boolean).join(" • ") || "Not complete", 1],
+    ["Photos", `${photos.length} new photo${photos.length === 1 ? "" : "s"}${photos.length > 0 ? " • cover selected" : ""}`, 2],
+    ["Rental details", draft.description || "No description yet", 3],
     ["Amenities", `${draft.selectedAmenities.length} selected`, 4],
     ["Optional rental details", draft.leaseType || draft.moveInDate || "Skipped for now", 5],
   ] as const;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="space-y-4">
       {cards.map(([title, value, step]) => (
-        <div key={title} className="rounded-3xl border border-white/10 bg-black/40 p-5">
+        <div key={title} className="rounded-[1.5rem] border border-white/10 bg-black/40 p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="font-bold text-white">{title}</p>
+              <p className="text-sm font-black uppercase tracking-[0.14em] text-zinc-500">{title}</p>
               <p className="mt-2 line-clamp-3 text-sm leading-6 text-zinc-400">{value}</p>
             </div>
-            <button type="button" onClick={() => goToStep(step)} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-zinc-200 hover:bg-white/10">
+            <button type="button" onClick={() => goToStep(step)} className="min-h-10 rounded-xl border border-white/10 px-3 text-xs font-bold text-zinc-200 hover:border-pink-400/40 hover:bg-pink-500/10">
               Edit
             </button>
           </div>
         </div>
       ))}
-      <div className="rounded-3xl border border-pink-400/20 bg-pink-500/10 p-5 md:col-span-2">
+      <div className="rounded-[1.5rem] border border-pink-400/20 bg-pink-500/10 p-5">
         <p className="font-bold text-pink-100">Publishing uses account-level landlord verification.</p>
-        <p className="mt-2 text-sm leading-6 text-pink-50/80">
-          If your landlord account is verified, this listing can publish without property-specific document upload. If not, you can save a draft and complete landlord verification from the Verification Center.
-        </p>
+        <p className="mt-2 text-sm leading-6 text-pink-50/80">No extra document upload is required in this wizard.</p>
       </div>
     </div>
   );
@@ -1355,7 +1520,7 @@ function ReviewStep({
 
 function SuggestionPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-2xl border border-white/10 bg-zinc-950 p-2 shadow-2xl">
+    <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-2xl border border-pink-400/20 bg-zinc-950 p-2 shadow-2xl shadow-black/40">
       {children}
     </div>
   );
@@ -1368,6 +1533,9 @@ function Input({
   type = "text",
   required = true,
   icon,
+  placeholder,
+  onFocus,
+  onKeyDown,
 }: {
   label: string;
   value: string;
@@ -1375,6 +1543,9 @@ function Input({
   type?: string;
   required?: boolean;
   icon?: ReactNode;
+  placeholder?: string;
+  onFocus?: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className="block">
@@ -1386,7 +1557,10 @@ function Input({
           type={type}
           value={value}
           onChange={(event) => set(event.target.value)}
-          className={`w-full rounded-2xl border border-zinc-800 bg-black p-4 outline-none focus:border-white ${icon ? "pl-11" : ""}`}
+          placeholder={placeholder}
+          onFocus={onFocus}
+          onKeyDown={onKeyDown}
+          className={`min-h-[52px] w-full rounded-2xl border border-zinc-800 bg-black p-4 text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20 ${icon ? "pl-11" : ""}`}
         />
       </span>
     </label>
@@ -1410,7 +1584,7 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => set(event.target.value)}
-        className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-white"
+        className="min-h-[52px] w-full rounded-2xl border border-zinc-800 bg-black p-4 text-white outline-none transition focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20"
       >
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>

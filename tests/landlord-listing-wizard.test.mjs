@@ -33,6 +33,8 @@ test("landlord posting flow is a focused step-by-step listing wizard", () => {
   assert.match(postPageSource, /Save & Exit/);
   assert.match(postPageSource, /Post another property/);
   assert.match(postPageSource, /STORAGE_KEY = "travel-markets-post-listing-wizard-v2"/);
+  assert.match(postPageSource, /Step \{draft\.activeStep \+ 1\} of \{steps\.length\}/);
+  assert.match(postPageSource, /progressPercent/);
 });
 
 test("listing wizard uses full address geocoding, Mapbox autocomplete, and centralized campuses", () => {
@@ -41,6 +43,13 @@ test("listing wizard uses full address geocoding, Mapbox autocomplete, and centr
   assert.match(postPageSource, /country", "ca"/);
   assert.match(postPageSource, /campusOptions/);
   assert.match(postPageSource, /selectCampus/);
+  assert.match(postPageSource, /onKeyDown/);
+});
+
+test("optional listing details are presented as collapsible sections", () => {
+  assert.match(postPageSource, /CollapsibleSection/);
+  assert.match(postPageSource, /Add amenities/);
+  assert.match(postPageSource, /Add lease and living arrangement details/);
 });
 
 test("listing wizard does not reintroduce per-listing document verification", () => {
