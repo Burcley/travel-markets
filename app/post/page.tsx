@@ -1175,6 +1175,42 @@ function LocationStep({
   matchingCampuses: typeof campusOptions;
   selectCampus: (campus: (typeof campusOptions)[number]) => void;
 }) {
+  const [addressActiveIndex, setAddressActiveIndex] = useState(0);
+  const [cityActiveIndex, setCityActiveIndex] = useState(0);
+  const [campusSearchOpen, setCampusSearchOpen] = useState(false);
+  const [campusActiveIndex, setCampusActiveIndex] = useState(0);
+  const selectedAddressIndex =
+    addressSuggestions.length > 0
+      ? Math.min(addressActiveIndex, addressSuggestions.length - 1)
+      : 0;
+  const selectedCityIndex =
+    matchingCities.length > 0
+      ? Math.min(cityActiveIndex, matchingCities.length - 1)
+      : 0;
+  const selectedCampusIndex =
+    matchingCampuses.length > 0
+      ? Math.min(campusActiveIndex, matchingCampuses.length - 1)
+      : 0;
+
+  const moveActiveIndex = (
+    event: KeyboardEvent<HTMLInputElement>,
+    count: number,
+    activeIndex: number,
+    setActiveIndex: (index: number) => void
+  ) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return false;
+    if (count === 0) return false;
+
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    setActiveIndex((activeIndex + direction + count) % count);
+    return true;
+  };
+  const chooseCampus = (campus: (typeof campusOptions)[number]) => {
+    selectCampus(campus);
+    setCampusSearchOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="relative">
@@ -1182,6 +1218,7 @@ function LocationStep({
           label="Street address"
           value={draft.addressLine}
           set={(addressLine) => {
+            setAddressActiveIndex(0);
             patchDraft({ addressLine, latitude: null, longitude: null });
             setAddressSearchOpen(true);
           }}
@@ -1189,24 +1226,35 @@ function LocationStep({
           placeholder="Search your property address"
           onFocus={() => setAddressSearchOpen(true)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && addressSuggestions[0]) {
+            if (
+              moveActiveIndex(
+                event,
+                addressSuggestions.length,
+                addressActiveIndex,
+                setAddressActiveIndex
+              )
+            ) {
+              return;
+            }
+
+            if (event.key === "Enter" && addressSuggestions[selectedAddressIndex]) {
               event.preventDefault();
-              selectAddressSuggestion(addressSuggestions[0]);
+              selectAddressSuggestion(addressSuggestions[selectedAddressIndex]);
             }
             if (event.key === "Escape") setAddressSearchOpen(false);
           }}
         />
         {addressSearchOpen && addressSuggestions.length > 0 && (
           <SuggestionPanel>
-            {addressSuggestions.map((suggestion) => (
-              <button
+            {addressSuggestions.map((suggestion, index) => (
+              <SuggestionRow
                 key={suggestion.id}
-                type="button"
+                icon={<MapPin size={17} />}
+                title={suggestion.label}
+                subtitle="Verified address result"
+                active={index === selectedAddressIndex}
                 onClick={() => selectAddressSuggestion(suggestion)}
-                className="w-full cursor-pointer rounded-2xl px-4 py-3 text-left text-sm text-zinc-200 transition hover:bg-white/10"
-              >
-                {suggestion.label}
-              </button>
+              />
             ))}
           </SuggestionPanel>
         )}
@@ -1218,15 +1266,27 @@ function LocationStep({
             label="City"
             value={draft.city}
             set={(city) => {
+              setCityActiveIndex(0);
               patchDraft({ city });
               setCityQuery(city);
             }}
             icon={<Search size={18} />}
             placeholder="Start typing a city"
             onKeyDown={(event) => {
-              if (event.key === "Enter" && matchingCities[0]) {
+              if (
+                moveActiveIndex(
+                  event,
+                  matchingCities.length,
+                  cityActiveIndex,
+                  setCityActiveIndex
+                )
+              ) {
+                return;
+              }
+
+              if (event.key === "Enter" && matchingCities[selectedCityIndex]) {
                 event.preventDefault();
-                patchDraft({ city: matchingCities[0] });
+                patchDraft({ city: matchingCities[selectedCityIndex] });
                 setCityQuery("");
               }
               if (event.key === "Escape") setCityQuery("");
@@ -1234,18 +1294,18 @@ function LocationStep({
           />
           {cityQuery && matchingCities.length > 0 && (
             <SuggestionPanel>
-              {matchingCities.map((city) => (
-                <button
+              {matchingCities.map((city, index) => (
+                <SuggestionRow
                   key={city}
-                  type="button"
+                  icon={<Search size={17} />}
+                  title={city}
+                  subtitle="Ontario city"
+                  active={index === selectedCityIndex}
                   onClick={() => {
                     patchDraft({ city });
                     setCityQuery("");
                   }}
-                  className="w-full cursor-pointer rounded-2xl px-4 py-3 text-left text-sm text-zinc-200 transition hover:bg-white/10"
-                >
-                  {city}
-                </button>
+                />
               ))}
             </SuggestionPanel>
           )}
@@ -1258,31 +1318,60 @@ function LocationStep({
           label="Nearest campus"
           value={campusQuery || draft.nearestCampusName}
           set={(value) => {
+            setCampusSearchOpen(true);
+            setCampusActiveIndex(0);
             setCampusQuery(value);
             patchDraft({ nearestCampusName: value, campus: value, campusId: "" });
           }}
           icon={<Building2 size={18} />}
-          placeholder="Search by school, campus, or city"
+          placeholder="Search university or campus"
+          onFocus={() => setCampusSearchOpen(true)}
+          clearValue={
+            campusQuery || draft.nearestCampusName
+              ? () => {
+                  setCampusSearchOpen(false);
+                  setCampusQuery("");
+                  patchDraft({ nearestCampusName: "", campus: "", campusId: "" });
+                }
+              : undefined
+          }
           onKeyDown={(event) => {
-            if (event.key === "Enter" && matchingCampuses[0]) {
-              event.preventDefault();
-              selectCampus(matchingCampuses[0]);
+            if (
+              moveActiveIndex(
+                event,
+                matchingCampuses.length,
+                campusActiveIndex,
+                setCampusActiveIndex
+              )
+            ) {
+              return;
             }
+
+            if (event.key === "Enter" && matchingCampuses[selectedCampusIndex]) {
+              event.preventDefault();
+              chooseCampus(matchingCampuses[selectedCampusIndex]);
+            }
+            if (event.key === "Escape") setCampusSearchOpen(false);
           }}
         />
-        {matchingCampuses.length > 0 && (
+        {campusSearchOpen && matchingCampuses.length > 0 && (
           <SuggestionPanel>
-            {matchingCampuses.map((campus) => (
-              <button
+            {matchingCampuses.map((campus, index) => (
+              <SuggestionRow
                 key={campus.id}
-                type="button"
-                onClick={() => selectCampus(campus)}
-                className="w-full cursor-pointer rounded-2xl px-4 py-3 text-left transition hover:bg-white/10"
-              >
-                <span className="block text-sm font-bold text-white">{campus.officialName}</span>
-                <span className="text-xs text-zinc-400">{campus.city} • {campus.address}</span>
-              </button>
+                icon={<Building2 size={17} />}
+                title={campus.officialName}
+                subtitle={`${campus.city} · ${campus.address}`}
+                tag="Campus"
+                active={index === selectedCampusIndex}
+                onClick={() => chooseCampus(campus)}
+              />
             ))}
+          </SuggestionPanel>
+        )}
+        {campusSearchOpen && campusQuery && matchingCampuses.length === 0 && (
+          <SuggestionPanel>
+            <SuggestionEmptyState />
           </SuggestionPanel>
         )}
       </div>
@@ -1520,8 +1609,67 @@ function ReviewStep({
 
 function SuggestionPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute left-0 right-0 z-[60] mt-2 max-h-80 w-full overflow-y-auto overscroll-contain rounded-2xl border border-pink-400/20 bg-zinc-950 p-2 shadow-2xl shadow-black/50 ring-1 ring-white/10">
+    <div
+      role="listbox"
+      className="absolute left-0 right-0 z-[60] mt-2 max-h-[300px] w-full overflow-y-auto overscroll-contain rounded-[18px] border border-white/10 bg-zinc-950/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] ring-1 ring-pink-400/10 backdrop-blur-xl [scrollbar-color:rgba(244,114,182,0.45)_transparent] [scrollbar-width:thin]"
+    >
       {children}
+    </div>
+  );
+}
+
+function SuggestionRow({
+  icon,
+  title,
+  subtitle,
+  tag,
+  active,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  tag?: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={active ? "true" : "false"}
+      onClick={onClick}
+      className={`flex min-h-[68px] w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-left transition focus:outline-none focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-pink-400/40 ${
+        active ? "bg-pink-500/10" : "hover:bg-white/[0.08]"
+      }`}
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-pink-200">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black text-white">
+          {title}
+        </span>
+        <span className="mt-1 block truncate text-xs font-medium text-zinc-400">
+          {subtitle}
+        </span>
+      </span>
+      {tag && (
+        <span className="shrink-0 rounded-full border border-pink-400/20 bg-pink-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-pink-200">
+          {tag}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function SuggestionEmptyState() {
+  return (
+    <div className="rounded-2xl px-4 py-5 text-center">
+      <p className="text-sm font-black text-white">No campuses found</p>
+      <p className="mt-1 text-xs text-zinc-400">
+        Try another university, campus, or city.
+      </p>
     </div>
   );
 }
@@ -1536,6 +1684,7 @@ function Input({
   placeholder,
   onFocus,
   onKeyDown,
+  clearValue,
 }: {
   label: string;
   value: string;
@@ -1546,12 +1695,13 @@ function Input({
   placeholder?: string;
   onFocus?: () => void;
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  clearValue?: () => void;
 }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-zinc-300">{label}</span>
       <span className="relative block">
-        {icon && <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">{icon}</span>}
+        {icon && <span className="pointer-events-none absolute left-4 top-1/2 flex -translate-y-1/2 items-center text-zinc-500">{icon}</span>}
         <input
           required={required}
           type={type}
@@ -1560,8 +1710,19 @@ function Input({
           placeholder={placeholder}
           onFocus={onFocus}
           onKeyDown={onKeyDown}
-          className={`min-h-[52px] w-full rounded-2xl border border-zinc-800 bg-black p-4 text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20 ${icon ? "pl-11" : ""}`}
+          className={`min-h-[52px] w-full rounded-2xl border border-zinc-800 bg-black p-4 text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20 ${icon ? "pl-11" : ""} ${clearValue ? "pr-11" : ""}`}
         />
+        {clearValue && (
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={clearValue}
+            className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/[0.08] text-zinc-400 transition hover:bg-white/[0.15] hover:text-white"
+            aria-label={`Clear ${label}`}
+          >
+            <X size={15} />
+          </button>
+        )}
       </span>
     </label>
   );

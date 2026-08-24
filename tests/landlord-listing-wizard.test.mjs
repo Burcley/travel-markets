@@ -49,10 +49,36 @@ test("listing wizard uses full address geocoding, Mapbox autocomplete, and centr
 test("location autocomplete suggestions are visible and scrollable", () => {
   assert.match(postPageSource, /overflow-visible rounded-\[2rem\]/);
   assert.match(postPageSource, /z-\[60\]/);
-  assert.match(postPageSource, /max-h-80/);
+  assert.match(postPageSource, /max-h-\[300px\]/);
   assert.match(postPageSource, /overflow-y-auto/);
   assert.match(postPageSource, /overscroll-contain/);
   assert.match(postPageSource, /cursor-pointer/);
+});
+
+test("location autocomplete uses premium shared result rows and empty state", () => {
+  assert.match(postPageSource, /function SuggestionRow/);
+  assert.match(postPageSource, /role="listbox"/);
+  assert.match(postPageSource, /role="option"/);
+  assert.match(postPageSource, /aria-selected/);
+  assert.match(postPageSource, /min-h-\[68px\]/);
+  assert.match(postPageSource, /rounded-\[18px\]/);
+  assert.match(postPageSource, /shadow-\[0_24px_70px_rgba\(0,0,0,0\.55\)\]/);
+  assert.match(postPageSource, /Search university or campus/);
+  assert.match(postPageSource, /tag="Campus"/);
+  assert.match(postPageSource, /No campuses found/);
+  assert.match(postPageSource, /Try another university, campus, or city\./);
+  assert.match(postPageSource, /Clear \$\{label\}/);
+});
+
+test("location autocomplete selection and keyboard handling stay functional", () => {
+  assert.match(postPageSource, /ArrowDown/);
+  assert.match(postPageSource, /ArrowUp/);
+  assert.match(postPageSource, /setCampusSearchOpen\(false\)/);
+  assert.match(postPageSource, /chooseCampus/);
+  assert.match(postPageSource, /selectAddressSuggestion\(addressSuggestions\[selectedAddressIndex\]\)/);
+  assert.match(postPageSource, /patchDraft\(\{ city: matchingCities\[selectedCityIndex\] \}\)/);
+  assert.match(postPageSource, /SuggestionRow[\s\S]*Verified address result/);
+  assert.match(postPageSource, /SuggestionRow[\s\S]*Ontario city/);
 });
 
 test("optional listing details are presented as collapsible sections", () => {
