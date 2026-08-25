@@ -3,6 +3,13 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  ExternalLink,
+  Save,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   appliesWhenOptions,
@@ -71,6 +78,51 @@ type RequirementRow = {
   active?: boolean | null;
 };
 
+type EditSectionId =
+  | "basics"
+  | "location"
+  | "photos"
+  | "details"
+  | "amenities"
+  | "rental";
+
+const editSections: Array<{
+  id: EditSectionId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "basics",
+    label: "Basics",
+    description: "Title, price, capacity and status",
+  },
+  {
+    id: "location",
+    label: "Location",
+    description: "Private address and campus proximity",
+  },
+  {
+    id: "photos",
+    label: "Photos",
+    description: "Gallery order and cover image",
+  },
+  {
+    id: "details",
+    label: "Property details",
+    description: "Description, rent and utilities",
+  },
+  {
+    id: "amenities",
+    label: "Amenities",
+    description: "Included features and policies",
+  },
+  {
+    id: "rental",
+    label: "Rental details",
+    description: "Lease, occupancy and application settings",
+  },
+];
+
 const yesNoOptions = [
   ["", "Not answered"],
   ["true", "Yes"],
@@ -137,6 +189,8 @@ export default function EditListingPage() {
   const [repairingLocation, setRepairingLocation] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [locationRepairMessage, setLocationRepairMessage] = useState("");
+  const [activeSection, setActiveSection] = useState<EditSectionId>("basics");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
 
   const [title, setTitle] = useState("");
   const [city, setCity] = useState("");
@@ -244,6 +298,15 @@ export default function EditListingPage() {
     },
     { label: "Ready to publish", complete: readyToPublish },
   ];
+  const publishedStatus = status !== "draft";
+  const visibleInSearch = status === "available";
+  const formattedLastUpdated = lastUpdatedAt
+    ? new Intl.DateTimeFormat("en-CA", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(new Date(lastUpdatedAt))
+    : "Not available";
 
   useEffect(() => {
     loadListing();
@@ -280,6 +343,7 @@ export default function EditListingPage() {
     }
 
     setTitle(listing.title || "");
+    setLastUpdatedAt(listing.updated_at || listing.created_at || "");
     setCity(listing.city || "");
     setCampus(listing.campus || "");
     setAddress(listing.address || "");
@@ -1039,24 +1103,52 @@ export default function EditListingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 py-10 text-white">
+    <main className="min-h-screen bg-black px-4 pb-32 pt-8 text-white">
       <form
         onSubmit={saveChanges}
-        className="mx-auto max-w-5xl space-y-8 rounded-3xl border border-zinc-800 bg-[#070707] p-6"
+        className="mx-auto max-w-7xl space-y-8"
       >
-        <button
-          type="button"
-          onClick={() => router.push("/my-listings")}
-          className="text-sm text-zinc-300 hover:text-white"
-        >
-          {t("backToMyListings")}
-        </button>
+        <div className="rounded-[2rem] border border-white/10 bg-[#070707] p-5 shadow-2xl shadow-black/30 sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <button
+                type="button"
+                onClick={() => router.push("/my-listings")}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-zinc-300 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-pink-400/60"
+              >
+                <ArrowLeft size={16} />
+                {t("backToMyListings")}
+              </button>
+              <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-pink-200">
+                Listing manager
+              </p>
+              <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">
+                Edit listing
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                {title || t("subtitle")}
+              </p>
+            </div>
 
-        <div>
-          <h1 className="text-3xl font-bold">{t("title")}</h1>
-          <p className="mt-2 text-zinc-400">
-            {t("subtitle")}
-          </p>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              <StatusPill label={status === "draft" ? "Draft" : status} tone={status === "available" ? "success" : status === "draft" ? "muted" : "warning"} />
+              <StatusPill label={publishedStatus ? "Published" : "Draft"} tone={publishedStatus ? "success" : "muted"} />
+              <StatusPill
+                label={visibleInSearch ? "Visible in search" : "Not visible in search"}
+                tone={visibleInSearch ? "success" : "muted"}
+              />
+              {visibleInSearch && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/listings/${listingId}`)}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-pink-300/40 hover:bg-pink-500/10 focus:outline-none focus:ring-2 focus:ring-pink-400/60"
+                >
+                  View listing
+                  <ExternalLink size={15} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {saveError && (
@@ -1069,13 +1161,30 @@ export default function EditListingPage() {
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+        <EditSectionNav activeSection={activeSection} onChange={setActiveSection} />
+
+        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <div className="space-y-8">
             <div className="lg:hidden">
-              <ListingCompletionProgress items={progressItems} />
+              {publishedStatus ? (
+                <ListingOperationalStatusPanel
+                  status={status}
+                  visibleInSearch={visibleInSearch}
+                  lastUpdated={formattedLastUpdated}
+                  onViewListing={() => router.push(`/listings/${listingId}`)}
+                />
+              ) : (
+                <ListingCompletionProgress items={progressItems} />
+              )}
             </div>
 
-        <section className="grid gap-5 md:grid-cols-2">
+        <section id="edit-basics" className="scroll-mt-28 rounded-[2rem] border border-white/10 bg-[#070707] p-5 shadow-xl shadow-black/20 sm:p-6">
+          <SectionHeading
+            eyebrow="Basics"
+            title="Listing basics"
+            description="Keep the student-facing essentials easy to scan."
+          />
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Input label={t("listingTitle")} value={title} setValue={setTitle} />
           <Input label={t("city")} value={city} setValue={setCity} />
           <Input label={t("campus")} value={campus} setValue={setCampus} />
@@ -1154,16 +1263,15 @@ export default function EditListingPage() {
             setValue={setAmenities}
             className="md:col-span-2"
           />
+          </div>
         </section>
 
-        <section className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
-          <h2 className="text-2xl font-bold text-emerald-300">
-            {t("secureAddressTitle")}
-          </h2>
-
-          <p className="mt-2 text-sm text-zinc-400">
-            {t("secureAddressText")}
-          </p>
+        <section id="edit-location" className="scroll-mt-28 rounded-[2rem] border border-emerald-500/20 bg-[#07110d] p-5 shadow-xl shadow-black/20 sm:p-6">
+          <SectionHeading
+            eyebrow="Location"
+            title={t("secureAddressTitle")}
+            description={t("secureAddressText")}
+          />
 
           <div className="mt-6 grid gap-5 md:grid-cols-2">
             <Input
@@ -1197,15 +1305,13 @@ export default function EditListingPage() {
           </div>
         </section>
 
-        <section className="space-y-5 rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-6">
+        <section id="edit-details" className="scroll-mt-28 space-y-5 rounded-[2rem] border border-white/10 bg-[#070707] p-5 shadow-xl shadow-black/20 sm:p-6">
           <div>
-            <h2 className="text-2xl font-bold text-cyan-200">
-              Listing transparency
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Keep campus distance, utilities, amenities and lease terms clear
-              so students can compare listings confidently.
-            </p>
+            <SectionHeading
+              eyebrow="Property details"
+              title="Listing transparency"
+              description="Keep campus distance, utilities and lease terms clear so students can compare listings confidently."
+            />
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -1296,8 +1402,11 @@ export default function EditListingPage() {
             />
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-            <h3 className="font-bold text-white">Amenities</h3>
+          <div id="edit-amenities" className="scroll-mt-28 rounded-2xl border border-white/10 bg-black/40 p-4">
+            <EditOptionalSection
+              title="Amenities"
+              description="Review structured amenities and optional policy notes."
+            >
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {amenityItems.map(([key, label]) => (
                 <label
@@ -1322,14 +1431,14 @@ export default function EditListingPage() {
             </div>
             <textarea value={accessibilityNotes} onChange={(event) => setAccessibilityNotes(event.target.value)} placeholder="Accessibility notes" rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white" />
             <textarea value={petDetails} onChange={(event) => setPetDetails(event.target.value)} placeholder="Pet policy details" rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white" />
+            </EditOptionalSection>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-            <h3 className="font-bold text-white">Lease conditions</h3>
-            <p className="mt-2 text-sm text-zinc-400">
-              These are landlord-provided details. Students should review the
-              final lease directly before signing.
-            </p>
+          <div id="edit-rental" className="scroll-mt-28 rounded-2xl border border-white/10 bg-black/40 p-4">
+            <EditOptionalSection
+              title="Additional rental details"
+              description="Lease conditions, deposits and optional application settings."
+            >
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <SelectField label="Lease type" value={leaseType} setValue={setLeaseType} options={leaseTypeOptions.map((item) => [item[0], item[1]])} />
               <Input label="Move-in date" value={moveInDate} setValue={setMoveInDate} type="date" />
@@ -1352,13 +1461,15 @@ export default function EditListingPage() {
             <textarea value={overnightGuestPolicy} onChange={(event) => setOvernightGuestPolicy(event.target.value)} placeholder="Overnight guest policy" rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white" />
             <textarea value={additionalFees} onChange={(event) => setAdditionalFees(event.target.value)} placeholder="Additional fees" rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white" />
             <textarea value={leaseConditionsNotes} onChange={(event) => setLeaseConditionsNotes(event.target.value)} placeholder="Additional lease notes" rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white" />
+            </EditOptionalSection>
           </div>
         </section>
 
-        <section className="space-y-5 rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
-          <h2 className="text-2xl font-bold text-blue-200">
-            Living arrangement
-          </h2>
+        <section className="space-y-5 rounded-[2rem] border border-white/10 bg-[#070707] p-5 shadow-xl shadow-black/20 sm:p-6">
+          <EditOptionalSection
+            title="Living arrangement"
+            description="Optional advanced occupancy and tenancy-context details."
+          >
           <ContextHelpBox
             title="Why these questions matter"
             description="These answers help students understand exactly who they may share the property with before they apply."
@@ -1405,9 +1516,14 @@ export default function EditListingPage() {
             className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
           />
           {sharedWithOwner && <OntarioOccupancyNotice />}
+          </EditOptionalSection>
         </section>
 
-        <section className="space-y-5 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="space-y-5 rounded-[2rem] border border-white/10 bg-[#070707] p-5 shadow-xl shadow-black/20 sm:p-6">
+          <EditOptionalSection
+            title="Application requirements"
+            description="Optional documents and fair-housing acknowledgement settings."
+          >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Application documents</h2>
@@ -1492,9 +1608,10 @@ export default function EditListingPage() {
               />
             ))}
           </div>
+          </EditOptionalSection>
         </section>
 
-        <section className="rounded-2xl border border-zinc-800 p-5">
+        <section id="edit-photos" className="scroll-mt-28 rounded-[2rem] border border-white/10 bg-[#070707] p-5 shadow-xl shadow-black/20 sm:p-6">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold">{t("images")}</h2>
@@ -1637,11 +1754,12 @@ export default function EditListingPage() {
           </div>
         </section>
 
-        <div className="flex gap-3 border-t border-zinc-800 pt-6">
+        <div className="sticky bottom-4 z-30 rounded-[1.5rem] border border-white/10 bg-black/85 p-3 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={() => router.push(`/listings/${listingId}`)}
-            className="rounded-xl border border-zinc-700 px-6 py-3"
+            className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 px-6 text-sm font-bold text-zinc-200 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-pink-400/60"
           >
             {t("cancel")}
           </button>
@@ -1649,21 +1767,211 @@ export default function EditListingPage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold disabled:bg-zinc-600"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#FF2E72] px-6 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition hover:bg-[#ff4b84] focus:outline-none focus:ring-2 focus:ring-pink-300 focus:ring-offset-2 focus:ring-offset-black disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none"
           >
+            <Save size={17} />
             {saving ? t("saving") : t("saveChanges")}
           </button>
+          </div>
         </div>
           </div>
 
           <aside className="hidden lg:block">
             <div className="sticky top-28">
-              <ListingCompletionProgress items={progressItems} />
+              {publishedStatus ? (
+                <ListingOperationalStatusPanel
+                  status={status}
+                  visibleInSearch={visibleInSearch}
+                  lastUpdated={formattedLastUpdated}
+                  onViewListing={() => router.push(`/listings/${listingId}`)}
+                />
+              ) : (
+                <ListingCompletionProgress items={progressItems} />
+              )}
             </div>
           </aside>
         </div>
       </form>
     </main>
+  );
+}
+
+function EditSectionNav({
+  activeSection,
+  onChange,
+}: {
+  activeSection: EditSectionId;
+  onChange: (section: EditSectionId) => void;
+}) {
+  function selectSection(section: EditSectionId) {
+    onChange(section);
+    document
+      .getElementById(`edit-${section}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  return (
+    <nav
+      aria-label="Edit listing sections"
+      className="sticky top-4 z-20 rounded-[1.5rem] border border-white/10 bg-black/80 p-2 shadow-xl shadow-black/30 backdrop-blur-xl"
+    >
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+        {editSections.map((section) => {
+          const selected = activeSection === section.id;
+
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => selectSection(section.id)}
+              className={`rounded-2xl px-3 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-pink-400/60 ${
+                selected
+                  ? "bg-pink-500 text-white shadow-lg shadow-pink-500/20"
+                  : "border border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+              }`}
+            >
+              <span className="block text-sm font-black">{section.label}</span>
+              <span className={`mt-1 block text-xs ${selected ? "text-pink-50" : "text-zinc-500"}`}>
+                {section.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-pink-200">
+        {eyebrow}
+      </p>
+      <h2 className="mt-2 text-2xl font-black text-white">{title}</h2>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function StatusPill({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "success" | "warning" | "muted";
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+      : tone === "warning"
+        ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+        : "border-white/10 bg-white/[0.04] text-zinc-300";
+
+  return (
+    <span className={`rounded-full border px-3 py-1.5 text-xs font-bold capitalize ${toneClass}`}>
+      {label}
+    </span>
+  );
+}
+
+function EditOptionalSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:border-white/20 hover:bg-white/[0.07] focus:outline-none focus:ring-2 focus:ring-pink-400/60"
+      >
+        <span>
+          <span className="block text-base font-black text-white">{title}</span>
+          <span className="mt-1 block text-sm leading-6 text-zinc-400">
+            {description}
+          </span>
+        </span>
+        <ChevronDown
+          size={20}
+          className={`shrink-0 text-zinc-400 transition ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && <div className="mt-5 space-y-5">{children}</div>}
+    </div>
+  );
+}
+
+function ListingOperationalStatusPanel({
+  status,
+  visibleInSearch,
+  lastUpdated,
+  onViewListing,
+}: {
+  status: string;
+  visibleInSearch: boolean;
+  lastUpdated: string;
+  onViewListing: () => void;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex items-start gap-3">
+        <CheckCircle2 className="mt-1 text-emerald-300" size={22} />
+        <div>
+          <h2 className="text-lg font-black text-white">Listing operations</h2>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            Published listings show operational status instead of draft completion.
+          </p>
+        </div>
+      </div>
+      <div className="mt-5 space-y-3 text-sm">
+        <PanelRow label="Listing status" value={status} />
+        <PanelRow label="Availability" value={status === "available" ? "Available" : status} />
+        <PanelRow label="Published" value="Yes" />
+        <PanelRow
+          label="Search"
+          value={visibleInSearch ? "Visible in search" : "Not visible in search"}
+        />
+        <PanelRow label="Last updated" value={lastUpdated} />
+      </div>
+      {visibleInSearch && (
+        <button
+          type="button"
+          onClick={onViewListing}
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition hover:border-pink-300/40 hover:bg-pink-500/10 focus:outline-none focus:ring-2 focus:ring-pink-400/60"
+        >
+          View listing
+          <ExternalLink size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PanelRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-3 last:border-0 last:pb-0">
+      <span className="text-zinc-500">{label}</span>
+      <span className="text-right font-bold capitalize text-white">{value}</span>
+    </div>
   );
 }
 

@@ -1068,13 +1068,13 @@ export default function PostListingPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/85 px-4 py-3 backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/85 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => goToStep(draft.activeStep - 1)}
             disabled={draft.activeStep === 0 || saving}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm font-bold text-zinc-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-transparent bg-transparent px-4 text-sm font-bold text-zinc-300 transition hover:border-white/10 hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-pink-400/60 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ArrowLeft size={18} />
             Back
@@ -1085,7 +1085,7 @@ export default function PostListingPage() {
               type="button"
               onClick={() => saveListing("draft")}
               disabled={saving}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-zinc-200 hover:bg-white/10 disabled:opacity-50 sm:px-4"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-3 text-sm font-bold text-zinc-200 shadow-sm shadow-black/20 transition hover:border-white/25 hover:bg-white/[0.08] hover:text-white focus:outline-none focus:ring-2 focus:ring-pink-400/60 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
               <Save size={16} className="shrink-0" />
               <span className="hidden sm:inline">Save & Exit</span>
@@ -1097,17 +1097,17 @@ export default function PostListingPage() {
                 type="button"
                 onClick={() => saveListing("publish")}
                 disabled={saving}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg shadow-white/10 hover:bg-zinc-200 disabled:opacity-50 sm:px-6"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#FF2E72] px-5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition hover:bg-[#ff4b84] focus:outline-none focus:ring-2 focus:ring-pink-300 focus:ring-offset-2 focus:ring-offset-black disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none sm:px-6"
               >
                 {saving ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                Publish Listing
+                Publish listing
               </button>
             ) : (
               <button
                 type="button"
                 onClick={goNext}
                 disabled={saving}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg shadow-white/10 hover:bg-zinc-200 disabled:opacity-50 sm:px-6"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#FF2E72] px-5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition hover:bg-[#ff4b84] focus:outline-none focus:ring-2 focus:ring-pink-300 focus:ring-offset-2 focus:ring-offset-black disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none sm:px-6"
               >
                 Continue
                 <ArrowRight size={18} />

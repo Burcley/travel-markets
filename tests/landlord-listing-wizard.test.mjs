@@ -18,6 +18,10 @@ const dashboardSource = readFileSync(
   new URL("../app/my-listings/page.tsx", import.meta.url),
   "utf8"
 );
+const editListingSource = readFileSync(
+  new URL("../app/listings/[id]/edit/page.tsx", import.meta.url),
+  "utf8"
+);
 
 test("landlord posting flow is a focused step-by-step listing wizard", () => {
   [
@@ -35,6 +39,15 @@ test("landlord posting flow is a focused step-by-step listing wizard", () => {
   assert.match(postPageSource, /STORAGE_KEY = "travel-markets-post-listing-wizard-v2"/);
   assert.match(postPageSource, /Step \{draft\.activeStep \+ 1\} of \{steps\.length\}/);
   assert.match(postPageSource, /progressPercent/);
+});
+
+test("listing wizard footer has a clear primary and secondary action hierarchy", () => {
+  assert.match(postPageSource, /border border-transparent bg-transparent[\s\S]*Back/);
+  assert.match(postPageSource, /border border-white\/15 bg-white\/\[0\.04\][\s\S]*Save & Exit/);
+  assert.match(postPageSource, /bg-\[#FF2E72\][\s\S]*Continue/);
+  assert.match(postPageSource, /bg-\[#FF2E72\][\s\S]*Publish listing/);
+  assert.doesNotMatch(postPageSource, /Publish Listing/);
+  assert.match(postPageSource, /env\(safe-area-inset-bottom\)/);
 });
 
 test("listing wizard uses full address geocoding, Mapbox autocomplete, and centralized campuses", () => {
@@ -85,6 +98,44 @@ test("optional listing details are presented as collapsible sections", () => {
   assert.match(postPageSource, /CollapsibleSection/);
   assert.match(postPageSource, /Add amenities/);
   assert.match(postPageSource, /Add lease and living arrangement details/);
+});
+
+test("edit listing uses direct section navigation instead of a sequential wizard", () => {
+  [
+    "Basics",
+    "Location",
+    "Photos",
+    "Property details",
+    "Amenities",
+    "Rental details",
+  ].forEach((label) => assert.match(editListingSource, new RegExp(label)));
+
+  assert.match(editListingSource, /type EditSectionId/);
+  assert.match(editListingSource, /EditSectionNav/);
+  assert.match(editListingSource, /scrollIntoView/);
+  assert.doesNotMatch(editListingSource, /activeStep/);
+  assert.doesNotMatch(editListingSource, /goNext/);
+  assert.doesNotMatch(editListingSource, />\s*Continue\s*</);
+});
+
+test("edit listing preserves optional data in collapsed editable sections", () => {
+  assert.match(editListingSource, /EditOptionalSection/);
+  assert.match(editListingSource, /const \[open, setOpen\] = useState\(false\)/);
+  assert.match(editListingSource, /Additional rental details/);
+  assert.match(editListingSource, /Application requirements/);
+  assert.match(editListingSource, /Living arrangement/);
+  assert.match(editListingSource, /Parking details/);
+  assert.match(editListingSource, /RequirementEditor/);
+});
+
+test("edit listing save and status panels use production-safe operational UI", () => {
+  assert.match(editListingSource, /Edit listing/);
+  assert.match(editListingSource, /ListingOperationalStatusPanel/);
+  assert.match(editListingSource, /Listing operations/);
+  assert.match(editListingSource, /Visible in search/);
+  assert.match(editListingSource, /ListingCompletionProgress/);
+  assert.match(editListingSource, /bg-\[#FF2E72\][\s\S]*t\("saveChanges"\)/);
+  assert.doesNotMatch(editListingSource, /bg-blue-600/);
 });
 
 test("listing wizard does not reintroduce per-listing document verification", () => {
