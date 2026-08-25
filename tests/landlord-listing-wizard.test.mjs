@@ -144,8 +144,32 @@ test("listing wizard does not reintroduce per-listing document verification", ()
     postPageSource,
     /Publishing uses account-level landlord verification\./
   );
+  assert.match(publishRouteSource, /getLandlordAccountEligibility/);
+  assert.match(publishRouteSource, /verification_submissions/);
+  assert.doesNotMatch(publishRouteSource, /listing_verifications/);
+  assert.doesNotMatch(publishRouteSource, /listing_verification_audit_events/);
+  assert.doesNotMatch(
+    publishRouteSource,
+    /We could not save your verification details/
+  );
   assert.doesNotMatch(publishRouteSource, /livingArrangementComplete/);
   assert.doesNotMatch(publishRouteSource, /fair_housing_acknowledged[^:]/);
+});
+
+test("publish failures use listing or account-level verification messages only", () => {
+  assert.match(
+    publishRouteSource,
+    /We couldn't publish your listing\. Please try again\./
+  );
+  assert.match(
+    publishRouteSource,
+    /Complete landlord verification to publish listings\./
+  );
+  assert.match(publishRouteSource, /verificationUrl: "\/dashboard\/verification"/);
+  assert.match(
+    postPageSource,
+    /The listing was saved as a draft, but could not be published\./
+  );
 });
 
 test("duplicate listing action creates only a new draft listing", () => {

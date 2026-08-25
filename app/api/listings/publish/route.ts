@@ -7,6 +7,61 @@ import { getLandlordAccountEligibility } from "@/lib/landlord-account-eligibilit
 const landlordVerificationError =
   "Complete landlord verification to publish listings.";
 
+function publishUpdateErrorResponse(error: { message?: string; code?: string }) {
+  const message = error.message || "";
+
+  if (message.includes("Complete landlord verification")) {
+    return NextResponse.json(
+      {
+        error: landlordVerificationError,
+        code: "landlord_verification_required",
+        verificationUrl: "/dashboard/verification",
+      },
+      { status: 403 }
+    );
+  }
+
+  if (message.includes("Only landlord accounts")) {
+    return NextResponse.json(
+      { error: "Only landlord accounts can publish listings." },
+      { status: 403 }
+    );
+  }
+
+  if (message.includes("This account cannot publish listings")) {
+    return NextResponse.json(
+      { error: "This account cannot publish listings." },
+      { status: 403 }
+    );
+  }
+
+  if (message.includes("fair-housing")) {
+    return NextResponse.json(
+      {
+        error: "Acknowledge the fair-housing document notice before publishing.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (message.includes("living-arrangement")) {
+    return NextResponse.json(
+      { error: "Complete the living-arrangement questions before publishing." },
+      { status: 400 }
+    );
+  }
+
+  console.error("LISTING PUBLISH ERROR:", {
+    code: error.code,
+    message: error.message,
+  });
+
+  return NextResponse.json(
+    { error: "We couldn't publish your listing. Please try again." },
+    { status: 400 }
+  );
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -124,23 +179,8 @@ export async function POST(request: NextRequest) {
     .eq("user_id", user.id);
 
   if (updateError) {
-    console.error("LISTING PUBLISH ERROR:", updateError);
-    return NextResponse.json(
-      { error: "We could not save your verification details. Please try again." },
-      { status: 400 }
-    );
+    return publishUpdateErrorResponse(updateError);
   }
-
-  await admin.from("listing_verification_audit_events").insert({
-    listing_id: listingId,
-    verification_id: null,
-    actor_id: user.id,
-    event_type: "listing_published_by_verified_landlord",
-    metadata: {
-      previous_status: listing.status,
-      account_verification: eligibility.reason,
-    },
-  });
 
   return NextResponse.json({ ok: true });
 }
