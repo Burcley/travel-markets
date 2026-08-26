@@ -47,7 +47,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Listing not found." }, { status: 404 });
   }
 
-  const currentlyActive = ACTIVE_STATUSES.has(String(listing.status || ""));
+  const currentStatus = String(listing.status || "draft");
+
+  if (
+    currentStatus === "draft" &&
+    ["available", "pending", "rented"].includes(status)
+  ) {
+    return NextResponse.json(
+      {
+        error: "DRAFT_REQUIRES_PUBLISH",
+        message: "Complete and publish this listing first.",
+        continueUrl: `/listings/${listingId}/edit`,
+      },
+      { status: 409 }
+    );
+  }
+
+  const currentlyActive = ACTIVE_STATUSES.has(currentStatus);
   const nextActive = ACTIVE_STATUSES.has(status);
 
   if (nextActive && !currentlyActive) {

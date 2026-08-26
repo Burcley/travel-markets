@@ -10,8 +10,19 @@ const publishRouteSource = readFileSync(
   new URL("../app/api/listings/publish/route.ts", import.meta.url),
   "utf8"
 );
+const statusRouteSource = readFileSync(
+  new URL("../app/api/listings/status/route.ts", import.meta.url),
+  "utf8"
+);
 const duplicateRouteSource = readFileSync(
   new URL("../app/api/listings/[id]/duplicate/route.ts", import.meta.url),
+  "utf8"
+);
+const livingArrangementOptionalMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260826001000_make_living_arrangement_optional_for_publish.sql",
+    import.meta.url
+  ),
   "utf8"
 );
 const dashboardSource = readFileSync(
@@ -22,6 +33,9 @@ const editListingSource = readFileSync(
   new URL("../app/listings/[id]/edit/page.tsx", import.meta.url),
   "utf8"
 );
+const validateStepSource =
+  postPageSource.match(/function validateStep[\s\S]*?function goToStep/)?.[0] ||
+  "";
 
 test("landlord posting flow is a focused step-by-step listing wizard", () => {
   [
@@ -97,7 +111,10 @@ test("location autocomplete selection and keyboard handling stay functional", ()
 test("optional listing details are presented as collapsible sections", () => {
   assert.match(postPageSource, /CollapsibleSection/);
   assert.match(postPageSource, /Add amenities/);
-  assert.match(postPageSource, /Add lease and living arrangement details/);
+  assert.match(postPageSource, /Additional rental details/);
+  assert.match(postPageSource, /Add extra information students may find helpful\. You can skip this step\./);
+  assert.match(postPageSource, /Living arrangement/);
+  assert.match(postPageSource, /Optional\. Add this context if it helps students understand the home\./);
 });
 
 test("edit listing uses direct section navigation instead of a sequential wizard", () => {
@@ -154,6 +171,41 @@ test("listing wizard does not reintroduce per-listing document verification", ()
   );
   assert.doesNotMatch(publishRouteSource, /livingArrangementComplete/);
   assert.doesNotMatch(publishRouteSource, /fair_housing_acknowledged[^:]/);
+});
+
+test("optional rental, amenity, application, and living-arrangement sections do not block publish", () => {
+  assert.doesNotMatch(
+    publishRouteSource,
+    /Complete the living-arrangement questions before publishing/
+  );
+  assert.doesNotMatch(
+    publishRouteSource,
+    /message\.includes\("living-arrangement"\)/
+  );
+  assert.match(livingArrangementOptionalMigration, /fair_housing_acknowledged is not true/);
+  assert.doesNotMatch(
+    livingArrangementOptionalMigration,
+    /listing_living_arrangement_complete/
+  );
+  assert.doesNotMatch(
+    livingArrangementOptionalMigration,
+    /Complete the living-arrangement questions before publishing/
+  );
+  assert.doesNotMatch(validateStepSource, /selectedAmenities/);
+  assert.doesNotMatch(validateStepSource, /leaseType/);
+  assert.doesNotMatch(validateStepSource, /ownerOccupiesProperty/);
+  assert.match(editListingSource, /const readyToPublish = fairHousingAcknowledged;/);
+  assert.doesNotMatch(editListingSource, /Living arrangement completed/);
+});
+
+test("core required listing fields remain required for publish", () => {
+  assert.match(postPageSource, /if \(!clean\(draft\.title\)\) return "Add a listing title\."/);
+  assert.match(postPageSource, /if \(!clean\(draft\.price\)\) return "Add the monthly rent\."/);
+  assert.match(postPageSource, /if \(!clean\(draft\.addressLine\)\) return "Choose or enter the street address\."/);
+  assert.match(postPageSource, /if \(!clean\(draft\.city\)\) return "Choose the city\."/);
+  assert.match(postPageSource, /if \(!clean\(draft\.province\)\) return "Add the province\."/);
+  assert.match(postPageSource, /if \(!clean\(draft\.nearestCampusName\)\) return "Choose the nearest campus\."/);
+  assert.match(postPageSource, /if \(step === 3 && !clean\(draft\.description\)\)/);
 });
 
 test("publish failures use listing or account-level verification messages only", () => {
@@ -257,6 +309,40 @@ test("draft recovery remains tied to incomplete local wizard state", () => {
   );
   assert.match(postPageSource, /setSaveStatus\("Draft saved\."\)/);
   assert.match(postPageSource, /router\.push\("\/my-listings"\)/);
+});
+
+test("draft listings use Continue listing instead of post-publication status controls", () => {
+  assert.match(dashboardSource, /const isDraft = listing\.status === "draft"/);
+  assert.match(dashboardSource, /Finish this draft before publishing\./);
+  assert.match(dashboardSource, /Continue listing/);
+  assert.match(
+    dashboardSource,
+    /href=\{`\/listings\/\$\{listing\.id\}\/edit`\}/
+  );
+  assert.match(
+    dashboardSource,
+    /isDraft \? \([\s\S]*Continue listing[\s\S]*\) : \([\s\S]*<ListingStatusControls/
+  );
+});
+
+test("generic status endpoint refuses draft to published lifecycle transitions", () => {
+  assert.match(statusRouteSource, /const currentStatus = String\(listing\.status \|\| "draft"\)/);
+  assert.match(statusRouteSource, /currentStatus === "draft"/);
+  assert.match(statusRouteSource, /\["available", "pending", "rented"\]\.includes\(status\)/);
+  assert.match(statusRouteSource, /error: "DRAFT_REQUIRES_PUBLISH"/);
+  assert.match(statusRouteSource, /message: "Complete and publish this listing first\."/);
+  assert.match(statusRouteSource, /continueUrl: `\/listings\/\$\{listingId\}\/edit`/);
+  assert.match(statusRouteSource, /\{ status: 409 \}/);
+});
+
+test("draft publication remains routed through the canonical publish endpoint", () => {
+  assert.match(
+    editListingSource,
+    /previousListing\?\.status === "draft" && status === "available"/
+  );
+  assert.match(editListingSource, /const nextListingStatus = shouldPublishDraft \? "draft" : status/);
+  assert.match(editListingSource, /fetch\("\/api\/listings\/publish"/);
+  assert.match(publishRouteSource, /\.update\(\{ status: "available" \}\)/);
 });
 
 test("duplicate listing action creates only a new draft listing", () => {

@@ -280,7 +280,7 @@ export default function EditListingPage() {
   const [requirements, setRequirements] = useState<RequirementEditorItem[]>([]);
   const sharedWithOwner =
     sharedKitchenWithOwner === "true" || sharedBathroomWithOwner === "true";
-  const livingArrangementCompleted = [
+  const livingArrangementProvided = [
     ownerOccupiesProperty,
     ownerFamilyOccupiesProperty,
     sharedKitchenWithOwner,
@@ -288,10 +288,15 @@ export default function EditListingPage() {
     privateBedroom,
     selfContainedUnit,
     otherOccupantsPresent,
-  ].every((value) => value !== "");
-  const readyToPublish = livingArrangementCompleted && fairHousingAcknowledged;
+  ].some((value) => value !== "");
+  const readyToPublish = fairHousingAcknowledged;
   const progressItems = [
-    { label: "Living arrangement completed", complete: livingArrangementCompleted },
+    {
+      label: livingArrangementProvided
+        ? "Optional living arrangement added"
+        : "Optional living arrangement skipped",
+      complete: true,
+    },
     {
       label: "Fair-housing acknowledgement accepted",
       complete: fairHousingAcknowledged,

@@ -169,6 +169,7 @@ export default async function MyListingsPage() {
             {listings.map((listing: Listing) => {
               const previewImage = previewMap[listing.id] || "/placeholder.jpg";
               const activeBoost = isBoostActive(listing.boost_until);
+              const isDraft = listing.status === "draft";
 
               return (
                 <div
@@ -258,10 +259,28 @@ export default async function MyListingsPage() {
                       </div>
                     )}
 
-                    <ListingStatusControls
-                      listingId={listing.id}
-                      currentStatus={listing.status}
-                    />
+                    {isDraft ? (
+                      <div className="mt-5 rounded-2xl border border-pink-400/25 bg-pink-500/10 p-4">
+                        <p className="text-sm font-bold text-pink-100">
+                          Finish this draft before publishing.
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-pink-100/70">
+                          Continue through Review & Publish so the listing is saved
+                          with the current publishing checks.
+                        </p>
+                        <Link
+                          href={`/listings/${listing.id}/edit`}
+                          className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-[#FF2E72] px-3 py-3 text-sm font-black text-white hover:bg-[#ff4b84]"
+                        >
+                          Continue listing
+                        </Link>
+                      </div>
+                    ) : (
+                      <ListingStatusControls
+                        listingId={listing.id}
+                        currentStatus={listing.status}
+                      />
+                    )}
 
                     <div className="mt-5 flex flex-wrap gap-3">
                       <Link

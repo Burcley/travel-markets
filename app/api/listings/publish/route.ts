@@ -44,13 +44,6 @@ function publishUpdateErrorResponse(error: { message?: string; code?: string }) 
     );
   }
 
-  if (message.includes("living-arrangement")) {
-    return NextResponse.json(
-      { error: "Complete the living-arrangement questions before publishing." },
-      { status: 400 }
-    );
-  }
-
   console.error("LISTING PUBLISH ERROR:", {
     code: error.code,
     message: error.message,

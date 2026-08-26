@@ -267,7 +267,7 @@ const stepCopy: Record<StepId, { heading: string; subheading: string }> = {
   },
   rental: {
     heading: "Add optional rental details",
-    subheading: "These details are helpful, but they are not required to save your draft.",
+    subheading: "Add extra information students may find helpful. You can skip this step.",
   },
   review: {
     heading: "Review your listing",
@@ -1678,11 +1678,17 @@ function RentalStep({
 
   return (
     <CollapsibleSection
-      title="Add lease and living arrangement details"
+      title="Additional rental details"
       optionalLabel="Optional"
       open={open}
       setOpen={setOpen}
     >
+      <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="text-sm font-black text-white">Living arrangement</p>
+        <p className="mt-1 text-sm leading-6 text-zinc-400">
+          Optional. Add this context if it helps students understand the home.
+        </p>
+      </div>
       <div className="grid gap-5 md:grid-cols-2">
         <SelectField label="Does the owner live at the property?" value={draft.ownerOccupiesProperty} set={(ownerOccupiesProperty) => patchDraft({ ownerOccupiesProperty })} options={[["", "Prefer not to say"], ["true", "Yes"], ["false", "No"]]} />
         <SelectField label="Tenant shares kitchen or bathroom with owner?" value={draft.sharedKitchenOrBathroom} set={(sharedKitchenOrBathroom) => patchDraft({ sharedKitchenOrBathroom })} options={[["", "Prefer not to say"], ["true", "Yes"], ["false", "No"]]} />
