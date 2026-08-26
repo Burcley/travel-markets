@@ -172,6 +172,65 @@ test("publish failures use listing or account-level verification messages only",
   );
 });
 
+test("successful publish clears the completed wizard session", () => {
+  assert.match(postPageSource, /function clearCompletedListingSession/);
+  assert.match(
+    postPageSource,
+    /clearCompletedListingSession\(listingId\)/
+  );
+  assert.match(
+    postPageSource,
+    /window\.localStorage\.removeItem\(STORAGE_KEY\)[\s\S]*setDraft\(defaultDraftState\(\)\)/
+  );
+  assert.match(postPageSource, /setAddressSuggestions\(\[\]\)/);
+  assert.match(postPageSource, /setAddressSearchOpen\(false\)/);
+  assert.match(postPageSource, /setCampusQuery\(""\)/);
+  assert.match(postPageSource, /setCityQuery\(""\)/);
+  assert.match(postPageSource, /setPublishedId\(listingId\)/);
+});
+
+test("publish failure preserves draft data and temporary photos for retry", () => {
+  assert.match(
+    postPageSource,
+    /if \(!response\.ok\) \{[\s\S]*setFormError\([\s\S]*return;[\s\S]*\}/
+  );
+  assert.match(
+    postPageSource,
+    /await uploadPhotos\(listingId, false\);[\s\S]*clearCompletedListingSession\(listingId\)/
+  );
+  assert.doesNotMatch(
+    postPageSource,
+    /await uploadPhotos\(listingId\);[\s\S]*if \(mode === "publish"\)/
+  );
+});
+
+test("fresh listing sessions reset photos, campus, address, step, and idempotency state", () => {
+  assert.match(postPageSource, /creationIdempotencyKey: crypto\.randomUUID\(\)/);
+  assert.match(postPageSource, /activeStep: 0/);
+  assert.match(postPageSource, /listingId: null/);
+  assert.match(postPageSource, /selectedAmenities: \[\]/);
+  assert.match(postPageSource, /nearestCampusName: ""/);
+  assert.match(postPageSource, /addressLine: ""/);
+  assert.match(postPageSource, /function startAnotherProperty/);
+  assert.match(postPageSource, /clearPhotoPreviewState\(\)/);
+  assert.match(postPageSource, /URL\.revokeObjectURL\(photo\.url\)/);
+  assert.match(
+    postPageSource,
+    /setPublishedId\(null\);[\s\S]*setDraft\(defaultDraftState\(\)\)/
+  );
+});
+
+test("draft recovery remains tied to incomplete local wizard state", () => {
+  assert.match(postPageSource, /function loadStoredDraft/);
+  assert.match(postPageSource, /window\.localStorage\.getItem\(STORAGE_KEY\)/);
+  assert.match(
+    postPageSource,
+    /if \(!hydrated \|\| publishedId\) return;[\s\S]*window\.localStorage\.setItem/
+  );
+  assert.match(postPageSource, /setSaveStatus\("Draft saved\."\)/);
+  assert.match(postPageSource, /router\.push\("\/my-listings"\)/);
+});
+
 test("duplicate listing action creates only a new draft listing", () => {
   assert.match(dashboardSource, /DuplicateListingButton/);
   assert.match(duplicateRouteSource, /status: "draft"/);

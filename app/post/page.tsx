@@ -361,13 +361,13 @@ export default function PostListingPage() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || publishedId) return;
     const { activeStep, ...stored } = draft;
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ ...stored, activeStep })
     );
-  }, [draft, hydrated]);
+  }, [draft, hydrated, publishedId]);
 
   useEffect(() => {
     const query = draft.addressLine.trim();
@@ -656,7 +656,25 @@ export default function PostListingPage() {
     });
   }
 
-  async function uploadPhotos(listingId: string) {
+  function clearPhotoPreviewState() {
+    photoPreviews.forEach((photo) => URL.revokeObjectURL(photo.url));
+    setPhotoPreviews([]);
+  }
+
+  function clearCompletedListingSession(listingId: string) {
+    window.localStorage.removeItem(STORAGE_KEY);
+    clearPhotoPreviewState();
+    setDraft(defaultDraftState());
+    setAddressSuggestions([]);
+    setAddressSearchOpen(false);
+    setCampusQuery("");
+    setCityQuery("");
+    setFormError("");
+    setSaveStatus("");
+    setPublishedId(listingId);
+  }
+
+  async function uploadPhotos(listingId: string, clearAfterUpload = true) {
     if (photoPreviews.length === 0) return;
 
     const imageRows = [];
@@ -684,7 +702,9 @@ export default function PostListingPage() {
 
     if (imageRows.length > 0) {
       await supabase.from("listing_images").insert(imageRows);
-      setPhotoPreviews([]);
+      if (clearAfterUpload) {
+        clearPhotoPreviewState();
+      }
     }
   }
 
@@ -848,8 +868,6 @@ export default function PostListingPage() {
         patchDraft({ listingId });
       }
 
-      await uploadPhotos(listingId);
-
       if (mode === "publish") {
         const response = await fetch("/api/listings/publish", {
           method: "POST",
@@ -867,9 +885,10 @@ export default function PostListingPage() {
           return;
         }
 
-        setPublishedId(listingId);
-        window.localStorage.removeItem(STORAGE_KEY);
+        await uploadPhotos(listingId, false);
+        clearCompletedListingSession(listingId);
       } else {
+        await uploadPhotos(listingId);
         setSaveStatus("Draft saved.");
         router.push("/my-listings");
       }
@@ -883,10 +902,11 @@ export default function PostListingPage() {
 
   function startAnotherProperty() {
     window.localStorage.removeItem(STORAGE_KEY);
-    photoPreviews.forEach((photo) => URL.revokeObjectURL(photo.url));
-    setPhotoPreviews([]);
+    clearPhotoPreviewState();
     setPublishedId(null);
     setDraft(defaultDraftState());
+    setAddressSuggestions([]);
+    setAddressSearchOpen(false);
     setCampusQuery("");
     setCityQuery("");
     setFormError("");
