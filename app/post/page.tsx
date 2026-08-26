@@ -142,6 +142,61 @@ type DraftState = {
   leaseType: string;
 };
 
+type ListingSavePayload = {
+  user_id: string;
+  title: string;
+  city: string;
+  location: string;
+  campus: string;
+  address_line: string;
+  unit: string;
+  province: string;
+  postal_code: string;
+  country: string;
+  price: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  roommates: number | null;
+  guests: number | null;
+  description: string;
+  amenities: string[];
+  status: "draft";
+  latitude: number | null;
+  longitude: number | null;
+  public_latitude: number | null;
+  public_longitude: number | null;
+  location_privacy_radius_meters: number | null;
+  public_location_generated_at: string | null;
+  nearest_campus_name: string | null;
+  nearest_campus_address: string | null;
+  campus_id: string | null;
+  campus_destination_label: string | null;
+  campus_coordinate_source: string | null;
+  campus_latitude: number | null;
+  campus_longitude: number | null;
+  distance_to_campus_km: number | null;
+  walking_time_minutes: number | null;
+  cycling_time_minutes: number | null;
+  driving_time_minutes: number | null;
+  transit_time_minutes: number | null;
+  distance_last_calculated_at: string | null;
+  utilities_details: UtilitiesDetails;
+  amenities_details: AmenitiesDetails;
+  lease_conditions: LeaseConditions;
+  verification_disclaimer_acknowledged: boolean;
+  fair_housing_acknowledged: boolean;
+  owner_occupies_property: boolean | null;
+  owner_family_occupies_property: boolean | null;
+  shared_kitchen_with_owner: boolean | null;
+  shared_bathroom_with_owner: boolean | null;
+  private_bedroom: boolean | null;
+  self_contained_unit: boolean | null;
+  other_occupants_present: boolean | null;
+  estimated_other_occupant_count: number | null;
+  occupancy_notes: string;
+  safety_instructions: string;
+};
+
 const defaultDraftState = (): DraftState => ({
   listingId: null,
   creationIdempotencyKey: crypto.randomUUID(),
@@ -708,6 +763,119 @@ export default function PostListingPage() {
     }
   }
 
+  async function createDraftListing({
+    payload,
+    userId,
+    creationIdempotencyKey,
+    allowFreshRetry = true,
+  }: {
+    payload: ListingSavePayload;
+    userId: string;
+    creationIdempotencyKey: string;
+    allowFreshRetry?: boolean;
+  }) {
+    const idempotencyKey = `${userId}:${creationIdempotencyKey}`;
+    const { data, error } = await supabase
+      .from("listings")
+      .insert({
+        ...payload,
+        creation_idempotency_key: idempotencyKey,
+      })
+      .select("id")
+      .single();
+
+    if (error?.code === "23505") {
+      const { data: existingListing, error: existingError } = await supabase
+        .from("listings")
+        .select("id, status")
+        .eq("creation_idempotency_key", idempotencyKey)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+
+      if (existingListing?.id && existingListing.status === "draft") {
+        return {
+          listingId: existingListing.id,
+          creationIdempotencyKey,
+          recoveredExistingDraft: true,
+        };
+      }
+
+      if (allowFreshRetry) {
+        return createDraftListing({
+          payload,
+          userId,
+          creationIdempotencyKey: crypto.randomUUID(),
+          allowFreshRetry: false,
+        });
+      }
+    }
+
+    if (error) throw error;
+    if (!data?.id) throw new Error("Unable to create draft listing.");
+
+    return {
+      listingId: data.id,
+      creationIdempotencyKey,
+      recoveredExistingDraft: false,
+    };
+  }
+
+  async function persistActiveDraft({
+    payload,
+    userId,
+  }: {
+    payload: ListingSavePayload;
+    userId: string;
+  }) {
+    if (draft.listingId) {
+      const { data: existingDraft, error: readError } = await supabase
+        .from("listings")
+        .select("id, status")
+        .eq("id", draft.listingId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (readError) throw readError;
+
+      if (existingDraft?.status === "draft") {
+        const { data: updatedDraft, error: updateError } = await supabase
+          .from("listings")
+          .update(payload)
+          .eq("id", existingDraft.id)
+          .eq("user_id", userId)
+          .eq("status", "draft")
+          .select("id")
+          .maybeSingle();
+
+        if (updateError) throw updateError;
+
+        if (updatedDraft?.id) {
+          return {
+            listingId: updatedDraft.id,
+            creationIdempotencyKey: draft.creationIdempotencyKey,
+          };
+        }
+      }
+
+      setSaveStatus("Restoring your listing...");
+    }
+
+    const replacement = await createDraftListing({
+      payload,
+      userId,
+      creationIdempotencyKey: draft.listingId
+        ? crypto.randomUUID()
+        : draft.creationIdempotencyKey,
+    });
+
+    return {
+      listingId: replacement.listingId,
+      creationIdempotencyKey: replacement.creationIdempotencyKey,
+    };
+  }
+
   async function saveListing(mode: "draft" | "publish") {
     setFormError("");
     setSaveStatus("");
@@ -770,7 +938,7 @@ export default function PostListingPage() {
         draft.furnished,
         ...draft.selectedAmenities,
       ].filter(Boolean);
-      const payload = {
+      const payload: ListingSavePayload = {
         user_id: user.id,
         title: clean(draft.title) || "Untitled draft",
         city: clean(draft.city),
@@ -828,45 +996,15 @@ export default function PostListingPage() {
         safety_instructions: "",
       };
 
-      let listingId = draft.listingId;
-
-      if (listingId) {
-        const { error } = await supabase
-          .from("listings")
-          .update(payload)
-          .eq("id", listingId)
-          .eq("user_id", user.id);
-
-        if (error) throw error;
-      } else {
-        const idempotencyKey = `${user.id}:${draft.creationIdempotencyKey}`;
-        const { data, error } = await supabase
-          .from("listings")
-          .insert({
-            ...payload,
-            creation_idempotency_key: idempotencyKey,
-          })
-          .select("id")
-          .single();
-
-        if (error?.code === "23505") {
-          const { data: existingListing } = await supabase
-            .from("listings")
-            .select("id")
-            .eq("creation_idempotency_key", idempotencyKey)
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          listingId = existingListing?.id || null;
-        } else if (error) {
-          throw error;
-        } else {
-          listingId = data?.id || null;
-        }
-
-        if (!listingId) throw new Error("Unable to create draft listing.");
-        patchDraft({ listingId });
-      }
+      const persistedDraft = await persistActiveDraft({
+        payload,
+        userId: user.id,
+      });
+      const listingId = persistedDraft.listingId;
+      patchDraft({
+        listingId,
+        creationIdempotencyKey: persistedDraft.creationIdempotencyKey,
+      });
 
       if (mode === "publish") {
         const response = await fetch("/api/listings/publish", {
@@ -880,7 +1018,9 @@ export default function PostListingPage() {
           setFormError(
             data?.verificationUrl
               ? "Complete landlord verification to publish."
-              : data?.error || "The listing was saved as a draft, but could not be published."
+              : data?.error === "Listing not found"
+                ? "We couldn't confirm this draft. Please try publishing again."
+                : data?.error || "The listing was saved as a draft, but could not be published."
           );
           return;
         }

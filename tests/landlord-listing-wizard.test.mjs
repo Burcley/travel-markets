@@ -204,6 +204,34 @@ test("publish failure preserves draft data and temporary photos for retry", () =
   );
 });
 
+test("missing or non-editable server drafts are recovered before publish", () => {
+  assert.match(postPageSource, /function persistActiveDraft/);
+  assert.match(postPageSource, /function createDraftListing/);
+  assert.match(postPageSource, /\.select\("id, status"\)/);
+  assert.match(postPageSource, /\.eq\("status", "draft"\)/);
+  assert.match(postPageSource, /setSaveStatus\("Restoring your listing\.\.\."\)/);
+  assert.match(
+    postPageSource,
+    /creationIdempotencyKey: draft\.listingId[\s\S]*crypto\.randomUUID\(\)[\s\S]*draft\.creationIdempotencyKey/
+  );
+  assert.match(
+    postPageSource,
+    /patchDraft\(\{[\s\S]*listingId,[\s\S]*creationIdempotencyKey: persistedDraft\.creationIdempotencyKey/
+  );
+  assert.doesNotMatch(postPageSource, /\.update\(payload\)[\s\S]*\.eq\("user_id", user\.id\);/);
+});
+
+test("stale listing not found responses are recoverable user-facing publish errors", () => {
+  assert.match(
+    postPageSource,
+    /data\?\.error === "Listing not found"[\s\S]*We couldn't confirm this draft\. Please try publishing again\./
+  );
+  assert.match(
+    postPageSource,
+    /data\?\.error \|\| "The listing was saved as a draft, but could not be published\."/
+  );
+});
+
 test("fresh listing sessions reset photos, campus, address, step, and idempotency state", () => {
   assert.match(postPageSource, /creationIdempotencyKey: crypto\.randomUUID\(\)/);
   assert.match(postPageSource, /activeStep: 0/);
