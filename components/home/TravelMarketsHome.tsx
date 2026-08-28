@@ -688,9 +688,6 @@ export default function TravelMarketsHome({
                                 <Star size={11} />
                               )}
                               <span className="truncate">{trust.label}</span>
-                              {trust.score !== null && (
-                                <span>{trust.score}/100</span>
-                              )}
                             </div>
                           </div>
 
@@ -1248,7 +1245,6 @@ function DesktopListingCard({
             >
               {trust.verified ? <ShieldCheck size={14} /> : <Star size={14} />}
               {trust.label}
-              {trust.score !== null && <span>{trust.score}/100</span>}
             </div>
           </div>
 

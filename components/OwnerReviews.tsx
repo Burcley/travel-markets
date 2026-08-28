@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Flag, MessageCircle, Star, ThumbsUp, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { formatPublicReviewSummary } from "@/lib/public-landlord-reputation-core.mjs";
 
 type Reviewer = {
   full_name: string | null;
@@ -88,7 +89,20 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
     }
 
     const normalizedReviews: Review[] =
-      data?.map((item: any) => ({
+      data?.map((item: {
+        id: string;
+        owner_id: string;
+        reviewer_id: string;
+        listing_id: string | null;
+        rating: number | null;
+        comment: string | null;
+        created_at: string;
+        owner_reply: string | null;
+        owner_reply_at: string | null;
+        helpful_count: number | null;
+        reviewer: Reviewer | Reviewer[] | null;
+        listing: ReviewListing | ReviewListing[] | null;
+      }) => ({
         id: item.id,
         owner_id: item.owner_id,
         reviewer_id: item.reviewer_id,
@@ -116,6 +130,7 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
     const total = reviews.reduce((sum, review) => sum + review.rating, 0);
     return total / reviews.length;
   }, [reviews]);
+  const reviewSummary = formatPublicReviewSummary(reviews.length, averageRating);
 
   const ratingCounts = useMemo(() => {
     return [5, 4, 3, 2, 1].map((star) => ({
@@ -219,11 +234,11 @@ export default function OwnerReviews({ ownerId }: { ownerId: string }) {
           <div className="flex items-center gap-2">
             <Star className="fill-yellow-400 text-yellow-400" size={22} />
             <span className="text-3xl font-black">
-              {averageRating ? averageRating.toFixed(1) : "0.0"}
+              {reviewSummary.ratingLabel}
             </span>
           </div>
           <p className="mt-1 text-sm text-yellow-100/70">
-            {t("reviewCount", { count: reviews.length })}
+            {reviewSummary.reviewLabel}
           </p>
         </div>
       </div>

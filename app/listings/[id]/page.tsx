@@ -21,6 +21,7 @@ import {
 } from "@/components/trust/TrustDisclaimers";
 import { getDocumentTypeLabel } from "@/lib/trust/document-types";
 import { getListingLandlordVerificationDisplay } from "@/lib/listings/landlord-verification-display-core.mjs";
+import { formatPublicReviewSummary } from "@/lib/public-landlord-reputation-core.mjs";
 import {
   getAmenityLabel,
   getLeaseTypeLabel,
@@ -172,15 +173,16 @@ export default function ListingDetailsPage() {
   const status = listing?.status || "available";
 
   const averageRating = useMemo(() => {
-    if (reviews.length === 0) return "0.0";
+    if (reviews.length === 0) return 0;
 
     const total = reviews.reduce((sum, review) => {
       const safeRating = Number.isFinite(review.rating) ? review.rating : 0;
       return sum + safeRating;
     }, 0);
 
-    return (total / reviews.length).toFixed(1);
+    return total / reviews.length;
   }, [reviews]);
+  const reviewSummary = formatPublicReviewSummary(reviews.length, averageRating);
 
   const galleryImages = useMemo(() => {
     return images.map((image) => ({
@@ -798,7 +800,7 @@ export default function ListingDetailsPage() {
             )}
 
             <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-3 py-1 text-sm text-yellow-400">
-              ⭐ {averageRating} ({t("reviewCount", { count: reviews.length })})
+              ⭐ {reviewSummary.compactLabel}
             </span>
 
             <span
@@ -1212,10 +1214,13 @@ export default function ListingDetailsPage() {
                   <h2 className="text-2xl font-bold">{t("reviewsTitle")}</h2>
 
                   <p className="mt-1 text-sm text-gray-400">
-                    ⭐ {t("reviewsAverage", {
-                      rating: averageRating,
-                      count: reviews.length,
-                    })}
+                    ⭐{" "}
+                    {reviews.length > 0
+                      ? t("reviewsAverage", {
+                          rating: reviewSummary.ratingLabel,
+                          count: reviews.length,
+                        })
+                      : reviewSummary.reviewLabel}
                   </p>
                 </div>
 

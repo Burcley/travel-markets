@@ -22,12 +22,9 @@ import { createClient } from "@/lib/supabase/client";
 import ReportButton from "@/components/ReportButton";
 import {
   calculateProfileCompletion,
-  calculateTrustScore,
   isHostRole,
   normalizeVerificationStatus,
   type VerificationStatus,
-  trustScoreLabel,
-  trustStars,
   verificationLabel,
 } from "@/lib/verification-center";
 import {
@@ -35,6 +32,10 @@ import {
   isPublicProfileFullyVerified,
 } from "@/lib/public-profile-verification-core.mjs";
 import FoundingLandlordBadge from "@/components/founding/FoundingLandlordBadge";
+import {
+  formatPublicReviewSummary,
+  getPublicLandlordReputation,
+} from "@/lib/public-landlord-reputation-core.mjs";
 
 const PUBLIC_LISTING_STATUS = "available";
 
@@ -54,8 +55,6 @@ type Profile = {
   phone_verified_at?: string | null;
   phone_verified?: boolean | null;
   phone_verification_status?: string | null;
-  trust_score?: number | null;
-  trust_level?: string | null;
   profile_completion_percentage?: number | null;
   created_at?: string | null;
   country?: string | null;
@@ -153,6 +152,9 @@ export default function PublicUserProfilePage() {
     studentStatus,
     propertyRelationshipStatus,
   });
+  const landlordVerified = isHost
+    ? propertyRelationshipStatus === "verified"
+    : publicProfileVerified;
   const memberSinceLabel = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString("en-CA", {
         year: "numeric",
@@ -169,20 +171,6 @@ export default function PublicUserProfilePage() {
     profileCompletion,
     memberSince: memberSinceLabel,
   });
-  const trustScore =
-    profile?.trust_score ??
-    (profile
-      ? calculateTrustScore({
-          profile,
-          emailVerified: emailStatus === "verified",
-          propertyVerification: isHost
-            ? { status: propertyRelationshipStatus }
-            : null,
-          reviewCount: reviews.length,
-          responseRate: reviews.length ? 75 : 0,
-          listingQuality: listings.length ? 75 : 0,
-        })
-      : 0);
   const foundingNumber =
     profile?.is_founding_landlord && profile.founding_status === "confirmed"
       ? profile.founding_landlord_number || null
@@ -212,7 +200,7 @@ export default function PublicUserProfilePage() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, full_name, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, email_verified_at, student_verification_status, student_email_verified, phone_verified, phone_verified_at, phone_verification_status, profile_completion_percentage, created_at, country, school, institution_name, campus_name, program, program_name, host_type, property_management_company, trust_score, trust_level, is_founding_landlord, founding_landlord_number, founding_status")
+        .select("id, full_name, bio, role, avatar_url, is_verified, identity_verified, identity_verification_status, identity_verified_at, email_verified_at, student_verification_status, student_email_verified, phone_verified, phone_verified_at, phone_verification_status, profile_completion_percentage, created_at, country, school, institution_name, campus_name, program, program_name, host_type, property_management_company, is_founding_landlord, founding_landlord_number, founding_status")
         .eq("id", userId)
         .maybeSingle();
 
@@ -309,10 +297,17 @@ export default function PublicUserProfilePage() {
   }
 
   const averageRating = useMemo(() => {
-    if (reviews.length === 0) return "0.0";
+    if (reviews.length === 0) return 0;
     const total = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
-    return (total / reviews.length).toFixed(1);
+    return total / reviews.length;
   }, [reviews]);
+  const reviewSummary = formatPublicReviewSummary(reviews.length, averageRating);
+  const reputation = getPublicLandlordReputation({
+    verified: landlordVerified,
+    listingCount: listings.length,
+    reviewCount: reviews.length,
+    averageRating,
+  });
 
   const featuredListings = useMemo(() => {
     return listings
@@ -438,10 +433,7 @@ export default function PublicUserProfilePage() {
                   </span>
 
                   <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-200">
-                    {t("ratingSummary", {
-                      rating: averageRating,
-                      count: reviews.length,
-                    })}
+                    {reviewSummary.compactLabel}
                   </span>
 
                   {profile.created_at && (
@@ -507,33 +499,27 @@ export default function PublicUserProfilePage() {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
                 <ProfileStat label={t("listings")} value={listings.length} />
-                <ProfileStat label={t("rating")} value={averageRating} />
-                <ProfileStat label={t("reviews")} value={reviews.length} />
+                <ProfileStat label={t("rating")} value={reviewSummary.ratingLabel} />
+                <ProfileStat label={t("reviews")} value={reviewSummary.reviewLabel} />
                 <ProfileStat
                   label={t("verifiedStat")}
                   value={publicProfileVerified ? t("yes") : t("no")}
                 />
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/45 p-5">
+              <div className={`rounded-3xl border p-5 ${reputation.className}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold text-white">Trust score</p>
+                    <p className="text-sm font-bold text-white">Landlord status</p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Verification, completion, reviews, and listing quality.
+                      {reputation.description}
                     </p>
                   </div>
-                  <p className="text-3xl font-black text-white">{trustScore}/100</p>
+                  <Star size={22} className="shrink-0" />
                 </div>
-                <p className="mt-3 text-sm font-bold text-pink-100">
-                  {trustStars(trustScore)} {trustScoreLabel(trustScore)}
+                <p className="mt-3 text-sm font-bold text-white">
+                  {reputation.label}
                 </p>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-[#FF2E72]"
-                    style={{ width: `${Math.min(trustScore, 100)}%` }}
-                  />
-                </div>
               </div>
 
               {isOwnProfile && (
@@ -611,8 +597,18 @@ export default function PublicUserProfilePage() {
 
               <Highlight
                 icon={<Star size={16} />}
-                label={t("averageRating", { rating: averageRating })}
-                text={t("averageRatingText")}
+                label={
+                  reviews.length > 0
+                    ? t("averageRating", {
+                        rating: reviewSummary.ratingLabel,
+                      })
+                    : "No Reviews Yet"
+                }
+                text={
+                  reviews.length > 0
+                    ? t("averageRatingText")
+                    : "This landlord is new to reviews on Travel Markets."
+                }
                 color="text-yellow-300"
               />
 
@@ -726,7 +722,9 @@ export default function PublicUserProfilePage() {
             </div>
 
             <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-300">
-              {t("averageBadge", { rating: averageRating })}
+              {reviews.length > 0
+                ? t("averageBadge", { rating: reviewSummary.ratingLabel })
+                : "No Reviews Yet"}
             </span>
           </div>
 

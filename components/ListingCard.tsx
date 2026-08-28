@@ -20,12 +20,10 @@ type ListingCardListing = {
   owner_plan?: string | null;
   owner_badge?: string | null;
   is_featured?: boolean | null;
-  owner_trust_score?: number | null;
   owner_trust_level?: string | null;
   owner_is_verified?: boolean | null;
   owner_founding_landlord_number?: number | null;
   founding_landlord_number?: number | null;
-  trust_score?: number | null;
   trust_level?: string | null;
   is_verified?: boolean | null;
   identity_verified?: boolean | null;
@@ -61,7 +59,6 @@ export default function ListingCard({
     listing.founding_landlord_number ||
     null;
 
-  const trustScore = listing.owner_trust_score ?? listing.trust_score ?? null;
   const trustLevel = listing.owner_trust_level ?? listing.trust_level ?? "new";
   const ownerVerified =
     listing.owner_is_verified ??
@@ -102,7 +99,6 @@ export default function ListingCard({
       owner_plan: ownerPlan,
       owner_badge: ownerBadge,
       is_featured: listing.is_featured,
-      owner_trust_score: trustScore,
       owner_trust_level: trustLevel,
       owner_is_verified: ownerVerified,
       owner_founding_landlord_number: foundingNumber,
@@ -189,9 +185,6 @@ export default function ListingCard({
           >
             {ownerVerified ? <ShieldCheck size={14} /> : <Star size={14} />}
             {trustLabel}
-            {trustScore !== null && (
-              <span className="opacity-80">{trustScore}/100</span>
-            )}
           </div>
         </div>
       </div>

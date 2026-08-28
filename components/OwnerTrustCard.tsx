@@ -14,6 +14,11 @@ import {
   Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  formatActiveListingCount,
+  formatPublicReviewSummary,
+  getPublicLandlordReputation,
+} from "@/lib/public-landlord-reputation-core.mjs";
 
 type OwnerTrustCardProps = {
   owner: {
@@ -26,8 +31,6 @@ type OwnerTrustCardProps = {
     is_verified: boolean | null;
     identity_verified?: boolean | null;
     identity_verification_status?: string | null;
-    trust_score?: number | null;
-    trust_level?: string | null;
     phone_verified?: boolean | null;
     student_email_verified?: boolean | null;
   } | null;
@@ -39,7 +42,7 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
 
   const [listingCount, setListingCount] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
-  const [averageRating, setAverageRating] = useState("0.0");
+  const [averageRating, setAverageRating] = useState(0);
   const [ownerPlan, setOwnerPlan] = useState("free");
 
   useEffect(() => {
@@ -68,11 +71,14 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
 
       if (reviews.length > 0) {
         const total = reviews.reduce(
-          (sum: number, review: any) => sum + Number(review.rating || 0),
+          (sum: number, review: { rating?: number | null }) =>
+            sum + Number(review.rating || 0),
           0
         );
 
-        setAverageRating((total / reviews.length).toFixed(1));
+        setAverageRating(total / reviews.length);
+      } else {
+        setAverageRating(0);
       }
 
       if (subscriptionResponse.ok) {
@@ -93,26 +99,13 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
   const isPremium = ownerPlan === "premium";
 
   const isVerified = Boolean(owner.is_verified || owner.identity_verified);
-  const trustScore = owner.trust_score ?? 20;
-  const trustLevel = owner.trust_level || "new";
-
-  const trustLabel =
-    trustLevel === "elite"
-      ? t("trust.eliteOwner")
-      : trustLevel === "trusted"
-      ? t("trust.trustedOwner")
-      : trustLevel === "basic"
-      ? t("trust.basicTrust")
-      : t("trust.newOwner");
-
-  const trustColor =
-    trustLevel === "elite"
-      ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300"
-      : trustLevel === "trusted"
-      ? "border-green-400/40 bg-green-500/15 text-green-300"
-      : trustLevel === "basic"
-      ? "border-blue-400/40 bg-blue-500/15 text-blue-300"
-      : "border-zinc-700 bg-zinc-900 text-zinc-300";
+  const reputation = getPublicLandlordReputation({
+    verified: isVerified,
+    listingCount,
+    reviewCount,
+    averageRating,
+  });
+  const reviewSummary = formatPublicReviewSummary(reviewCount, averageRating);
 
   return (
     <div
@@ -121,8 +114,6 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
           ? "border-purple-400/40 bg-gradient-to-br from-purple-500/15 via-[#070707] to-black"
           : isPremium
           ? "border-yellow-400/40 bg-gradient-to-br from-yellow-500/15 via-[#070707] to-black"
-          : trustLevel === "elite"
-          ? "border-emerald-400/30 bg-gradient-to-br from-emerald-500/15 via-[#070707] to-black"
           : "border-gray-800 bg-[#070707]"
       }`}
     >
@@ -179,32 +170,23 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
         </div>
       </div>
 
-      <div className={`mt-6 rounded-2xl border p-5 ${trustColor}`}>
+      <div className={`mt-6 rounded-2xl border p-5 ${reputation.className}`}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold">{trustLabel}</p>
+            <p className="text-sm font-semibold">{reputation.label}</p>
             <p className="mt-1 text-xs opacity-80">
-              {t("trustScore")}
+              {reputation.description}
             </p>
           </div>
 
-          <div className="text-right">
-            <p className="text-3xl font-black">{trustScore}/100</p>
-          </div>
-        </div>
-
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/50">
-          <div
-            className="h-full rounded-full bg-current"
-            style={{ width: `${Math.min(trustScore, 100)}%` }}
-          />
+          <Star size={22} className="shrink-0" />
         </div>
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-3">
         <TrustStat label={t("stats.listings")} value={listingCount} />
-        <TrustStat label={t("stats.reviews")} value={reviewCount} />
-        <TrustStat label={t("stats.rating")} value={averageRating} />
+        <TrustStat label={t("stats.reviews")} value={reviewSummary.reviewLabel} />
+        <TrustStat label={t("stats.rating")} value={reviewSummary.ratingLabel} />
       </div>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-black/50 p-5">
@@ -231,24 +213,30 @@ export default function OwnerTrustCard({ owner }: OwnerTrustCardProps) {
 
           <HighlightItem
             icon={<ShieldCheck size={15} />}
-            label={t("signals.verificationStatus", {
-              status: owner.identity_verification_status || t("unverified"),
-            })}
-            description={t("signals.verificationStatusDescription")}
+            label={isVerified ? "Verified Landlord" : "Landlord Verification Not Complete"}
+            description={
+              isVerified
+                ? "This landlord has completed the Travel Markets landlord verification process."
+                : "This landlord has not completed Travel Markets landlord verification yet."
+            }
             active={isVerified}
           />
 
           <HighlightItem
             icon={<Home size={15} />}
-            label={t("signals.activeListings", { count: listingCount })}
-            description={t("signals.activeListingsDescription")}
+            label={formatActiveListingCount(listingCount)}
+            description="Owner currently has active listings on Travel Markets."
             active={listingCount > 0}
           />
 
           <HighlightItem
             icon={<Star size={15} />}
-            label={t("signals.reviews", { count: reviewCount })}
-            description={t("signals.reviewsDescription")}
+            label={reviewSummary.reviewLabel}
+            description={
+              reviewCount > 0
+                ? "Reviews help renters judge owner reliability."
+                : "This landlord is new to reviews on Travel Markets."
+            }
             active={reviewCount > 0}
           />
 
