@@ -11,6 +11,7 @@ import {
   ensureFoundingStripeCoupon,
   getFoundingStripeBenefit,
 } from "@/lib/founding-landlords/stripe";
+import { canAccessLandlordTools } from "@/lib/role-access";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -102,11 +103,7 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    const role = String(profile?.role || "").toLowerCase();
-    const isOwner =
-      profile?.is_admin || ["owner", "landlord", "host", "admin"].includes(role);
-
-    if (!isOwner || role === "student") {
+    if (!canAccessLandlordTools(profile)) {
       return NextResponse.json(
         { error: "Only landlord accounts can purchase owner plans." },
         { status: 403 }

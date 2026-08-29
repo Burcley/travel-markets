@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { canManageListings } from "@/lib/role-access";
 import { canCreateOrActivateListing } from "@/lib/subscriptions/server";
 import { getLandlordAccountEligibility } from "@/lib/landlord-account-eligibility";
 
@@ -18,6 +19,19 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: roleProfile } = await supabase
+    .from("profiles")
+    .select("role, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!canManageListings(roleProfile)) {
+    return NextResponse.json(
+      { error: "Property listing tools are available to landlord accounts." },
+      { status: 403 }
+    );
   }
 
   const body = await request.json().catch(() => null);

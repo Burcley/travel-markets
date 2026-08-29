@@ -21,6 +21,7 @@ import {
   BadgeCheck,
   Gift,
 } from "lucide-react";
+import { normalizeAppRole } from "@/lib/role-access";
 import { createClient } from "@/lib/supabase/client";
 
 type Stats = {
@@ -170,8 +171,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const displayName = getFirstName(name, t("fallbackUser"));
-  const normalizedRole = role === "owner" || role === "landlord" || role === "host" ? "owner" : role;
-  const isStudent = normalizedRole !== "owner" && normalizedRole !== "admin";
+  const appRole = normalizeAppRole({ role });
+  const isStudent = appRole === "student";
 
   const plan = subscription.plan || "free";
   const foundingProfile = foundingLandlord?.profile;
@@ -244,7 +245,7 @@ export default function DashboardPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, role, phone, bio, avatar_url, identity_verified")
+      .select("full_name, role, is_admin, phone, bio, avatar_url, identity_verified")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -252,7 +253,7 @@ export default function DashboardPage() {
     setRole(profile?.role || "student");
     setProfileCompletion((profile || null) as ProfileCompletion | null);
 
-    if (profile?.role === "owner" || profile?.role === "landlord" || profile?.role === "host") {
+    if (normalizeAppRole(profile) === "landlord") {
       const foundingResponse = await fetch("/api/founding-landlords/status", {
         cache: "no-store",
       });

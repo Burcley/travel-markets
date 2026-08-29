@@ -308,6 +308,13 @@ export default function PublicUserProfilePage() {
     reviewCount: reviews.length,
     averageRating,
   });
+  const profileStatus = isHost
+    ? reputation
+    : {
+        label: "Student member",
+        description: "This student is part of the Travel Markets community.",
+        className: "border-sky-400/30 bg-sky-400/10 text-sky-200",
+      };
 
   const featuredListings = useMemo(() => {
     return listings
@@ -507,18 +514,24 @@ export default function PublicUserProfilePage() {
                 />
               </div>
 
-              <div className={`rounded-3xl border p-5 ${reputation.className}`}>
+              <div className={`rounded-3xl border p-5 ${profileStatus.className}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold text-white">Landlord status</p>
+                    <p className="text-sm font-bold text-white">
+                      {isHost ? "Landlord status" : "Community status"}
+                    </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {reputation.description}
+                      {profileStatus.description}
                     </p>
                   </div>
-                  <Star size={22} className="shrink-0" />
+                  {isHost ? (
+                    <Star size={22} className="shrink-0" />
+                  ) : (
+                    <GraduationCap size={22} className="shrink-0" />
+                  )}
                 </div>
                 <p className="mt-3 text-sm font-bold text-white">
-                  {reputation.label}
+                  {profileStatus.label}
                 </p>
               </div>
 
@@ -607,7 +620,9 @@ export default function PublicUserProfilePage() {
                 text={
                   reviews.length > 0
                     ? t("averageRatingText")
-                    : "This landlord is new to reviews on Travel Markets."
+                    : isHost
+                      ? "This landlord is new to reviews on Travel Markets."
+                      : "This student is new to Travel Markets reviews."
                 }
                 color="text-yellow-300"
               />

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canManageListings } from "@/lib/role-access";
 import { createClient } from "@/lib/supabase/server";
 
 const COPY_COLUMNS =
@@ -16,6 +17,19 @@ export async function POST(
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!canManageListings(profile)) {
+    return NextResponse.json(
+      { error: "Property listing tools are available to landlord accounts." },
+      { status: 403 }
+    );
   }
 
   const { data: source, error: sourceError } = await supabase

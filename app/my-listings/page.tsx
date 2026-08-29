@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { canManageListings } from "@/lib/role-access";
 import DeleteListingButton from "@/components/DeleteListingButton";
 import ListingStatusControls from "@/components/ListingStatusControls";
 import DuplicateListingButton from "@/components/DuplicateListingButton";
@@ -95,6 +96,16 @@ export default async function MyListingsPage() {
 
   if (!user) {
     redirect("/auth");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!canManageListings(profile)) {
+    redirect("/dashboard");
   }
 
   const { data: listings, error } = await supabase

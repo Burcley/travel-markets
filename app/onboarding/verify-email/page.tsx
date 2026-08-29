@@ -4,22 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Inbox, Loader2, Mail, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  canAccessLandlordTools,
+  isAdminRole,
+  isStudentRole,
+} from "@/lib/role-access";
 import { createClient } from "@/lib/supabase/client";
 
 const RESEND_SECONDS = 45;
-
-function hasValidPublicRole(role?: string | null, isAdmin?: boolean | null) {
-  const value = String(role || "").toLowerCase();
-
-  return (
-    isAdmin === true ||
-    value === "admin" ||
-    value === "student" ||
-    value === "owner" ||
-    value === "landlord" ||
-    value === "host"
-  );
-}
 
 function authCallbackUrl() {
   if (typeof window === "undefined") return "/auth/callback";
@@ -56,7 +48,9 @@ export default function OnboardingVerifyEmailPage() {
       .eq("id", userId)
       .maybeSingle();
 
-    return hasValidPublicRole(profile?.role, profile?.is_admin)
+    return isStudentRole(profile) ||
+      canAccessLandlordTools(profile) ||
+      isAdminRole(profile)
       ? "/onboarding?step=profile"
       : "/onboarding?step=role";
   }

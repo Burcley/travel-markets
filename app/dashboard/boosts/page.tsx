@@ -7,6 +7,7 @@ import {
 } from "@/lib/subscriptions/server";
 import { getFoundingBoostEntitlement } from "@/lib/founding-landlords/server";
 import { PURCHASED_BOOST_OPTIONS } from "@/lib/boosts/config";
+import { canAccessLandlordTools } from "@/lib/role-access";
 import BoostCenterClient, {
   type BoostCenterListing,
   type BoostCenterSummary,
@@ -68,15 +69,7 @@ export default async function BoostCenterPage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = String(profile?.role || "").toLowerCase();
-  const isOwner =
-    profile?.is_admin ||
-    role === "owner" ||
-    role === "landlord" ||
-    role === "host" ||
-    role === "admin";
-
-  if (!isOwner || role === "student") {
+  if (!canAccessLandlordTools(profile)) {
     redirect("/search");
   }
 

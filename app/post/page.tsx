@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { canCreateListing } from "@/lib/role-access";
 import { geocodeListingAddressWithMapbox } from "@/lib/listing-address-geocode";
 import { generatePublicCoordinate } from "@/lib/location-privacy";
 import {
@@ -486,6 +487,17 @@ export default function PostListingPage() {
       return;
     }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!canCreateListing(profile)) {
+      router.push("/dashboard");
+      return;
+    }
+
     const { data: subscription } = await supabase
       .from("owner_subscriptions")
       .select("plan, status")
@@ -905,6 +917,18 @@ export default function PostListingPage() {
 
       if (!user.email_confirmed_at) {
         router.push("/verify-email");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!canCreateListing(profile)) {
+        setFormError("Property listing tools are available to landlord accounts.");
+        router.push("/dashboard");
         return;
       }
 

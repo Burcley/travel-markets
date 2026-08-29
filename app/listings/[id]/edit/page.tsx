@@ -11,6 +11,7 @@ import {
   Save,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { canManageListings } from "@/lib/role-access";
 import {
   appliesWhenOptions,
   documentTypes,
@@ -326,6 +327,18 @@ export default function EditListingPage() {
 
     if (!user) {
       router.push("/auth");
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!canManageListings(profile)) {
+      alert("Property listing tools are available to landlord accounts.");
+      router.push("/dashboard");
       return;
     }
 

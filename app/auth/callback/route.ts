@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  canAccessLandlordTools,
+  isAdminRole,
+  isStudentRole,
+} from "@/lib/role-access";
 import { createClient } from "@/lib/supabase/server";
-
-function hasValidPublicRole(role?: string | null, isAdmin?: boolean | null) {
-  const value = String(role || "").toLowerCase();
-
-  return (
-    isAdmin === true ||
-    value === "admin" ||
-    value === "student" ||
-    value === "owner" ||
-    value === "landlord" ||
-    value === "host"
-  );
-}
 
 type EmailOtpType = "signup" | "invite" | "magiclink" | "recovery" | "email_change" | "email";
 
@@ -96,7 +88,11 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (!profile?.onboarding_completed_at && !profile?.onboarding_completed) {
-      if (!hasValidPublicRole(profile?.role, profile?.is_admin)) {
+      if (
+        !isStudentRole(profile) &&
+        !canAccessLandlordTools(profile) &&
+        !isAdminRole(profile)
+      ) {
         return NextResponse.redirect(new URL("/onboarding?step=role", origin));
       }
 

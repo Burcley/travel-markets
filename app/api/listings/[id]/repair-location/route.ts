@@ -5,6 +5,7 @@ import {
 } from "@/lib/listing-address-geocode";
 import { campusOptions } from "@/lib/listing-transparency";
 import { generatePublicCoordinate, distanceMeters } from "@/lib/location-privacy";
+import { canManageListings } from "@/lib/role-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -107,15 +108,19 @@ async function getActor() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("role, is_admin")
     .eq("id", user.id)
     .maybeSingle();
 
-  return { user, isAdmin: Boolean(profile?.is_admin) };
+  return {
+    user,
+    isAdmin: Boolean(profile?.is_admin || profile?.role === "admin"),
+    canManageListings: canManageListings(profile),
+  };
 }
 
 async function loadAuthorizedListing(listingId: string) {
-  const { user, isAdmin } = await getActor();
+  const { user, isAdmin, canManageListings } = await getActor();
 
   if (!user) {
     return {
@@ -154,7 +159,7 @@ async function loadAuthorizedListing(listingId: string) {
     };
   }
 
-  if (!isAdmin && listing.user_id !== user.id) {
+  if (!canManageListings || (!isAdmin && listing.user_id !== user.id)) {
     return {
       response: NextResponse.json({ error: "Not authorized." }, { status: 403 }),
       listing: null,

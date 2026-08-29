@@ -16,6 +16,11 @@ import {
   Phone,
   ShieldCheck,
 } from "lucide-react";
+import {
+  canAccessLandlordTools,
+  isAdminRole,
+  isStudentRole,
+} from "@/lib/role-access";
 import { createClient } from "@/lib/supabase/client";
 import { isHostRole, normalizeVerificationStatus, verificationLabel, type VerificationStatus } from "@/lib/verification-center";
 
@@ -41,19 +46,6 @@ function statusClass(status: VerificationStatus) {
   if (status === "pending") return "border-yellow-500/25 bg-yellow-500/10 text-yellow-200";
   if (status === "rejected") return "border-red-500/25 bg-red-500/10 text-red-200";
   return "border-white/10 bg-white/5 text-zinc-300";
-}
-
-function hasValidPublicRole(role?: string | null, isAdmin?: boolean | null) {
-  const value = String(role || "").toLowerCase();
-
-  return (
-    isAdmin === true ||
-    value === "admin" ||
-    value === "student" ||
-    value === "owner" ||
-    value === "landlord" ||
-    value === "host"
-  );
 }
 
 export default function OnboardingVerificationsPage() {
@@ -96,7 +88,11 @@ export default function OnboardingVerificationsPage() {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!hasValidPublicRole(profile?.role, profile?.is_admin)) {
+    if (
+      !isStudentRole(profile) &&
+      !canAccessLandlordTools(profile) &&
+      !isAdminRole(profile)
+    ) {
       router.replace("/onboarding?step=role");
       return;
     }

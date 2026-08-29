@@ -30,6 +30,7 @@ import {
   type CheckoutOwnerPlan,
 } from "@/lib/subscriptions/plans";
 import { getCurrentUserSubscription } from "@/lib/subscriptions/server";
+import { canAccessLandlordTools } from "@/lib/role-access";
 
 const comparisonRows = [
   {
@@ -137,15 +138,7 @@ export default async function BillingPage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = String(profile?.role || "").toLowerCase();
-  const isOwner =
-    profile?.is_admin ||
-    role === "admin" ||
-    role === "owner" ||
-    role === "landlord" ||
-    role === "host";
-
-  if (!isOwner || role === "student") {
+  if (!canAccessLandlordTools(profile)) {
     redirect("/search");
   }
 

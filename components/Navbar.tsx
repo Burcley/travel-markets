@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeAppRole } from "@/lib/role-access";
 import Logo from "@/components/logo";
 
 type Notification = {
@@ -25,6 +26,7 @@ type Profile = {
   full_name: string | null;
   avatar_url: string | null;
   role?: string | null;
+  is_admin?: boolean | null;
 };
 
 type NavLink = {
@@ -35,8 +37,7 @@ type NavLink = {
 const studentNavLinks: NavLink[] = [
   { href: "/", label: "home" },
   { href: "/search", label: "search" },
-  { href: "/landlords", label: "forLandlords" },
-  { href: "/about", label: "about" },
+  { href: "/dashboard", label: "dashboard" },
   { href: "/help", label: "help" },
   { href: "/saved-listings", label: "saved" },
   { href: "/messages", label: "messages" },
@@ -101,23 +102,6 @@ const adminAccountLinks: NavLink[] = [
   { href: "/verify-identity", label: "verifyIdentity" },
 ];
 
-function normalizeRole(role?: string | null) {
-  const value = (role || "").toLowerCase();
-
-  if (value === "admin") return "admin";
-
-  if (
-    value === "owner" ||
-    value === "host" ||
-    value === "landlord" ||
-    value === "property_owner"
-  ) {
-    return "host";
-  }
-
-  return "student";
-}
-
 export default function Navbar() {
   const t = useTranslations("navbar");
   const router = useRouter();
@@ -142,18 +126,18 @@ export default function Navbar() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const isSignedIn = Boolean(userId);
-  const role = normalizeRole(profile?.role);
+  const role = normalizeAppRole(profile);
 
   const navLinks = useMemo(() => {
     if (!isSignedIn) return publicNavLinks;
     if (role === "admin") return adminNavLinks;
-    if (role === "host") return hostNavLinks;
+    if (role === "landlord") return hostNavLinks;
     return studentNavLinks;
   }, [isSignedIn, role]);
 
   const accountLinks = useMemo(() => {
     if (role === "admin") return adminAccountLinks;
-    if (role === "host") return hostAccountLinks;
+    if (role === "landlord") return hostAccountLinks;
     return studentAccountLinks;
   }, [role]);
 
@@ -189,7 +173,7 @@ export default function Navbar() {
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, role")
+      .select("id, full_name, avatar_url, role, is_admin")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -631,7 +615,7 @@ export default function Navbar() {
 
                 <p className="truncate text-xs text-zinc-500">
                   {isSignedIn
-                    ? role === "host"
+                    ? role === "landlord"
                       ? t("account.hostAccount")
                       : role === "admin"
                       ? t("account.adminAccount")
@@ -671,7 +655,7 @@ export default function Navbar() {
                           </p>
 
                           <p className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold capitalize text-zinc-300">
-                            {role === "host"
+	                            {role === "landlord"
                               ? t("roles.host")
                               : role === "admin"
                               ? t("roles.admin")
@@ -751,11 +735,11 @@ export default function Navbar() {
           </div>
 
           <Link
-            href={isSignedIn ? role === "host" || role === "admin" ? "/post" : "/search" : "/auth"}
+            href={isSignedIn ? role === "landlord" || role === "admin" ? "/post" : "/search" : "/auth"}
             className="hidden h-12 items-center rounded-2xl bg-white px-5 text-sm font-black text-black shadow-lg transition hover:bg-zinc-200 md:flex"
           >
             {isSignedIn
-              ? role === "host" || role === "admin"
+              ? role === "landlord" || role === "admin"
                 ? t("actions.postListing")
                 : t("actions.findHousing")
               : t("actions.signIn")}
@@ -781,7 +765,7 @@ export default function Navbar() {
 
               <p className="mt-1 truncate text-xs text-zinc-500">
                 {isSignedIn
-                  ? role === "host"
+	                  ? role === "landlord"
                     ? t("account.hostAccount")
                     : role === "admin"
                     ? t("account.adminAccount")
@@ -835,11 +819,11 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href={role === "host" || role === "admin" ? "/post" : "/search"}
+	                    href={role === "landlord" || role === "admin" ? "/post" : "/search"}
                     onClick={() => setMobileOpen(false)}
                     className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-black hover:bg-zinc-200"
                   >
-                    {role === "host" || role === "admin"
+	                    {role === "landlord" || role === "admin"
                       ? t("actions.postListing")
                       : t("actions.findHousing")}
                   </Link>

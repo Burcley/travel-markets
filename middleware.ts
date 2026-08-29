@@ -1,5 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  canAccessLandlordTools,
+  isLandlordRole,
+  normalizeAppRole,
+} from "@/lib/role-access";
 
 const ALLOWED_DISABLED_PATHS = ["/account-disabled"];
 const ONBOARDING_ALLOWED_PATHS = [
@@ -26,7 +31,6 @@ const PROTECTED_ONBOARDING_PATHS = [
   "/billing",
   "/dashboard",
   "/inquiries",
-  "/listings",
   "/messages",
   "/my-listings",
   "/notifications",
@@ -37,13 +41,23 @@ const PROTECTED_ONBOARDING_PATHS = [
   "/saved-listings",
   "/saved-searches",
   "/settings",
-  "/users",
   "/viewings",
+];
+
+const LANDLORD_ONLY_PATHS = [
+  "/availability",
+  "/billing",
+  "/dashboard/boosts",
+  "/dashboard/subscription",
+  "/edit-listing",
+  "/my-listings",
+  "/post",
 ];
 
 type MiddlewareProfile = {
   account_status?: string | null;
   role?: string | null;
+  is_admin?: boolean | null;
   full_name?: string | null;
   phone?: string | null;
   country?: string | null;
@@ -68,9 +82,13 @@ function startsWithAny(pathname: string, paths: string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
+function isListingEditPath(pathname: string) {
+  return /^\/listings\/[^/]+\/edit(?:\/)?$/.test(pathname);
+}
+
 function hasRequiredProfile(profile: MiddlewareProfile) {
   const role = String(profile.role || "").toLowerCase();
-  const host = ["owner", "host", "landlord"].includes(role);
+  const host = isLandlordRole(profile);
   const roleSelected = role === "student" || host || role === "admin";
 
   if (!roleSelected) return false;
@@ -111,6 +129,8 @@ function hasRequiredProfile(profile: MiddlewareProfile) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const needsOnboardingGuard = startsWithAny(pathname, PROTECTED_ONBOARDING_PATHS);
+  const needsLandlordGuard =
+    startsWithAny(pathname, LANDLORD_ONLY_PATHS) || isListingEditPath(pathname);
   const needsAccountDisabledCheck = pathname === "/account-disabled";
 
   if (
@@ -121,7 +141,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!needsOnboardingGuard && !needsAccountDisabledCheck) {
+  if (!needsOnboardingGuard && !needsLandlordGuard && !needsAccountDisabledCheck) {
     return NextResponse.next();
   }
 
@@ -150,9 +170,10 @@ export async function middleware(request: NextRequest) {
 
   if (!user) return response;
 
-  const profileSelect = needsOnboardingGuard
-    ? "account_status, role, full_name, phone, country, preferred_language, school, program, institution_id, institution_not_listed, unlisted_institution_name, campus_id, campus_not_listed, unlisted_campus_name, program_name, expected_graduation, host_type, onboarding_completed, onboarding_completed_at, verification_intro_viewed_at"
-    : "account_status";
+  const profileSelect =
+    needsOnboardingGuard || needsLandlordGuard
+      ? "account_status, role, is_admin, full_name, phone, country, preferred_language, school, program, institution_id, institution_not_listed, unlisted_institution_name, campus_id, campus_not_listed, unlisted_campus_name, program_name, expected_graduation, host_type, onboarding_completed, onboarding_completed_at, verification_intro_viewed_at"
+      : "account_status";
 
   const { data: rawProfile, error: profileError } = await supabase
     .from("profiles")
@@ -187,6 +208,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (needsLandlordGuard && !canAccessLandlordTools(profile)) {
+    const url = request.nextUrl.clone();
+    url.pathname = normalizeAppRole(profile) === "student" ? "/dashboard" : "/auth";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   const canAccessDuringOnboarding = startsWithAny(
     pathname,
     ONBOARDING_ALLOWED_PATHS
@@ -206,9 +234,7 @@ export async function middleware(request: NextRequest) {
   const role = String(profile?.role || "").toLowerCase();
   const roleSelected =
     role === "student" ||
-    role === "owner" ||
-    role === "host" ||
-    role === "landlord" ||
+    isLandlordRole(profile) ||
     role === "admin";
 
   const url = request.nextUrl.clone();
