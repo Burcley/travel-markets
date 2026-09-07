@@ -460,6 +460,12 @@ export default function AdminDashboardPage() {
               >
                 Founding Landlords
               </Link>
+              <Link
+                href="/admin/listings/import"
+                className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white hover:bg-white/10"
+              >
+                Import Listings
+              </Link>
 
               <Link
                 href="/"
