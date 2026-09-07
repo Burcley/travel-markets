@@ -40,7 +40,10 @@ export function parseBoolean(value: unknown): boolean | null;
 export function normalizeNullableText(value: unknown): string | null;
 export function rowsFromSheetJson(
   sheetRows: unknown[],
-  options?: { useTemplateOrder?: boolean }
+  options?: {
+    useTemplateOrder?: boolean;
+    importFormat?: "legacy-template" | "legacy-header" | "enriched" | "unknown-header";
+  }
 ): Array<{
   row: Record<string, unknown>;
   rowNumber: number;
@@ -49,11 +52,29 @@ export function rowsFromSheetJson(
 export function detectImportFormat(
   sheetRows: unknown[],
   options?: { useTemplateOrder?: boolean }
-): "legacy-template" | "legacy-header" | "enriched";
+): "legacy-template" | "legacy-header" | "enriched" | "unknown-header";
 export function validateEnrichedHeaders(sheetRows: unknown[]): {
   valid: boolean;
   missingHeaders: string[];
 };
+export function parseSpreadsheetBuffer(args: {
+  buffer: Buffer;
+  fileName?: string;
+  useTemplateOrder?: boolean;
+}): Promise<{
+  sourceRows: RawImportRow[];
+  uniqueRows: NormalizedImportRow[];
+  skippedRows: Array<{ row: NormalizedImportRow; reason: string }>;
+  importFormat: "legacy-template" | "legacy-header" | "enriched";
+  summary: {
+    rowsDetected: number;
+    uniqueRows: number;
+    skippedRows: number;
+    duplicateRows: number;
+    incompleteDuplicateRows: number;
+    warningRows: number;
+  };
+}>;
 export function normalizeImportRow(row: RawImportRow): NormalizedImportRow;
 export function normalizeImportRows(rows: RawImportRow[]): NormalizedImportRow[];
 export function dedupeImportRows(rows: RawImportRow[]): {

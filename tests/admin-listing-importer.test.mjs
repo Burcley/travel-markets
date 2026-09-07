@@ -7,6 +7,8 @@ import {
   detectImportFormat,
   ENRICHED_IMPORT_HEADERS,
   fingerprintImportRow,
+  LANDLORD_IMPORT_HEADERS,
+  parseSpreadsheetBuffer,
   parseBoolean,
   parseCount,
   parseCurrency,
@@ -76,6 +78,209 @@ function enrichedRow(overrides = {}) {
   };
 }
 
+function enrichedWorkbookRows() {
+  return [
+    ENRICHED_IMPORT_HEADERS,
+    [
+      "Durham Student House",
+      "112 Berthune Ave",
+      "Oshawa",
+      "Ontario",
+      "L1H 2L8",
+      "4",
+      "Upper",
+      "$2,800",
+      "Group/Family",
+      "N/A",
+      "Yes",
+      "No",
+      "ASAP",
+      "4",
+      "4",
+      "Four-bedroom upper unit near campus",
+      "Bright upper unit for a student group.",
+      "Confirmed by landlord spreadsheet.",
+      "https://example.com/source-1",
+    ],
+    [
+      "North Oshawa Rooms",
+      "55 Thornton Rd S",
+      "Oshawa",
+      "ON",
+      "L1J 5Y1",
+      "2",
+      "Main",
+      "1600",
+      "Individual",
+      "Female",
+      "No",
+      "Yes",
+      "September",
+      "5",
+      "2",
+      "Two rooms close to Durham campus",
+      "Two bright rooms with internet included.",
+      "Landlord supplied lease notes.",
+      "https://example.com/source-2",
+    ],
+    [
+      "Simcoe Student Rental",
+      "44 Simcoe St N",
+      "Oshawa",
+      "Ontario",
+      "L1G 4S1",
+      "1",
+      "Basement",
+      "$725",
+      "Individual",
+      "Male",
+      "Yes",
+      "Yes",
+      "Available now",
+      "3",
+      "1",
+      "Basement room near downtown Oshawa",
+      "Compact basement room with utilities included.",
+      "Imported from verified owner file.",
+      "https://example.com/source-3",
+    ],
+    [
+      "Whitby Upper",
+      "12 Brock St N",
+      "Whitby",
+      "Ontario",
+      "L1N 4H2",
+      "3",
+      "Upper",
+      "$2400",
+      "Group",
+      "",
+      "Yes",
+      "No",
+      "October",
+      "3",
+      "1.5",
+      "Upper unit for three students",
+      "Upper unit with three bedrooms and flexible move-in.",
+      "Brokerage packet reviewed.",
+      "https://example.com/source-4",
+    ],
+    [
+      "Ajax Main Floor",
+      "88 Harwood Ave S",
+      "Ajax",
+      "Ontario",
+      "L1S 2H6",
+      "2",
+      "Main",
+      "$1900",
+      "Group/Family",
+      "N/A",
+      "No",
+      "No",
+      "November",
+      "2",
+      "1",
+      "Main floor rental in Ajax",
+      "Main floor rental with two rooms available.",
+      "Owner spreadsheet notes.",
+      "https://example.com/source-5",
+    ],
+    [
+      "Scarborough Student Suite",
+      "1265 Military Trail",
+      "Toronto",
+      "Ontario",
+      "M1C 1A4",
+      "5",
+      "Lower",
+      "$3500",
+      "Group",
+      "",
+      "Yes",
+      "Yes",
+      "January",
+      "5",
+      "2",
+      "Five-room student suite",
+      "Large suite suitable for a group.",
+      "Campus-adjacent owner note.",
+      "https://example.com/source-6",
+    ],
+    [
+      "Peterborough Rooms",
+      "1600 West Bank Dr",
+      "Peterborough",
+      "Ontario",
+      "K9L 0G2",
+      "2",
+      "Upper",
+      "$1500",
+      "Individual",
+      "",
+      "Yes",
+      "Yes",
+      "May",
+      "4",
+      "2",
+      "Student rooms in Peterborough",
+      "Two rooms available in a shared student property.",
+      "Verification source note.",
+      "https://example.com/source-7",
+    ],
+    [
+      "Hamilton Group Rental",
+      "1280 Main St W",
+      "Hamilton",
+      "Ontario",
+      "L8S 4L8",
+      "4",
+      "Main",
+      "$3200",
+      "Group/Family",
+      "",
+      "No",
+      "Yes",
+      "August",
+      "4",
+      "2",
+      "Group rental near McMaster",
+      "Four-bedroom rental for a student group.",
+      "Admin source note.",
+      "https://example.com/source-8",
+    ],
+    [
+      "Waterloo Student Home",
+      "200 University Ave W",
+      "Waterloo",
+      "Ontario",
+      "N2L 3G1",
+      "6",
+      "Main",
+      "$4200",
+      "Group",
+      "",
+      "Yes",
+      "No",
+      "July",
+      "6",
+      "3",
+      "Six-room student home",
+      "Large student home with six rooms available.",
+      "Public source URL supplied.",
+      "https://example.com/source-9",
+    ],
+  ];
+}
+
+async function workbookBufferFromRows(rows) {
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Listings");
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+}
+
 test("admin importer detects enriched header spreadsheets and validates required columns", () => {
   const rows = [enrichedRow()];
 
@@ -105,6 +310,115 @@ test("admin importer detects enriched header spreadsheets and validates required
     "Listing Title",
     "Description",
   ]);
+});
+
+test("real enriched XLSX preview parser detects header row and maps all enriched fields", async () => {
+  const buffer = await workbookBufferFromRows(enrichedWorkbookRows());
+  const preview = await parseSpreadsheetBuffer({
+    buffer,
+    fileName: "enriched-import.xlsx",
+    useTemplateOrder: true,
+  });
+  const first = preview.uniqueRows[0];
+
+  assert.equal(preview.importFormat, "enriched");
+  assert.equal(preview.sourceRows.length, 9);
+  assert.equal(preview.summary.rowsDetected, 9);
+  assert.equal(preview.summary.uniqueRows, 9);
+  assert.equal(preview.uniqueRows.length, 9);
+  assert.equal(preview.uniqueRows.some((row) => row.property === "Property"), false);
+  assert.equal(first.property, "Durham Student House");
+  assert.equal(first.streetAddress, "112 Berthune Ave");
+  assert.equal(first.city, "Oshawa");
+  assert.equal(first.province, "Ontario");
+  assert.equal(first.postalCode, "L1H 2L8");
+  assert.equal(first.roomsAvailable, 4);
+  assert.equal(first.rent, 2800);
+  assert.equal(first.totalRooms, 4);
+  assert.equal(first.bathrooms, 4);
+  assert.equal(first.listingTitle, "Four-bedroom upper unit near campus");
+  assert.equal(first.description, "Bright upper unit for a student group.");
+  assert.equal(first.sourceVerificationNotes, "Confirmed by landlord spreadsheet.");
+  assert.equal(first.sourceUrl, "https://example.com/source-1");
+
+  const payload = buildDraftListingPayload({
+    ownerId: "landlord-user-id",
+    row: first,
+  });
+
+  assert.equal(payload.address_line, "112 Berthune Ave");
+  assert.equal(payload.city, "Oshawa");
+  assert.equal(payload.province, "Ontario");
+  assert.equal(payload.postal_code, "L1H 2L8");
+  assert.equal(payload.title, "Four-bedroom upper unit near campus");
+  assert.equal(payload.description, "Bright upper unit for a student group.");
+  assert.equal("sourceVerificationNotes" in payload, false);
+  assert.equal("sourceUrl" in payload, false);
+});
+
+test("real legacy no-header XLSX remains supported through the preview parser", async () => {
+  const buffer = await workbookBufferFromRows([
+    [
+      "397 First Ave",
+      "3 Rooms",
+      "Basement",
+      1700,
+      "Group/Family",
+      "N/A",
+      "Yes",
+      "Yes",
+      "ASAP",
+      "3 Rooms",
+      "1 Bath",
+    ],
+    [
+      "399 First Ave",
+      "1 Room",
+      "Upper",
+      800,
+      "Individual",
+      "Female",
+      "No",
+      "Yes",
+      "September",
+      "4 Rooms",
+      "2 Baths",
+    ],
+  ]);
+  const preview = await parseSpreadsheetBuffer({
+    buffer,
+    fileName: "legacy-template.xlsx",
+    useTemplateOrder: true,
+  });
+
+  assert.equal(preview.importFormat, "legacy-template");
+  assert.equal(preview.summary.rowsDetected, 2);
+  assert.equal(preview.summary.uniqueRows, 2);
+  assert.equal(preview.uniqueRows[0].property, "397 First Ave");
+  assert.equal(preview.uniqueRows[0].rent, 1700);
+  assert.equal(preview.uniqueRows[0].streetAddress, null);
+  assert.deepEqual(LANDLORD_IMPORT_HEADERS.slice(0, 3), [
+    "Property",
+    "Rooms",
+    "Up/Down?",
+  ]);
+});
+
+test("header-like XLSX files do not silently fall back to legacy parsing", async () => {
+  const buffer = await workbookBufferFromRows([
+    ["Property", "Street Address", "City", "Rent CAD"],
+    ["Incomplete Header Test", "1 Test St", "Oshawa", "$1000"],
+  ]);
+
+  await assert.rejects(
+    () =>
+      parseSpreadsheetBuffer({
+        buffer,
+        fileName: "bad-enriched-import.xlsx",
+        useTemplateOrder: false,
+      }),
+    /missing required columns: Province, Postal Code, Rooms Available, Total Rooms, Baths, Listing Title, Description/
+  );
 });
 
 test("enriched spreadsheet fields map to draft listing fields without public source metadata", () => {

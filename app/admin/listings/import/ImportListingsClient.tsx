@@ -87,6 +87,12 @@ function booleanSelectValue(value: boolean | null) {
   return "";
 }
 
+function formatImportBadge(importFormat: PreviewResponse["importFormat"]) {
+  return importFormat === "enriched"
+    ? "ENRICHED FORMAT DETECTED"
+    : "LEGACY TEMPLATE FORMAT DETECTED";
+}
+
 function statusClass(status: string) {
   const normalized = status.toLowerCase();
   if (["approved", "verified", "active"].includes(normalized)) {
@@ -490,7 +496,7 @@ export default function ImportListingsClient({
                   confirmation.
                 </p>
                 <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-pink-200">
-                  {preview.importFormat.replace("-", " ")} format detected
+                  {formatImportBadge(preview.importFormat)}
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">

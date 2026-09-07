@@ -2,12 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
-  dedupeImportRows,
-  detectImportFormat,
-  rowsFromSheetJson,
-  summarizePreview,
+  parseSpreadsheetBuffer,
   type NormalizedImportRow,
-  validateEnrichedHeaders,
 } from "@/lib/admin/listing-importer-core.mjs";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -76,52 +72,17 @@ export async function parseSpreadsheetFile({
     throw new Error("Spreadsheet is too large. Keep imports under 5 MB.");
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const XLSX = await import("xlsx");
-  const workbook = XLSX.read(buffer, {
-    type: "buffer",
-    cellDates: false,
-    dense: false,
-  });
-
-  const firstSheetName = workbook.SheetNames[0];
-  const sheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
-
-  if (!sheet) {
-    throw new Error("The spreadsheet does not contain a readable sheet.");
-  }
-
-  const sheetRows = XLSX.utils.sheet_to_json(sheet, {
-    header: useTemplateOrder ? 1 : undefined,
-    defval: "",
-    blankrows: false,
-  }) as unknown[];
-  const importFormat = detectImportFormat(sheetRows, { useTemplateOrder });
-
-  if (importFormat === "enriched") {
-    const headerValidation = validateEnrichedHeaders(sheetRows);
-
-    if (!headerValidation.valid) {
-      throw new Error(
-        `The enriched spreadsheet is missing required columns: ${headerValidation.missingHeaders.join(", ")}.`
-      );
-    }
-  }
-
-  const sourceRows = rowsFromSheetJson(sheetRows, { useTemplateOrder });
-  const { unique, skipped } = dedupeImportRows(sourceRows);
-
-  return {
-    sourceRows,
-    uniqueRows: unique as NormalizedImportRow[],
-    skippedRows: skipped,
-    importFormat,
-    summary: summarizePreview({
-      sourceRows,
-      uniqueRows: unique,
-      skippedRows: skipped,
-    }),
-  };
+  return parseSpreadsheetBuffer({
+    buffer: Buffer.from(await file.arrayBuffer()),
+    fileName: file.name,
+    useTemplateOrder,
+  }) as Promise<{
+    sourceRows: unknown[];
+    uniqueRows: NormalizedImportRow[];
+    skippedRows: Array<{ row: NormalizedImportRow; reason: string }>;
+    importFormat: "legacy-template" | "legacy-header" | "enriched";
+    summary: unknown;
+  }>;
 }
 
 export function isLandlordProfile(profile: { role?: string | null; is_admin?: boolean | null } | null) {
