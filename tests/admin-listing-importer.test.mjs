@@ -4,12 +4,15 @@ import test from "node:test";
 import {
   buildDraftListingPayload,
   dedupeImportRows,
+  detectImportFormat,
+  ENRICHED_IMPORT_HEADERS,
   fingerprintImportRow,
   parseBoolean,
   parseCount,
   parseCurrency,
   rowsFromSheetJson,
   suggestImageMatches,
+  validateEnrichedHeaders,
 } from "../lib/admin/listing-importer-core.mjs";
 
 const previewRouteSource = readFileSync(
@@ -18,6 +21,10 @@ const previewRouteSource = readFileSync(
 );
 const commitRouteSource = readFileSync(
   new URL("../app/api/admin/listings/import/commit/route.ts", import.meta.url),
+  "utf8"
+);
+const templateRouteSource = readFileSync(
+  new URL("../app/api/admin/listings/import/template/route.ts", import.meta.url),
   "utf8"
 );
 const serverSource = readFileSync(
@@ -43,6 +50,112 @@ const migrationSource = readFileSync(
   ),
   "utf8"
 );
+
+function enrichedRow(overrides = {}) {
+  return {
+    Property: "Durham Student House",
+    "Street Address": "112 Berthune Ave",
+    City: "Oshawa",
+    Province: "Ontario",
+    "Postal Code": "L1H 2L8",
+    "Rooms Available": "4",
+    Unit: "Upper",
+    "Rent CAD": "$2,800",
+    Arrangement: "Group/Family",
+    Gender: "N/A",
+    Utilities: "Yes",
+    Internet: "No",
+    Available: "ASAP",
+    "Total Rooms": "4",
+    Baths: "4",
+    "Listing Title": "Four-bedroom upper unit near campus",
+    Description: "Bright upper unit for a student group.",
+    "Source / Verification Notes": "Confirmed by landlord spreadsheet.",
+    "Source URL": "https://example.com/source",
+    ...overrides,
+  };
+}
+
+test("admin importer detects enriched header spreadsheets and validates required columns", () => {
+  const rows = [enrichedRow()];
+
+  assert.equal(detectImportFormat(rows), "enriched");
+  assert.deepEqual(validateEnrichedHeaders(rows), {
+    valid: true,
+    missingHeaders: [],
+  });
+
+  const malformed = [
+    {
+      Property: "Durham Student House",
+      "Street Address": "112 Berthune Ave",
+      City: "Oshawa",
+      Province: "Ontario",
+      "Rent CAD": "$2,800",
+    },
+  ];
+
+  assert.equal(detectImportFormat(malformed), "enriched");
+  assert.equal(validateEnrichedHeaders(malformed).valid, false);
+  assert.deepEqual(validateEnrichedHeaders(malformed).missingHeaders, [
+    "Postal Code",
+    "Rooms Available",
+    "Total Rooms",
+    "Baths",
+    "Listing Title",
+    "Description",
+  ]);
+});
+
+test("enriched spreadsheet fields map to draft listing fields without public source metadata", () => {
+  const { unique } = dedupeImportRows(rowsFromSheetJson([enrichedRow()]));
+  const row = unique[0];
+
+  assert.equal(row.importFormat, "enriched");
+  assert.equal(row.property, "Durham Student House");
+  assert.equal(row.streetAddress, "112 Berthune Ave");
+  assert.equal(row.city, "Oshawa");
+  assert.equal(row.province, "Ontario");
+  assert.equal(row.postalCode, "L1H 2L8");
+  assert.equal(row.roomsAvailable, 4);
+  assert.equal(row.unit, "Upper");
+  assert.equal(row.rent, 2800);
+  assert.equal(row.arrangement, "Group/Family");
+  assert.equal(row.genderPreference, null);
+  assert.equal(row.utilitiesIncluded, true);
+  assert.equal(row.internetIncluded, false);
+  assert.equal(row.availability, "ASAP");
+  assert.equal(row.totalRooms, 4);
+  assert.equal(row.bathrooms, 4);
+  assert.equal(row.listingTitle, "Four-bedroom upper unit near campus");
+  assert.equal(row.description, "Bright upper unit for a student group.");
+  assert.equal(row.sourceVerificationNotes, "Confirmed by landlord spreadsheet.");
+  assert.equal(row.sourceUrl, "https://example.com/source");
+
+  const payload = buildDraftListingPayload({
+    ownerId: "landlord-user-id",
+    row,
+    city: "Fallback City",
+    province: "Fallback Province",
+  });
+
+  assert.equal(payload.title, "Four-bedroom upper unit near campus");
+  assert.equal(payload.description, "Bright upper unit for a student group.");
+  assert.equal(payload.address_line, "112 Berthune Ave");
+  assert.equal(payload.city, "Oshawa");
+  assert.equal(payload.location, "Oshawa");
+  assert.equal(payload.province, "Ontario");
+  assert.equal(payload.postal_code, "L1H 2L8");
+  assert.equal(payload.price, 2800);
+  assert.equal(payload.bedrooms, 4);
+  assert.equal(payload.bathrooms, 4);
+  assert.equal(payload.roommates, 4);
+  assert.equal(payload.status, "draft");
+  assert.equal("sourceVerificationNotes" in payload, false);
+  assert.equal("sourceUrl" in payload, false);
+  assert.equal("Source / Verification Notes" in payload, false);
+  assert.equal("Source URL" in payload, false);
+});
 
 test("admin importer normalizes spreadsheet values without guessing addresses", () => {
   assert.equal(parseCurrency("$1,700"), 1700);
@@ -78,6 +191,36 @@ test("admin importer normalizes spreadsheet values without guessing addresses", 
   assert.equal(unique[0].bathrooms, 3);
   assert.equal(unique[0].internetIncluded, false);
   assert.match(unique[0].warnings.join(" "), /Address likely incomplete/);
+});
+
+test("legacy no-header landlord template remains supported", () => {
+  const sourceRows = rowsFromSheetJson(
+    [
+      [
+        "397 First Ave",
+        "3 Rooms",
+        "Basement",
+        1700,
+        "Group/Family",
+        "N/A",
+        "Yes",
+        "Yes",
+        "ASAP",
+        "3 Rooms",
+        "1 Bath",
+      ],
+    ],
+    { useTemplateOrder: true }
+  );
+  const { unique } = dedupeImportRows(sourceRows);
+
+  assert.equal(detectImportFormat(sourceRows, { useTemplateOrder: true }), "legacy-template");
+  assert.equal(unique.length, 1);
+  assert.equal(unique[0].importFormat, "legacy-template");
+  assert.equal(unique[0].property, "397 First Ave");
+  assert.equal(unique[0].streetAddress, null);
+  assert.equal(unique[0].rent, 1700);
+  assert.equal(unique[0].roomsAvailable, 3);
 });
 
 test("admin importer removes exact duplicates and keeps complete address rows", () => {
@@ -243,6 +386,23 @@ test("committed image assignments use existing listing image storage and table",
   assert.match(commitRouteSource, /sort_order: index/);
   assert.match(commitRouteSource, /is_cover: index === 0/);
   assert.match(commitRouteSource, /imageAssignments\?\.\[row\.fingerprint\]/);
+});
+
+test("enriched preview UI exposes editable fields and admin-only metadata", () => {
+  assert.match(importerClientSource, /Street address/);
+  assert.match(importerClientSource, /Postal code/);
+  assert.match(importerClientSource, /Title/);
+  assert.match(importerClientSource, /Description/);
+  assert.match(importerClientSource, /Admin source notes/);
+  assert.match(importerClientSource, /Source URL/);
+  assert.match(importerClientSource, /streetAddress: value \|\| null/);
+  assert.match(importerClientSource, /postalCode: value \|\| null/);
+  assert.match(importerClientSource, /listingTitle: value \|\| null/);
+  assert.match(importerClientSource, /sourceVerificationNotes: value \|\| null/);
+  assert.match(importerClientSource, /sourceUrl: value \|\| null/);
+  assert.match(templateRouteSource, /ENRICHED_IMPORT_HEADERS/);
+  assert.equal(ENRICHED_IMPORT_HEADERS.includes("Source / Verification Notes"), true);
+  assert.equal(ENRICHED_IMPORT_HEADERS.includes("Source URL"), true);
 });
 
 test("import migration preserves normal listing tables and adds audit tables only", () => {

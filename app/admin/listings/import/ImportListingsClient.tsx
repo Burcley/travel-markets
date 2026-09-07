@@ -34,6 +34,7 @@ type SkippedRow = {
 
 type PreviewResponse = {
   sourceFilename: string;
+  importFormat: "legacy-template" | "legacy-header" | "enriched";
   summary: {
     rowsDetected: number;
     uniqueRows: number;
@@ -72,6 +73,18 @@ function money(value: number | null) {
     currency: "CAD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function numericValue(value: string) {
+  if (!value.trim()) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function booleanSelectValue(value: boolean | null) {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "";
 }
 
 function statusClass(status: string) {
@@ -255,8 +268,8 @@ export default function ImportListingsClient({
       .filter((row) => selectedRows.has(row.fingerprint))
       .map((row) => ({
         ...row,
-        city,
-        province,
+        city: row.city || city,
+        province: row.province || province,
       }));
 
     if (!selected.length) {
@@ -472,8 +485,12 @@ export default function ImportListingsClient({
               <div>
                 <h2 className="text-2xl font-black">3. Validate Preview</h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  No listings have been created yet. Review warnings and create
-                  drafts only after confirmation.
+                  No listings have been created yet. Review warnings, edit
+                  fields, assign images, and create drafts only after
+                  confirmation.
+                </p>
+                <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-pink-200">
+                  {preview.importFormat.replace("-", " ")} format detected
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
@@ -502,12 +519,18 @@ export default function ImportListingsClient({
             )}
 
             <div className="overflow-x-auto rounded-2xl border border-white/10">
-              <table className="min-w-[1200px] w-full text-left text-sm">
+              <table className="min-w-[2200px] w-full text-left text-sm">
                 <thead className="bg-white/5 text-xs uppercase tracking-wide text-zinc-400">
                   <tr>
                     <th className="p-3">Import</th>
                     <th className="p-3">Property</th>
-                    <th className="p-3">Rooms</th>
+                    <th className="p-3">Street address</th>
+                    <th className="p-3">City</th>
+                    <th className="p-3">Province</th>
+                    <th className="p-3">Postal code</th>
+                    <th className="p-3">Title</th>
+                    <th className="p-3">Description</th>
+                    <th className="p-3">Rooms available</th>
                     <th className="p-3">Unit</th>
                     <th className="p-3">Rent</th>
                     <th className="p-3">Arrangement</th>
@@ -518,6 +541,8 @@ export default function ImportListingsClient({
                     <th className="p-3">Total rooms</th>
                     <th className="p-3">Baths</th>
                     <th className="p-3">Images</th>
+                    <th className="p-3">Admin source notes</th>
+                    <th className="p-3">Source URL</th>
                     <th className="p-3">Status</th>
                   </tr>
                 </thead>
@@ -540,16 +565,92 @@ export default function ImportListingsClient({
                           className="w-56 rounded-xl border border-white/10 bg-black px-3 py-2 outline-none focus:border-pink-400"
                         />
                       </td>
-                      <td className="p-3">{row.roomsAvailable ?? "Missing"}</td>
-                      <td className="p-3">{row.unit || "N/A"}</td>
-                      <td className="p-3">{money(row.rent)}</td>
-                      <td className="p-3">{row.arrangement || "N/A"}</td>
-                      <td className="p-3">{row.genderPreference || "N/A"}</td>
-                      <td className="p-3">{row.utilitiesIncluded === null ? "N/A" : row.utilitiesIncluded ? "Yes" : "No"}</td>
-                      <td className="p-3">{row.internetIncluded === null ? "N/A" : row.internetIncluded ? "Yes" : "No"}</td>
-                      <td className="p-3">{row.availability || "N/A"}</td>
-                      <td className="p-3">{row.totalRooms ?? "Missing"}</td>
-                      <td className="p-3">{row.bathrooms ?? "Missing"}</td>
+                      <EditableCell
+                        value={row.streetAddress || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { streetAddress: value || null })
+                        }
+                      />
+                      <EditableCell
+                        value={row.city || ""}
+                        onChange={(value) => updateRow(row.fingerprint, { city: value || null })}
+                      />
+                      <EditableCell
+                        value={row.province || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { province: value || null })
+                        }
+                      />
+                      <EditableCell
+                        value={row.postalCode || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { postalCode: value || null })
+                        }
+                      />
+                      <EditableCell
+                        value={row.listingTitle || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { listingTitle: value || null })
+                        }
+                      />
+                      <EditableTextAreaCell
+                        value={row.description || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { description: value || null })
+                        }
+                      />
+                      <NumberCell
+                        value={row.roomsAvailable}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { roomsAvailable: value })
+                        }
+                      />
+                      <EditableCell
+                        value={row.unit || ""}
+                        onChange={(value) => updateRow(row.fingerprint, { unit: value || null })}
+                      />
+                      <NumberCell
+                        value={row.rent}
+                        onChange={(value) => updateRow(row.fingerprint, { rent: value })}
+                      />
+                      <EditableCell
+                        value={row.arrangement || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { arrangement: value || null })
+                        }
+                      />
+                      <EditableCell
+                        value={row.genderPreference || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { genderPreference: value || null })
+                        }
+                      />
+                      <BooleanCell
+                        value={row.utilitiesIncluded}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { utilitiesIncluded: value })
+                        }
+                      />
+                      <BooleanCell
+                        value={row.internetIncluded}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { internetIncluded: value })
+                        }
+                      />
+                      <EditableCell
+                        value={row.availability || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { availability: value || null })
+                        }
+                      />
+                      <NumberCell
+                        value={row.totalRooms}
+                        onChange={(value) => updateRow(row.fingerprint, { totalRooms: value })}
+                      />
+                      <NumberCell
+                        value={row.bathrooms}
+                        onChange={(value) => updateRow(row.fingerprint, { bathrooms: value })}
+                      />
                       <td className="p-3">
                         <p className="text-xs font-bold text-zinc-300">
                           {(imageAssignments[row.fingerprint] || []).length} assigned
@@ -558,6 +659,20 @@ export default function ImportListingsClient({
                           Manage images in the preview board above.
                         </p>
                       </td>
+                      <EditableTextAreaCell
+                        value={row.sourceVerificationNotes || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, {
+                            sourceVerificationNotes: value || null,
+                          })
+                        }
+                      />
+                      <EditableCell
+                        value={row.sourceUrl || ""}
+                        onChange={(value) =>
+                          updateRow(row.fingerprint, { sourceUrl: value || null })
+                        }
+                      />
                       <td className="p-3">
                         {row.warnings.length ? (
                           <div className="flex max-w-xs items-start gap-2 text-yellow-100">
@@ -634,6 +749,89 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="text-xs text-zinc-500">{label}</p>
       <p className="mt-1 text-xl font-black">{value}</p>
     </div>
+  );
+}
+
+function EditableCell({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <td className="p-3">
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-48 rounded-xl border border-white/10 bg-black px-3 py-2 outline-none focus:border-pink-400"
+      />
+    </td>
+  );
+}
+
+function EditableTextAreaCell({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <td className="p-3">
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-24 w-72 rounded-xl border border-white/10 bg-black px-3 py-2 outline-none focus:border-pink-400"
+      />
+    </td>
+  );
+}
+
+function NumberCell({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <td className="p-3">
+      <input
+        type="number"
+        value={value ?? ""}
+        onChange={(event) => onChange(numericValue(event.target.value))}
+        className="w-28 rounded-xl border border-white/10 bg-black px-3 py-2 outline-none focus:border-pink-400"
+      />
+    </td>
+  );
+}
+
+function BooleanCell({
+  value,
+  onChange,
+}: {
+  value: boolean | null;
+  onChange: (value: boolean | null) => void;
+}) {
+  return (
+    <td className="p-3">
+      <select
+        value={booleanSelectValue(value)}
+        onChange={(event) =>
+          onChange(
+            event.target.value === ""
+              ? null
+              : event.target.value === "true"
+          )
+        }
+        className="w-28 rounded-xl border border-white/10 bg-black px-3 py-2 outline-none focus:border-pink-400"
+      >
+        <option value="">N/A</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    </td>
   );
 }
 

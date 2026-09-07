@@ -3,9 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   dedupeImportRows,
+  detectImportFormat,
   rowsFromSheetJson,
   summarizePreview,
   type NormalizedImportRow,
+  validateEnrichedHeaders,
 } from "@/lib/admin/listing-importer-core.mjs";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -94,6 +96,17 @@ export async function parseSpreadsheetFile({
     defval: "",
     blankrows: false,
   }) as unknown[];
+  const importFormat = detectImportFormat(sheetRows, { useTemplateOrder });
+
+  if (importFormat === "enriched") {
+    const headerValidation = validateEnrichedHeaders(sheetRows);
+
+    if (!headerValidation.valid) {
+      throw new Error(
+        `The enriched spreadsheet is missing required columns: ${headerValidation.missingHeaders.join(", ")}.`
+      );
+    }
+  }
 
   const sourceRows = rowsFromSheetJson(sheetRows, { useTemplateOrder });
   const { unique, skipped } = dedupeImportRows(sourceRows);
@@ -102,6 +115,7 @@ export async function parseSpreadsheetFile({
     sourceRows,
     uniqueRows: unique as NormalizedImportRow[],
     skippedRows: skipped,
+    importFormat,
     summary: summarizePreview({
       sourceRows,
       uniqueRows: unique,

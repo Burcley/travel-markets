@@ -1,4 +1,5 @@
 export const LANDLORD_IMPORT_HEADERS: string[];
+export const ENRICHED_IMPORT_HEADERS: string[];
 
 export type RawImportRow = {
   rowNumber?: number | null;
@@ -8,7 +9,12 @@ export type RawImportRow = {
 
 export type NormalizedImportRow = {
   rowNumber: number | null;
+  importFormat: string;
   property: string | null;
+  streetAddress: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
   roomsAvailable: number | null;
   unit: string | null;
   rent: number | null;
@@ -19,6 +25,10 @@ export type NormalizedImportRow = {
   availability: string | null;
   totalRooms: number | null;
   bathrooms: number | null;
+  listingTitle: string | null;
+  description: string | null;
+  sourceVerificationNotes: string | null;
+  sourceUrl: string | null;
   completenessScore: number;
   fingerprint: string;
   warnings: string[];
@@ -31,7 +41,19 @@ export function normalizeNullableText(value: unknown): string | null;
 export function rowsFromSheetJson(
   sheetRows: unknown[],
   options?: { useTemplateOrder?: boolean }
-): Array<{ row: Record<string, unknown>; rowNumber: number }>;
+): Array<{
+  row: Record<string, unknown>;
+  rowNumber: number;
+  importFormat: "legacy-template" | "legacy-header" | "enriched";
+}>;
+export function detectImportFormat(
+  sheetRows: unknown[],
+  options?: { useTemplateOrder?: boolean }
+): "legacy-template" | "legacy-header" | "enriched";
+export function validateEnrichedHeaders(sheetRows: unknown[]): {
+  valid: boolean;
+  missingHeaders: string[];
+};
 export function normalizeImportRow(row: RawImportRow): NormalizedImportRow;
 export function normalizeImportRows(rows: RawImportRow[]): NormalizedImportRow[];
 export function dedupeImportRows(rows: RawImportRow[]): {
