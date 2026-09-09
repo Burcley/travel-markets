@@ -22,7 +22,12 @@ type ImportRequestRow = NormalizedImportRow & {
 };
 
 type ImportPayload = {
-  action?: "createDrafts" | "finalizeImages" | "reviewImportedDrafts" | "publishDrafts";
+  action?:
+    | "createDrafts"
+    | "finalizeImages"
+    | "listImportedDrafts"
+    | "reviewImportedDrafts"
+    | "publishDrafts";
   batchId?: string;
   ownerId?: string;
   sourceFilename?: string;
@@ -264,22 +269,15 @@ function normalizedListingIds(values?: string[]) {
   ).slice(0, 100);
 }
 
-async function reviewImportedDrafts({
+async function reviewImportedListingIds({
   context,
-  payload,
+  listingIds,
+  ownerId,
 }: {
   context: Exclude<Awaited<ReturnType<typeof requireImportAdmin>>, { response: NextResponse }>;
-  payload: ImportPayload;
+  listingIds: string[];
+  ownerId?: string | null;
 }) {
-  const listingIds = normalizedListingIds(payload.listingIds);
-
-  if (!listingIds.length) {
-    return NextResponse.json(
-      { error: "Select at least one imported draft to review." },
-      { status: 400 }
-    );
-  }
-
   const drafts: ListingPublishReview[] = [];
   const failures: BulkPublishResult[] = [];
 
@@ -288,7 +286,7 @@ async function reviewImportedDrafts({
       const review = await getListingPublishReview({
         admin: context.admin,
         listingId,
-        ownerId: payload.ownerId || null,
+        ownerId: ownerId || null,
       });
 
       if (!review) {
@@ -310,10 +308,119 @@ async function reviewImportedDrafts({
     }
   }
 
-  return NextResponse.json({
-    drafts,
-    failures,
+  return { drafts, failures };
+}
+
+async function listImportedDrafts({
+  context,
+  payload,
+}: {
+  context: Exclude<Awaited<ReturnType<typeof requireImportAdmin>>, { response: NextResponse }>;
+  payload: ImportPayload;
+}) {
+  const ownerId = String(payload.ownerId || "");
+
+  if (!ownerId) {
+    return NextResponse.json(
+      { error: "Select a landlord before loading imported drafts." },
+      { status: 400 }
+    );
+  }
+
+  const { data: batches, error: batchError } = await context.admin
+    .from("listing_import_batches")
+    .select("id")
+    .eq("owner_id", ownerId)
+    .in("status", ["drafts_created", "partial_failure"])
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  if (batchError) {
+    return importError({
+      code: "IMPORTED_DRAFT_BATCH_LOOKUP_FAILED",
+      message: `Imported draft batch lookup failed: ${batchError.message}`,
+      details: { supabaseCode: batchError.code },
+    });
+  }
+
+  const batchIds = (batches || []).map((batch) => batch.id).filter(Boolean);
+  let listingIds: string[] = [];
+
+  if (batchIds.length > 0) {
+    const { data: rows, error: rowsError } = await context.admin
+      .from("listing_import_rows")
+      .select("listing_id")
+      .in("batch_id", batchIds)
+      .in("status", ["imported", "skipped_existing"])
+      .not("listing_id", "is", null);
+
+    if (rowsError) {
+      return importError({
+        code: "IMPORTED_DRAFT_ROW_LOOKUP_FAILED",
+        message: `Imported draft row lookup failed: ${rowsError.message}`,
+        details: { supabaseCode: rowsError.code },
+      });
+    }
+
+    listingIds = normalizedListingIds(
+      (rows || []).map((row) => row.listing_id as string | null).filter(Boolean) as string[]
+    );
+  }
+
+  if (!listingIds.length) {
+    const { data: importedListings, error: listingsError } = await context.admin
+      .from("listings")
+      .select("id")
+      .eq("user_id", ownerId)
+      .like("creation_idempotency_key", "admin-bulk-import:%")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (listingsError) {
+      return importError({
+        code: "IMPORTED_DRAFT_LISTING_LOOKUP_FAILED",
+        message: `Imported draft listing lookup failed: ${listingsError.message}`,
+        details: { supabaseCode: listingsError.code },
+      });
+    }
+
+    listingIds = normalizedListingIds(
+      (importedListings || []).map((listing) => listing.id as string | null).filter(Boolean) as string[]
+    );
+  }
+
+  const review = await reviewImportedListingIds({
+    context,
+    listingIds,
+    ownerId,
   });
+
+  return NextResponse.json(review);
+}
+
+async function reviewImportedDrafts({
+  context,
+  payload,
+}: {
+  context: Exclude<Awaited<ReturnType<typeof requireImportAdmin>>, { response: NextResponse }>;
+  payload: ImportPayload;
+}) {
+  const listingIds = normalizedListingIds(payload.listingIds);
+
+  if (!listingIds.length) {
+    return NextResponse.json(
+      { error: "Select at least one imported draft to review." },
+      { status: 400 }
+    );
+  }
+
+  const review = await reviewImportedListingIds({
+    context,
+    listingIds,
+    ownerId: payload.ownerId || null,
+  });
+
+  return NextResponse.json(review);
 }
 
 async function publishImportedDrafts({
@@ -411,6 +518,10 @@ export async function POST(request: Request) {
 
   if (payload.action === "finalizeImages") {
     return finalizeUploadedImages({ context, payload });
+  }
+
+  if (payload.action === "listImportedDrafts") {
+    return listImportedDrafts({ context, payload });
   }
 
   if (payload.action === "reviewImportedDrafts") {

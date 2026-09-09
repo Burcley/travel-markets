@@ -1110,6 +1110,10 @@ test("committed image assignments use existing listing image storage and table",
 });
 
 test("admin bulk publish reviews existing imported drafts before publishing", () => {
+  assert.match(importerClientSource, /Imported Draft Listings/);
+  assert.match(importerClientSource, /listImportedDrafts/);
+  assert.match(importerClientSource, /loadImportedDraftsForLandlord/);
+  assert.match(importerClientSource, /Select All/);
   assert.match(importerClientSource, /Review Imported Drafts/);
   assert.match(importerClientSource, /Publish Selected Listings/);
   assert.match(importerClientSource, /Publish \$\{selected\.length\} listing/);
@@ -1119,6 +1123,10 @@ test("admin bulk publish reviews existing imported drafts before publishing", ()
   assert.match(importerClientSource, /Failed/);
   assert.match(importerClientSource, /imagesCount/);
   assert.match(importerClientSource, /nearestCampus/);
+  assert.match(commitRouteSource, /listImportedDrafts/);
+  assert.match(commitRouteSource, /listing_import_batches/);
+  assert.match(commitRouteSource, /listing_import_rows/);
+  assert.match(commitRouteSource, /admin-bulk-import:%/);
   assert.match(commitRouteSource, /reviewImportedDrafts/);
   assert.match(commitRouteSource, /publishDrafts/);
   assert.match(commitRouteSource, /getListingPublishReview/);
