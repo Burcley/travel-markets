@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  appendImageUploads,
+  suggestImageAssignmentsForRows,
+} from "../lib/admin/listing-importer-images.mjs";
+import {
   buildDraftListingPayload,
   dedupeImportRows,
   detectImportFormat,
@@ -75,6 +79,15 @@ function enrichedRow(overrides = {}) {
     "Source / Verification Notes": "Confirmed by landlord spreadsheet.",
     "Source URL": "https://example.com/source",
     ...overrides,
+  };
+}
+
+function imageFile(name, size = 1024, lastModified = 1788800000000) {
+  return {
+    name,
+    size,
+    lastModified,
+    type: "image/jpeg",
   };
 }
 
@@ -660,6 +673,112 @@ test("import fingerprints are stable and image suggestions remain confirmable", 
   assert.match(importerClientSource, /draggable/);
   assert.match(importerClientSource, /onDrop/);
   assert.doesNotMatch(importerClientSource, /placeholder="image-1.jpg, image-2.jpg"/);
+});
+
+test("image uploads append multiple property folders without replacing assignments", () => {
+  const rows = [
+    {
+      fingerprint: "row-30-trent",
+      property: "30 Trent",
+      streetAddress: "30 Trent Ave",
+    },
+    {
+      fingerprint: "row-23-glenayr",
+      property: "23 Glenayr",
+      streetAddress: "23 Glenayr St",
+    },
+    {
+      fingerprint: "row-86-glendale",
+      property: "86 Glendale",
+      streetAddress: "86 Glendale Ave",
+    },
+  ];
+
+  const firstBatch = appendImageUploads([], [
+    imageFile("30-trent-front.jpg", 1000, 1),
+    imageFile("30-trent-kitchen.jpg", 1001, 2),
+    imageFile("30-trent-bedroom.jpg", 1002, 3),
+    imageFile("30-trent-bath.jpg", 1003, 4),
+  ]);
+  let assignments = suggestImageAssignmentsForRows(
+    rows,
+    firstBatch.addedImages.map((image) => image.name),
+    {}
+  );
+
+  const secondBatch = appendImageUploads(firstBatch.images, [
+    imageFile("23-glenayr-front.jpg", 1100, 5),
+    imageFile("23-glenayr-kitchen.jpg", 1101, 6),
+    imageFile("23-glenayr-bedroom.jpg", 1102, 7),
+    imageFile("23-glenayr-bath.jpg", 1103, 8),
+  ]);
+  assignments = suggestImageAssignmentsForRows(
+    rows,
+    secondBatch.addedImages.map((image) => image.name),
+    assignments
+  );
+
+  const thirdBatch = appendImageUploads(secondBatch.images, [
+    imageFile("86-glendale-front.jpg", 1200, 9),
+    imageFile("86-glendale-kitchen.jpg", 1201, 10),
+    imageFile("86-glendale-bedroom.jpg", 1202, 11),
+    imageFile("86-glendale-bath.jpg", 1203, 12),
+  ]);
+  assignments = suggestImageAssignmentsForRows(
+    rows,
+    thirdBatch.addedImages.map((image) => image.name),
+    assignments
+  );
+
+  const allImageNames = thirdBatch.images.map((image) => image.name);
+  const assignedImageNames = new Set(Object.values(assignments).flat());
+  const unassigned = allImageNames.filter((imageName) => !assignedImageNames.has(imageName));
+
+  assert.equal(thirdBatch.images.length, 12);
+  assert.deepEqual(assignments["row-30-trent"], [
+    "30-trent-front.jpg",
+    "30-trent-kitchen.jpg",
+    "30-trent-bedroom.jpg",
+    "30-trent-bath.jpg",
+  ]);
+  assert.deepEqual(assignments["row-23-glenayr"], [
+    "23-glenayr-front.jpg",
+    "23-glenayr-kitchen.jpg",
+    "23-glenayr-bedroom.jpg",
+    "23-glenayr-bath.jpg",
+  ]);
+  assert.deepEqual(assignments["row-86-glendale"], [
+    "86-glendale-front.jpg",
+    "86-glendale-kitchen.jpg",
+    "86-glendale-bedroom.jpg",
+    "86-glendale-bath.jpg",
+  ]);
+  assert.deepEqual(unassigned, []);
+});
+
+test("image upload workflow prevents exact duplicates and keeps same-named different files distinct", () => {
+  const first = appendImageUploads([], [imageFile("front.jpg", 1000, 1)]);
+  const duplicate = appendImageUploads(first.images, [
+    imageFile("front.jpg", 1000, 1),
+    imageFile("front.jpg", 1001, 2),
+  ]);
+
+  assert.equal(duplicate.duplicateCount, 1);
+  assert.equal(duplicate.images.length, 2);
+  assert.deepEqual(
+    duplicate.images.map((image) => image.name),
+    ["front.jpg", "front (2).jpg"]
+  );
+});
+
+test("admin image picker UI advertises additive batches and remove-all reset", () => {
+  assert.match(importerClientSource, /appendImageUploads/);
+  assert.match(importerClientSource, /suggestImageAssignmentsForRows/);
+  assert.match(importerClientSource, /Add More Images/);
+  assert.match(importerClientSource, /Remove All Images/);
+  assert.match(importerClientSource, /imagePickerRef/);
+  assert.match(importerClientSource, /formData\.append\("images", image\.file, image\.name\)/);
+  assert.doesNotMatch(importerClientSource, /setPreview\(null\);\n\s*setReport\(null\);\n\s*setImageAssignments\(\{\}\);/);
 });
 
 test("import endpoints require admin authorization and never trust frontend ownership", () => {

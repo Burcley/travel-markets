@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -16,6 +16,11 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import {
+  appendImageUploads,
+  suggestImageAssignmentsForRows,
+  type ImportImageUpload,
+} from "@/lib/admin/listing-importer-images.mjs";
 import type { NormalizedImportRow } from "@/lib/admin/listing-importer-core.mjs";
 
 export type ImportLandlordOption = {
@@ -112,7 +117,7 @@ export default function ImportListingsClient({
   const [query, setQuery] = useState("");
   const [selectedLandlordId, setSelectedLandlordId] = useState("");
   const [spreadsheet, setSpreadsheet] = useState<File | null>(null);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageFiles, setImageFiles] = useState<Array<ImportImageUpload<File>>>([]);
   const [useTemplateOrder, setUseTemplateOrder] = useState(false);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [rows, setRows] = useState<NormalizedImportRow[]>([]);
@@ -125,9 +130,10 @@ export default function ImportListingsClient({
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<ImportResponse | null>(null);
+  const imagePickerRef = useRef<HTMLInputElement | null>(null);
 
   const selectedLandlord = landlords.find((landlord) => landlord.id === selectedLandlordId);
-  const imageFileNames = useMemo(() => imageFiles.map((file) => file.name), [imageFiles]);
+  const imageFileNames = useMemo(() => imageFiles.map((image) => image.name), [imageFiles]);
   const assignedImageNames = useMemo(
     () => new Set(Object.values(imageAssignments).flat()),
     [imageAssignments]
@@ -139,7 +145,10 @@ export default function ImportListingsClient({
   const imagePreviewUrls = useMemo(
     () =>
       Object.fromEntries(
-        imageFiles.map((file) => [file.name, URL.createObjectURL(file)])
+        imageFiles.map((image) => [
+          image.name,
+          URL.createObjectURL(image.file),
+        ])
       ),
     [imageFiles]
   );
@@ -161,11 +170,37 @@ export default function ImportListingsClient({
     };
   }, [imagePreviewUrls]);
 
-  function setUploadedImages(files: File[]) {
-    setImageFiles(files.filter((file) => file.type.startsWith("image/")));
-    setPreview(null);
+  function addUploadedImages(files: File[]) {
+    const nextUploads = appendImageUploads(imageFiles, files);
+
+    if (!nextUploads.addedImages.length) {
+      if (nextUploads.duplicateCount > 0) {
+        setError("Those images are already selected.");
+      }
+      return;
+    }
+
+    setImageFiles(nextUploads.images);
     setReport(null);
+    setError("");
+
+    if (rows.length > 0) {
+      const addedNames = nextUploads.addedImages.map((image) => image.name);
+      setImageAssignments((current) =>
+        suggestImageAssignmentsForRows(rows, addedNames, current)
+      );
+    }
+  }
+
+  function removeAllImages() {
+    const confirmed = window.confirm(
+      "Remove all selected images and clear image assignments for this preview?"
+    );
+    if (!confirmed) return;
+
+    setImageFiles([]);
     setImageAssignments({});
+    setReport(null);
   }
 
   function assignImageToRow(fingerprint: string, imageName: string) {
@@ -219,7 +254,7 @@ export default function ImportListingsClient({
     const formData = new FormData();
     formData.set("spreadsheet", spreadsheet);
     formData.set("useTemplateOrder", String(useTemplateOrder));
-    imageFiles.forEach((file) => formData.append("imageNames", file.name));
+    imageFileNames.forEach((imageName) => formData.append("imageNames", imageName));
 
     const response = await fetch("/api/admin/listings/import/preview", {
       method: "POST",
@@ -301,7 +336,7 @@ export default function ImportListingsClient({
         imageAssignments,
       })
     );
-    imageFiles.forEach((file) => formData.append("images", file));
+    imageFiles.forEach((image) => formData.append("images", image.file, image.name));
 
     const response = await fetch("/api/admin/listings/import/commit", {
       method: "POST",
@@ -423,7 +458,7 @@ export default function ImportListingsClient({
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   event.preventDefault();
-                  setUploadedImages(Array.from(event.dataTransfer.files || []));
+                  addUploadedImages(Array.from(event.dataTransfer.files || []));
                 }}
                 className="rounded-2xl border border-dashed border-white/15 bg-black p-5"
               >
@@ -436,12 +471,44 @@ export default function ImportListingsClient({
                   type="file"
                   accept="image/*"
                   multiple
+                  ref={imagePickerRef}
                   onChange={(event) => {
-                    setUploadedImages(Array.from(event.target.files || []));
+                    addUploadedImages(Array.from(event.target.files || []));
+                    event.currentTarget.value = "";
                   }}
                   className="mt-4 w-full text-sm text-zinc-400 file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-bold file:text-black"
                 />
-                <p className="mt-3 text-xs text-zinc-500">{imageFiles.length} images selected</p>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {imageFiles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        imagePickerRef.current?.click();
+                      }}
+                      className="rounded-xl border border-white/10 bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-zinc-200"
+                    >
+                      Add More Images
+                    </button>
+                  )}
+                  {imageFiles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        removeAllImages();
+                      }}
+                      className="rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs font-black text-red-100 transition hover:bg-red-500/20"
+                    >
+                      Remove All Images
+                    </button>
+                  )}
+                </div>
+                <p className="mt-3 text-xs text-zinc-500">
+                  {imageFiles.length} images selected
+                </p>
               </label>
             </div>
 
