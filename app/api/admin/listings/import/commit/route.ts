@@ -8,6 +8,7 @@ import {
   isLandlordProfile,
   requireImportAdmin,
 } from "@/lib/admin/listing-importer-server";
+import { resolveImportedListingLocationFields } from "@/lib/admin/listing-importer-location";
 
 type ImportRequestRow = NormalizedImportRow & {
   city?: string | null;
@@ -386,10 +387,30 @@ export async function POST(request: Request) {
       city: row.city || "",
       province: row.province || "Ontario",
     });
+    const location = await resolveImportedListingLocationFields(row);
+
+    if (!location.ok) {
+      failedCount += 1;
+      rowResults.push({
+        batch_id: batch.id,
+        source_row_number: row.rowNumber,
+        source_fingerprint: row.fingerprint,
+        status: "failed",
+        reason: `Location resolution failed: ${location.message}`,
+        normalized_data: {
+          ...row,
+          location_resolution_error: {
+            code: location.code,
+            fullAddress: location.fullAddress,
+          },
+        },
+      });
+      continue;
+    }
 
     const { data: listing, error: listingError } = await context.admin
       .from("listings")
-      .insert(draftPayload)
+      .insert({ ...draftPayload, ...location.fields })
       .select("id")
       .single();
 

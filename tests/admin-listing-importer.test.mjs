@@ -33,6 +33,10 @@ const commitRouteSource = readFileSync(
   new URL("../app/api/admin/listings/import/commit/route.ts", import.meta.url),
   "utf8"
 );
+const importerLocationSource = readFileSync(
+  new URL("../lib/admin/listing-importer-location.ts", import.meta.url),
+  "utf8"
+);
 const templateRouteSource = readFileSync(
   new URL("../app/api/admin/listings/import/template/route.ts", import.meta.url),
   "utf8"
@@ -440,6 +444,40 @@ test("real legacy no-header XLSX remains supported through the preview parser", 
     "Rooms",
     "Up/Down?",
   ]);
+});
+
+test("bulk draft imports resolve route-ready campus fields with normal listing location helpers", () => {
+  assert.match(commitRouteSource, /resolveImportedListingLocationFields/);
+  assert.match(
+    commitRouteSource,
+    /\.insert\(\{ \.\.\.draftPayload, \.\.\.location\.fields \}\)/
+  );
+  assert.match(commitRouteSource, /Location resolution failed/);
+  assert.match(importerLocationSource, /geocodeListingAddressWithMapbox/);
+  assert.match(importerLocationSource, /campusOptions/);
+  assert.match(importerLocationSource, /nearestRouteReadyCampus/);
+  assert.match(importerLocationSource, /generatePublicCoordinate/);
+  assert.match(importerLocationSource, /calculateDistanceKm/);
+  assert.match(importerLocationSource, /estimateTravelTimes/);
+  assert.match(importerLocationSource, /latitude: geocode\.latitude/);
+  assert.match(importerLocationSource, /longitude: geocode\.longitude/);
+  assert.match(importerLocationSource, /public_latitude: publicCoordinate\.latitude/);
+  assert.match(importerLocationSource, /public_longitude: publicCoordinate\.longitude/);
+  assert.match(importerLocationSource, /nearest_campus_name: nearest\.campus\.officialName/);
+  assert.match(importerLocationSource, /nearest_campus_address: nearest\.campus\.address/);
+  assert.match(importerLocationSource, /campus_id: nearest\.campus\.id/);
+  assert.match(importerLocationSource, /campus_destination_label: nearest\.campus\.officialName/);
+  assert.match(
+    importerLocationSource,
+    /campus_coordinate_source: "curated_campus_record"/
+  );
+  assert.match(importerLocationSource, /campus_latitude: nearest\.campus\.latitude/);
+  assert.match(importerLocationSource, /campus_longitude: nearest\.campus\.longitude/);
+  assert.match(importerLocationSource, /distance_to_campus_km: nearest\.distanceKm/);
+  assert.match(importerLocationSource, /walking_time_minutes: travelTimes\.walking/);
+  assert.match(importerLocationSource, /cycling_time_minutes: travelTimes\.cycling/);
+  assert.match(importerLocationSource, /driving_time_minutes: travelTimes\.driving/);
+  assert.match(importerLocationSource, /transit_time_minutes: travelTimes\.transit/);
 });
 
 test("header-like XLSX files do not silently fall back to legacy parsing", async () => {
