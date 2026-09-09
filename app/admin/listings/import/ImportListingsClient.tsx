@@ -89,6 +89,45 @@ type ImportFailurePayload = {
   details?: unknown;
 };
 
+type ImportedDraftReview = {
+  id: string;
+  title: string;
+  ownerId: string;
+  landlord: string;
+  address: string;
+  city: string;
+  province: string;
+  rent: number | null;
+  rooms: number | null;
+  imagesCount: number;
+  nearestCampus: string;
+  campusId: string | null;
+  status: string;
+  valid: boolean;
+  missing: string[];
+};
+
+type ImportedDraftReviewResponse = {
+  drafts: ImportedDraftReview[];
+  failures: Array<{
+    listingId: string;
+    status: "failed";
+    reason?: string | null;
+  }>;
+};
+
+type BulkPublishResponse = {
+  publishedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  results: Array<{
+    listingId: string;
+    status: "published" | "skipped" | "failed";
+    title?: string;
+    reason?: string | null;
+  }>;
+};
+
 function displayName(landlord: ImportLandlordOption) {
   return landlord.fullName || landlord.email || landlord.id;
 }
@@ -151,8 +190,16 @@ export default function ImportListingsClient({
   const [province, setProvince] = useState("Ontario");
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [publishingDrafts, setPublishingDrafts] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<ImportResponse | null>(null);
+  const [draftReviews, setDraftReviews] = useState<ImportedDraftReview[]>([]);
+  const [draftReviewFailures, setDraftReviewFailures] = useState<
+    ImportedDraftReviewResponse["failures"]
+  >([]);
+  const [selectedDraftIds, setSelectedDraftIds] = useState<Set<string>>(new Set());
+  const [publishReport, setPublishReport] = useState<BulkPublishResponse | null>(null);
   const imagePickerRef = useRef<HTMLInputElement | null>(null);
 
   const selectedLandlord = landlords.find((landlord) => landlord.id === selectedLandlordId);
@@ -196,6 +243,17 @@ export default function ImportListingsClient({
         importing,
       }),
     [importing, preview, rows, selectedLandlord, selectedRows]
+  );
+  const importedListingIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (report?.results || [])
+            .map((result) => result.listing_id)
+            .filter((value): value is string => Boolean(value))
+        )
+      ),
+    [report]
   );
 
   useEffect(() => {
@@ -288,6 +346,10 @@ export default function ImportListingsClient({
     setLoading(true);
     setError("");
     setReport(null);
+    setDraftReviews([]);
+    setDraftReviewFailures([]);
+    setSelectedDraftIds(new Set());
+    setPublishReport(null);
 
     const formData = new FormData();
     formData.set("spreadsheet", spreadsheet);
@@ -481,6 +543,124 @@ export default function ImportListingsClient({
     setReport(importReport);
   }
 
+  async function reviewImportedDrafts({
+    preservePublishReport = false,
+  }: {
+    preservePublishReport?: boolean;
+  } = {}) {
+    if (!report || importedListingIds.length === 0) {
+      setError("There are no imported draft listings to review.");
+      return;
+    }
+    if (!selectedLandlord) {
+      setError("Select the landlord before reviewing imported drafts.");
+      return;
+    }
+
+    setReviewLoading(true);
+    setError("");
+    if (!preservePublishReport) {
+      setPublishReport(null);
+    }
+
+    const response = await fetch("/api/admin/listings/import/commit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "reviewImportedDrafts",
+        ownerId: selectedLandlord.id,
+        listingIds: importedListingIds,
+      }),
+    });
+    const data = (await response.json().catch(() => null)) as
+      | ImportedDraftReviewResponse
+      | ImportFailurePayload
+      | null;
+    setReviewLoading(false);
+
+    if (!response.ok) {
+      const failure = data && "error" in data ? data : null;
+      setError(failure?.error || "Imported drafts could not be reviewed.");
+      return;
+    }
+
+    const reviewData = data as ImportedDraftReviewResponse;
+    setDraftReviews(reviewData.drafts || []);
+    setDraftReviewFailures(reviewData.failures || []);
+    setSelectedDraftIds(
+      new Set(
+        (reviewData.drafts || [])
+          .filter((draft) => draft.status === "draft" && draft.valid)
+          .map((draft) => draft.id)
+      )
+    );
+  }
+
+  function toggleDraftSelection(listingId: string) {
+    setSelectedDraftIds((current) => {
+      const next = new Set(current);
+      if (next.has(listingId)) next.delete(listingId);
+      else next.add(listingId);
+      return next;
+    });
+  }
+
+  async function publishSelectedDrafts() {
+    const selected = draftReviews.filter((draft) => selectedDraftIds.has(draft.id));
+    const invalid = selected.filter((draft) => !draft.valid || draft.status !== "draft");
+
+    if (!selectedLandlord) {
+      setError("Select the landlord before publishing imported drafts.");
+      return;
+    }
+
+    if (!selected.length) {
+      setError("Select at least one valid draft listing to publish.");
+      return;
+    }
+
+    if (invalid.length) {
+      setError("Resolve validation issues before publishing selected drafts.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Publish ${selected.length} listing${selected.length === 1 ? "" : "s"}? These listings will become visible to students.`
+    );
+    if (!confirmed) return;
+
+    setPublishingDrafts(true);
+    setError("");
+
+    const response = await fetch("/api/admin/listings/import/commit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "publishDrafts",
+        ownerId: selectedLandlord.id,
+        listingIds: selected.map((draft) => draft.id),
+      }),
+    });
+    const data = (await response.json().catch(() => null)) as
+      | BulkPublishResponse
+      | ImportFailurePayload
+      | null;
+    setPublishingDrafts(false);
+
+    if (!response.ok) {
+      const failure = data && "error" in data ? data : null;
+      setError(failure?.error || "Selected drafts could not be published.");
+      return;
+    }
+
+    setPublishReport(data as BulkPublishResponse);
+    await reviewImportedDrafts({ preservePublishReport: true });
+  }
+
   return (
     <main className="min-h-screen bg-black px-4 py-8 text-white">
       <div className="mx-auto max-w-7xl space-y-8">
@@ -576,6 +756,10 @@ export default function ImportListingsClient({
                     setPreview(null);
                     setRows([]);
                     setReport(null);
+                    setDraftReviews([]);
+                    setDraftReviewFailures([]);
+                    setSelectedDraftIds(new Set());
+                    setPublishReport(null);
                   }}
                   className="mt-4 w-full text-sm text-zinc-400 file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-bold file:text-black"
                 />
@@ -943,6 +1127,162 @@ export default function ImportListingsClient({
                 <p key={`${result.source_fingerprint}-${result.listing_id || result.status}`}>
                   {result.status}
                   {result.listing_id ? ` - listing ${result.listing_id}` : ""}
+                  {result.reason ? ` - ${result.reason}` : ""}
+                </p>
+              ))}
+            </div>
+            {importedListingIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => reviewImportedDrafts()}
+                disabled={reviewLoading}
+                className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {reviewLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Review Imported Drafts
+              </button>
+            )}
+          </section>
+        )}
+
+        {draftReviews.length > 0 && (
+          <section className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-2xl font-black">Publish Imported Drafts</h2>
+                <p className="mt-2 max-w-3xl text-sm text-zinc-400">
+                  Review existing draft listings before publishing. Selected
+                  drafts use the normal Travel Markets account-verification and
+                  publishing checks before they become visible to students.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={publishSelectedDrafts}
+                disabled={
+                  publishingDrafts ||
+                  draftReviews.filter((draft) => selectedDraftIds.has(draft.id)).length === 0 ||
+                  draftReviews.some(
+                    (draft) =>
+                      selectedDraftIds.has(draft.id) &&
+                      (!draft.valid || draft.status !== "draft")
+                  )
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-pink-500 px-5 py-3 text-sm font-black text-white transition hover:bg-pink-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {publishingDrafts ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Publish Selected Listings
+              </button>
+            </div>
+
+            <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10">
+              <table className="min-w-[1200px] w-full text-left text-sm">
+                <thead className="bg-white/5 text-xs uppercase tracking-wide text-zinc-400">
+                  <tr>
+                    <th className="p-3">Publish</th>
+                    <th className="p-3">Property</th>
+                    <th className="p-3">Landlord</th>
+                    <th className="p-3">Address</th>
+                    <th className="p-3">Rent</th>
+                    <th className="p-3">Rooms</th>
+                    <th className="p-3">Images</th>
+                    <th className="p-3">Nearest campus</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Validation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draftReviews.map((draft) => {
+                    const selectable = draft.status === "draft" && draft.valid;
+
+                    return (
+                      <tr key={draft.id} className="border-t border-white/10 align-top">
+                        <td className="p-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedDraftIds.has(draft.id)}
+                            disabled={!selectable}
+                            onChange={() => toggleDraftSelection(draft.id)}
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Link
+                            href={`/listings/${draft.id}`}
+                            className="font-bold text-white underline-offset-4 hover:underline"
+                          >
+                            {draft.title}
+                          </Link>
+                          <p className="mt-1 text-xs text-zinc-500">{draft.id}</p>
+                        </td>
+                        <td className="p-3 text-zinc-300">{draft.landlord}</td>
+                        <td className="max-w-xs p-3 text-zinc-300">{draft.address}</td>
+                        <td className="p-3 text-zinc-300">{money(draft.rent)}</td>
+                        <td className="p-3 text-zinc-300">
+                          {draft.rooms == null ? "Missing" : draft.rooms}
+                        </td>
+                        <td className="p-3 text-zinc-300">{draft.imagesCount}</td>
+                        <td className="p-3 text-zinc-300">
+                          {draft.nearestCampus}
+                          {draft.campusId && (
+                            <p className="mt-1 text-xs text-zinc-500">{draft.campusId}</p>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <span className={`rounded-full border px-2 py-1 text-xs font-bold ${statusClass(draft.status)}`}>
+                            {draft.status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          {draft.valid ? (
+                            <span className="inline-flex items-center gap-2 text-emerald-200">
+                              <CheckCircle2 className="h-4 w-4" />
+                              Ready to publish
+                            </span>
+                          ) : (
+                            <span className="text-yellow-100">
+                              Missing: {draft.missing.join(", ")}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {draftReviewFailures.length > 0 && (
+              <div className="mt-5 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-50">
+                {draftReviewFailures.map((failure) => (
+                  <p key={failure.listingId}>
+                    {failure.listingId}: {failure.reason || "Review failed."}
+                  </p>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {publishReport && (
+          <section className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
+            <h2 className="text-2xl font-black">Bulk Publish Report</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <Stat label="Published" value={publishReport.publishedCount} />
+              <Stat label="Skipped" value={publishReport.skippedCount} />
+              <Stat label="Failed" value={publishReport.failedCount} />
+            </div>
+            <div className="mt-5 space-y-2 text-sm text-zinc-300">
+              {publishReport.results.map((result) => (
+                <p key={`${result.listingId}-${result.status}`}>
+                  {result.title || result.listingId}: {result.status}
                   {result.reason ? ` - ${result.reason}` : ""}
                 </p>
               ))}

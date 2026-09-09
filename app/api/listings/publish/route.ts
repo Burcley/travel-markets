@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canCreateOrActivateListing } from "@/lib/subscriptions/server";
-import { getLandlordAccountEligibility } from "@/lib/landlord-account-eligibility";
+import { publishListingForOwner } from "@/lib/listings/publish-listing";
 
 const landlordVerificationError =
   "Complete landlord verification to publish listings.";
@@ -74,105 +73,58 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing listing id" }, { status: 400 });
   }
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select(
-      "id, role, is_admin, account_status, identity_verified, is_verified, identity_verification_status"
-    )
-    .eq("id", user.id)
-    .maybeSingle();
-  const { data: verificationSubmissions, error: verificationSubmissionError } =
-    await admin
-      .from("verification_submissions")
-      .select("verification_type, status")
-      .eq("user_id", user.id);
+  const result = await publishListingForOwner({
+    admin,
+    updateClient: supabase,
+    listingId,
+    ownerId: user.id,
+  });
 
-  if (verificationSubmissionError) {
-    console.error(
-      "LISTING PUBLISH ACCOUNT VERIFICATION LOOKUP ERROR:",
-      verificationSubmissionError
-    );
-    return NextResponse.json(
-      { error: "We could not verify your landlord account. Please try again." },
-      { status: 500 }
-    );
+  if (!result.ok && result.code === "LISTING_NOT_FOUND") {
+    return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
 
-  const accountStatus = String(profile?.account_status || "active").toLowerCase();
-  const role = String(profile?.role || "").toLowerCase();
-  const isLandlord =
-    profile?.is_admin ||
-    ["owner", "landlord", "host", "property_manager", "admin"].includes(role);
-
-  if (!profile || !isLandlord) {
+  if (!result.ok && result.reason.includes("Only landlord accounts")) {
     return NextResponse.json(
       { error: "Only landlord accounts can publish listings." },
       { status: 403 }
     );
   }
 
-  if (["banned", "suspended", "disabled"].includes(accountStatus)) {
+  if (!result.ok && result.reason.includes("This account cannot publish listings")) {
     return NextResponse.json(
       { error: "This account cannot publish listings." },
       { status: 403 }
     );
   }
 
-  const { data: listing } = await admin
-    .from("listings")
-    .select("id, user_id, status")
-    .eq("id", listingId)
-    .maybeSingle();
-
-  if (!listing || listing.user_id !== user.id) {
-    return NextResponse.json({ error: "Listing not found" }, { status: 404 });
-  }
-
-  if (listing.status === "draft" || listing.status === "rented") {
-    const planCheck = await canCreateOrActivateListing({
-      userId: user.id,
-      excludeListingId: listingId,
-    });
-
-    if (!planCheck.allowed) {
-      return NextResponse.json(
-        {
-          error: planCheck.reason,
-          code: planCheck.code,
-          billingUrl: "/billing",
-          currentCount: planCheck.currentCount,
-          limit: planCheck.limit,
-          plan: planCheck.plan,
-        },
-        { status: 403 }
-      );
-    }
-  }
-
-  const eligibility = getLandlordAccountEligibility({
-    profile,
-    submissions: verificationSubmissions || [],
-  });
-
-  if (!eligibility.canPublishListings) {
+  if (!result.ok && result.reason.includes("Complete landlord verification")) {
     return NextResponse.json(
       {
         error: landlordVerificationError,
-        code: eligibility.reason,
+        code: result.code,
         verificationUrl: "/dashboard/verification",
       },
       { status: 403 }
     );
   }
 
-  const { error: updateError } = await supabase
-    .from("listings")
-    .update({ status: "available" })
-    .eq("id", listingId)
-    .eq("user_id", user.id);
+  if (!result.ok && result.code === "ACTIVE_LISTING_LIMIT_REACHED") {
+    return NextResponse.json(
+      {
+        error: result.reason,
+        code: result.code,
+        billingUrl: "/billing",
+      },
+      { status: 403 }
+    );
+  }
 
-  if (updateError) {
-    return publishUpdateErrorResponse(updateError);
+  if (!result.ok) {
+    return publishUpdateErrorResponse({
+      code: result.code || undefined,
+      message: result.reason,
+    });
   }
 
   return NextResponse.json({ ok: true });

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import {
+  getListingPublishReview,
+  publishListingForOwner,
+  type ListingPublishReview,
+} from "@/lib/listings/publish-listing";
+import {
   buildDraftListingPayload,
   collectAssignedImportImages,
   type NormalizedImportRow,
@@ -17,10 +22,11 @@ type ImportRequestRow = NormalizedImportRow & {
 };
 
 type ImportPayload = {
-  action?: "createDrafts" | "finalizeImages";
+  action?: "createDrafts" | "finalizeImages" | "reviewImportedDrafts" | "publishDrafts";
   batchId?: string;
   ownerId?: string;
   sourceFilename?: string;
+  listingIds?: string[];
   rows?: ImportRequestRow[];
   imageAssignments?: Record<string, string[]>;
   imageFiles?: Array<{
@@ -37,6 +43,13 @@ type ImportPayload = {
     sortOrder: number;
     isCover: boolean;
   }>;
+};
+
+type BulkPublishResult = {
+  listingId: string;
+  status: "published" | "skipped" | "failed";
+  title?: string;
+  reason?: string | null;
 };
 
 function safeFileName(value: string) {
@@ -241,6 +254,144 @@ async function finalizeUploadedImages({
   });
 }
 
+function normalizedListingIds(values?: string[]) {
+  return Array.from(
+    new Set(
+      (values || [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 100);
+}
+
+async function reviewImportedDrafts({
+  context,
+  payload,
+}: {
+  context: Exclude<Awaited<ReturnType<typeof requireImportAdmin>>, { response: NextResponse }>;
+  payload: ImportPayload;
+}) {
+  const listingIds = normalizedListingIds(payload.listingIds);
+
+  if (!listingIds.length) {
+    return NextResponse.json(
+      { error: "Select at least one imported draft to review." },
+      { status: 400 }
+    );
+  }
+
+  const drafts: ListingPublishReview[] = [];
+  const failures: BulkPublishResult[] = [];
+
+  for (const listingId of listingIds) {
+    try {
+      const review = await getListingPublishReview({
+        admin: context.admin,
+        listingId,
+        ownerId: payload.ownerId || null,
+      });
+
+      if (!review) {
+        failures.push({
+          listingId,
+          status: "failed",
+          reason: "Listing not found for the selected landlord.",
+        });
+        continue;
+      }
+
+      drafts.push(review);
+    } catch (error) {
+      failures.push({
+        listingId,
+        status: "failed",
+        reason: error instanceof Error ? error.message : "Review failed.",
+      });
+    }
+  }
+
+  return NextResponse.json({
+    drafts,
+    failures,
+  });
+}
+
+async function publishImportedDrafts({
+  context,
+  payload,
+}: {
+  context: Exclude<Awaited<ReturnType<typeof requireImportAdmin>>, { response: NextResponse }>;
+  payload: ImportPayload;
+}) {
+  const listingIds = normalizedListingIds(payload.listingIds);
+
+  if (!listingIds.length) {
+    return NextResponse.json(
+      { error: "Select at least one imported draft to publish." },
+      { status: 400 }
+    );
+  }
+
+  const results: BulkPublishResult[] = [];
+
+  for (const listingId of listingIds) {
+    try {
+      const result = await publishListingForOwner({
+        admin: context.admin,
+        listingId,
+        ownerId: payload.ownerId || null,
+        adminActorId: context.userId,
+      });
+      const review = await getListingPublishReview({
+        admin: context.admin,
+        listingId,
+        ownerId: payload.ownerId || null,
+      });
+
+      results.push({
+        listingId,
+        status: result.status,
+        title: review?.title,
+        reason: "reason" in result ? result.reason || null : null,
+      });
+    } catch (error) {
+      results.push({
+        listingId,
+        status: "failed",
+        reason: error instanceof Error ? error.message : "Publish failed.",
+      });
+    }
+  }
+
+  const publishedCount = results.filter((item) => item.status === "published").length;
+  const skippedCount = results.filter((item) => item.status === "skipped").length;
+  const failedCount = results.filter((item) => item.status === "failed").length;
+
+  const { error: auditError } = await context.admin.from("admin_audit_logs").insert({
+    admin_id: context.userId,
+    target_user_id: payload.ownerId || null,
+    action: "listing.bulk_import_published",
+    reason: `Bulk publish: ${publishedCount} published, ${skippedCount} skipped, ${failedCount} failed.`,
+  });
+
+  if (auditError) {
+    console.error(
+      "Admin imported listing publish audit log failed",
+      JSON.stringify({
+        code: auditError.code,
+        message: auditError.message,
+      })
+    );
+  }
+
+  return NextResponse.json({
+    publishedCount,
+    skippedCount,
+    failedCount,
+    results,
+  });
+}
+
 export async function GET() {
   return NextResponse.json(
     {
@@ -260,6 +411,14 @@ export async function POST(request: Request) {
 
   if (payload.action === "finalizeImages") {
     return finalizeUploadedImages({ context, payload });
+  }
+
+  if (payload.action === "reviewImportedDrafts") {
+    return reviewImportedDrafts({ context, payload });
+  }
+
+  if (payload.action === "publishDrafts") {
+    return publishImportedDrafts({ context, payload });
   }
 
   const ownerId = String(payload.ownerId || "");

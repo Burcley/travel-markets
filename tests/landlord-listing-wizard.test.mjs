@@ -10,6 +10,10 @@ const publishRouteSource = readFileSync(
   new URL("../app/api/listings/publish/route.ts", import.meta.url),
   "utf8"
 );
+const publishListingSource = readFileSync(
+  new URL("../lib/listings/publish-listing.ts", import.meta.url),
+  "utf8"
+);
 const statusRouteSource = readFileSync(
   new URL("../app/api/listings/status/route.ts", import.meta.url),
   "utf8"
@@ -161,15 +165,17 @@ test("listing wizard does not reintroduce per-listing document verification", ()
     postPageSource,
     /Publishing uses account-level landlord verification\./
   );
-  assert.match(publishRouteSource, /getLandlordAccountEligibility/);
-  assert.match(publishRouteSource, /verification_submissions/);
+  assert.match(publishRouteSource, /publishListingForOwner/);
+  assert.match(publishListingSource, /getLandlordAccountEligibility/);
+  assert.match(publishListingSource, /verification_submissions/);
   assert.doesNotMatch(publishRouteSource, /listing_verifications/);
+  assert.doesNotMatch(publishListingSource, /listing_verifications/);
   assert.doesNotMatch(publishRouteSource, /listing_verification_audit_events/);
   assert.doesNotMatch(
     publishRouteSource,
     /We could not save your verification details/
   );
-  assert.doesNotMatch(publishRouteSource, /livingArrangementComplete/);
+  assert.doesNotMatch(publishListingSource, /livingArrangementComplete/);
   assert.doesNotMatch(publishRouteSource, /fair_housing_acknowledged[^:]/);
 });
 
@@ -342,7 +348,8 @@ test("draft publication remains routed through the canonical publish endpoint", 
   );
   assert.match(editListingSource, /const nextListingStatus = shouldPublishDraft \? "draft" : status/);
   assert.match(editListingSource, /fetch\("\/api\/listings\/publish"/);
-  assert.match(publishRouteSource, /\.update\(\{ status: "available" \}\)/);
+  assert.match(publishRouteSource, /publishListingForOwner/);
+  assert.match(publishListingSource, /\.update\(\{ status: "available" \}\)/);
 });
 
 test("duplicate listing action creates only a new draft listing", () => {

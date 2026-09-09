@@ -37,6 +37,10 @@ const importerLocationSource = readFileSync(
   new URL("../lib/admin/listing-importer-location.ts", import.meta.url),
   "utf8"
 );
+const publishListingSource = readFileSync(
+  new URL("../lib/listings/publish-listing.ts", import.meta.url),
+  "utf8"
+);
 const templateRouteSource = readFileSync(
   new URL("../app/api/admin/listings/import/template/route.ts", import.meta.url),
   "utf8"
@@ -60,6 +64,13 @@ const adminDashboardSource = readFileSync(
 const migrationSource = readFileSync(
   new URL(
     "../supabase/migrations/20260907001000_admin_bulk_listing_imports.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const bulkPublishMigrationSource = readFileSync(
+  new URL(
+    "../supabase/migrations/20260909001000_admin_bulk_publish_imported_drafts.sql",
     import.meta.url
   ),
   "utf8"
@@ -1096,6 +1107,53 @@ test("committed image assignments use existing listing image storage and table",
   assert.match(commitRouteSource, /is_cover: image\.isCover/);
   assert.match(commitRouteSource, /collectAssignedImportImages/);
   assert.match(commitRouteSource, /IMPORT_IMAGE_FINALIZE_FORBIDDEN/);
+});
+
+test("admin bulk publish reviews existing imported drafts before publishing", () => {
+  assert.match(importerClientSource, /Review Imported Drafts/);
+  assert.match(importerClientSource, /Publish Selected Listings/);
+  assert.match(importerClientSource, /Publish \$\{selected\.length\} listing/);
+  assert.match(importerClientSource, /These listings will become visible to students/);
+  assert.match(importerClientSource, /Published/);
+  assert.match(importerClientSource, /Skipped/);
+  assert.match(importerClientSource, /Failed/);
+  assert.match(importerClientSource, /imagesCount/);
+  assert.match(importerClientSource, /nearestCampus/);
+  assert.match(commitRouteSource, /reviewImportedDrafts/);
+  assert.match(commitRouteSource, /publishDrafts/);
+  assert.match(commitRouteSource, /getListingPublishReview/);
+  assert.match(commitRouteSource, /publishListingForOwner/);
+});
+
+test("bulk publish uses the shared publish helper and remains idempotent", () => {
+  assert.match(publishListingSource, /getLandlordAccountEligibility/);
+  assert.match(publishListingSource, /verification_submissions/);
+  assert.match(publishListingSource, /getListingPublishMissingFields/);
+  assert.match(publishListingSource, /Missing required fields/);
+  assert.match(publishListingSource, /status === "available"/);
+  assert.match(publishListingSource, /status: "skipped"/);
+  assert.match(publishListingSource, /Listing is already published/);
+  assert.match(publishListingSource, /admin_publish_listing_as_owner/);
+  assert.match(publishListingSource, /ACTIVE_LISTING_LIMIT_REACHED/);
+  assert.doesNotMatch(publishListingSource, /listing_verifications/);
+});
+
+test("admin bulk publish migration adds only a controlled admin publish function", () => {
+  assert.match(
+    bulkPublishMigrationSource,
+    /create or replace function public\.admin_publish_listing_as_owner/
+  );
+  assert.match(bulkPublishMigrationSource, /security definer/);
+  assert.match(bulkPublishMigrationSource, /Only active admins can publish imported drafts/);
+  assert.match(bulkPublishMigrationSource, /set_config\('request\.jwt\.claim\.sub'/);
+  assert.match(bulkPublishMigrationSource, /status = 'available'/);
+  assert.match(
+    bulkPublishMigrationSource,
+    /grant execute on function public\.admin_publish_listing_as_owner\(uuid, uuid\) to service_role/
+  );
+  assert.doesNotMatch(bulkPublishMigrationSource, /drop table/i);
+  assert.doesNotMatch(bulkPublishMigrationSource, /delete from public\.listings/i);
+  assert.doesNotMatch(bulkPublishMigrationSource, /insert into public\.listings/i);
 });
 
 test("enriched preview UI exposes editable fields and admin-only metadata", () => {
