@@ -8,6 +8,7 @@ import {
 } from "../lib/admin/listing-importer-images.mjs";
 import {
   buildDraftListingPayload,
+  collectAssignedImportImages,
   dedupeImportRows,
   detectImportFormat,
   ENRICHED_IMPORT_HEADERS,
@@ -942,6 +943,59 @@ test("import button explains disabled states without using image count as a bloc
   assert.equal(enabledImportState({ importing: true }).reason, "Import already in progress.");
 });
 
+test("commit payload sends JSON metadata instead of image binaries", () => {
+  const rows = importableRows(3);
+  const assignedImages = collectAssignedImportImages({
+    rows,
+    imageAssignments: {
+      "row-1": ["30-trent-front.jpg", "30-trent-room.jpg"],
+      "row-2": [],
+      "row-3": ["86-glendale-front.jpg"],
+      unknown: ["unused.jpg"],
+    },
+    imageFiles: [
+      imageFile("30-trent-front.jpg", 1000, 1),
+      imageFile("30-trent-room.jpg", 1001, 2),
+      imageFile("86-glendale-front.jpg", 1002, 3),
+      imageFile("unassigned.jpg", 1003, 4),
+    ],
+  });
+
+  assert.deepEqual(
+    assignedImages.map((image) => ({
+      rowFingerprint: image.rowFingerprint,
+      imageName: image.imageName,
+      sortOrder: image.sortOrder,
+      isCover: image.isCover,
+    })),
+    [
+      {
+        rowFingerprint: "row-1",
+        imageName: "30-trent-front.jpg",
+        sortOrder: 0,
+        isCover: true,
+      },
+      {
+        rowFingerprint: "row-1",
+        imageName: "30-trent-room.jpg",
+        sortOrder: 1,
+        isCover: false,
+      },
+      {
+        rowFingerprint: "row-3",
+        imageName: "86-glendale-front.jpg",
+        sortOrder: 0,
+        isCover: true,
+      },
+    ]
+  );
+  assert.doesNotMatch(importerClientSource, /formData\.append\("images"/);
+  assert.match(importerClientSource, /"Content-Type": "application\/json"/);
+  assert.match(importerClientSource, /uploadToSignedUrl/);
+  assert.match(commitRouteSource, /createSignedUploadUrl/);
+  assert.match(commitRouteSource, /action === "finalizeImages"/);
+});
+
 test("admin image picker UI advertises additive batches and remove-all reset", () => {
   assert.match(importerClientSource, /appendImageUploads/);
   assert.match(importerClientSource, /assignImageNamesToRow/);
@@ -952,7 +1006,7 @@ test("admin image picker UI advertises additive batches and remove-all reset", (
   assert.match(importerClientSource, /imagePickerRef/);
   assert.match(importerClientSource, /onAddImagesToRow/);
   assert.match(importerClientSource, /event\.dataTransfer\.files/);
-  assert.match(importerClientSource, /formData\.append\("images", image\.file, image\.name\)/);
+  assert.match(importerClientSource, /imageFiles:/);
   assert.match(importerClientSource, /importState\.disabled/);
   assert.match(importerClientSource, /importState\.reason/);
   assert.doesNotMatch(importerClientSource, /setPreview\(null\);\n\s*setReport\(null\);\n\s*setImageAssignments\(\{\}\);/);
@@ -990,12 +1044,13 @@ test("commit route is idempotent per landlord and records audit metadata", () =>
 
 test("committed image assignments use existing listing image storage and table", () => {
   assert.match(commitRouteSource, /\.from\("listing-images"\)/);
-  assert.match(commitRouteSource, /\.upload\(storagePath, buffer/);
+  assert.match(commitRouteSource, /\.createSignedUploadUrl\(storagePath\)/);
   assert.match(commitRouteSource, /\.getPublicUrl\(storagePath\)/);
-  assert.match(commitRouteSource, /\.from\("listing_images"\)\.insert\(uploadedRows\)/);
-  assert.match(commitRouteSource, /sort_order: index/);
-  assert.match(commitRouteSource, /is_cover: index === 0/);
-  assert.match(commitRouteSource, /imageAssignments\?\.\[row\.fingerprint\]/);
+  assert.match(commitRouteSource, /\.from\("listing_images"\)\s*\n\s*\.insert\(rows\)/);
+  assert.match(commitRouteSource, /sort_order: image\.sortOrder/);
+  assert.match(commitRouteSource, /is_cover: image\.isCover/);
+  assert.match(commitRouteSource, /collectAssignedImportImages/);
+  assert.match(commitRouteSource, /IMPORT_IMAGE_FINALIZE_FORBIDDEN/);
 });
 
 test("enriched preview UI exposes editable fields and admin-only metadata", () => {

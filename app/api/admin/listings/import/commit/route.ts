@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   buildDraftListingPayload,
+  collectAssignedImportImages,
   type NormalizedImportRow,
 } from "@/lib/admin/listing-importer-core.mjs";
 import {
@@ -15,10 +16,26 @@ type ImportRequestRow = NormalizedImportRow & {
 };
 
 type ImportPayload = {
+  action?: "createDrafts" | "finalizeImages";
+  batchId?: string;
   ownerId?: string;
   sourceFilename?: string;
   rows?: ImportRequestRow[];
   imageAssignments?: Record<string, string[]>;
+  imageFiles?: Array<{
+    name: string;
+    type?: string | null;
+    size?: number | null;
+  }>;
+  uploadedImages?: Array<{
+    rowFingerprint: string;
+    listingId: string;
+    imageName: string;
+    storagePath: string;
+    imageUrl: string;
+    sortOrder: number;
+    isCover: boolean;
+  }>;
 };
 
 function safeFileName(value: string) {
@@ -31,22 +48,217 @@ function requiredRowError(row: ImportRequestRow) {
   return null;
 }
 
+function importError({
+  message,
+  status = 500,
+  code = "IMPORT_FAILED",
+  details,
+}: {
+  message: string;
+  status?: number;
+  code?: string;
+  details?: unknown;
+}) {
+  console.error(
+    "Admin listing import failed",
+    JSON.stringify({
+      code,
+      status,
+      message,
+      details,
+    })
+  );
+
+  return NextResponse.json(
+    {
+      error: message,
+      code,
+      details,
+    },
+    { status }
+  );
+}
+
+async function readImportPayload(request: Request): Promise<ImportPayload | NextResponse> {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const payloadValue = formData.get("payload");
+
+    if (typeof payloadValue !== "string") {
+      return NextResponse.json({ error: "Missing import payload." }, { status: 400 });
+    }
+
+    try {
+      const payload = JSON.parse(payloadValue) as ImportPayload;
+      const imageFiles = formData
+        .getAll("images")
+        .filter((value): value is File => value instanceof File && value.size > 0)
+        .map((file) => ({
+          name: file.name,
+          type: file.type || null,
+          size: file.size,
+        }));
+
+      return {
+        ...payload,
+        imageFiles: payload.imageFiles || imageFiles,
+      };
+    } catch {
+      return NextResponse.json({ error: "Import payload is not valid JSON." }, { status: 400 });
+    }
+  }
+
+  try {
+    return (await request.json()) as ImportPayload;
+  } catch {
+    return NextResponse.json({ error: "Import payload is not valid JSON." }, { status: 400 });
+  }
+}
+
+async function finalizeUploadedImages({
+  context,
+  payload,
+}: {
+  context: Exclude<Awaited<ReturnType<typeof requireImportAdmin>>, { response: NextResponse }>;
+  payload: ImportPayload;
+}) {
+  const batchId = String(payload.batchId || "");
+  const uploadedImages = payload.uploadedImages || [];
+
+  if (!batchId) {
+    return importError({
+      status: 400,
+      code: "IMPORT_BATCH_MISSING",
+      message: "Missing import batch ID for image finalization.",
+    });
+  }
+
+  if (!uploadedImages.length) {
+    return NextResponse.json({ finalizedCount: 0 });
+  }
+
+  const { data: batchRows, error: batchRowsError } = await context.admin
+    .from("listing_import_rows")
+    .select("listing_id, source_fingerprint")
+    .eq("batch_id", batchId)
+    .eq("status", "imported");
+
+  if (batchRowsError) {
+    return importError({
+      code: "IMPORT_IMAGE_BATCH_LOOKUP_FAILED",
+      message: `Import image batch lookup failed: ${batchRowsError.message}`,
+      details: { batchId, supabaseCode: batchRowsError.code },
+    });
+  }
+
+  const allowedUploads = new Set(
+    (batchRows || []).map(
+      (row) => `${row.source_fingerprint}:${row.listing_id}`
+    )
+  );
+  const invalidUpload = uploadedImages.find(
+    (image) => !allowedUploads.has(`${image.rowFingerprint}:${image.listingId}`)
+  );
+
+  if (invalidUpload) {
+    return importError({
+      status: 400,
+      code: "IMPORT_IMAGE_FINALIZE_FORBIDDEN",
+      message: "Image finalization includes a listing that does not belong to this import batch.",
+      details: { batchId },
+    });
+  }
+
+  const storagePaths = uploadedImages.map((image) => image.storagePath);
+  const { data: existingImages, error: existingImagesError } = await context.admin
+    .from("listing_images")
+    .select("image_path")
+    .in("image_path", storagePaths);
+
+  if (existingImagesError) {
+    return importError({
+      code: "IMPORT_IMAGE_EXISTING_LOOKUP_FAILED",
+      message: `Existing image lookup failed: ${existingImagesError.message}`,
+      details: { batchId, supabaseCode: existingImagesError.code },
+    });
+  }
+
+  const existingPaths = new Set(
+    (existingImages || []).map((image) => image.image_path)
+  );
+  const newUploadedImages = uploadedImages.filter(
+    (image) => !existingPaths.has(image.storagePath)
+  );
+
+  if (!newUploadedImages.length) {
+    return NextResponse.json({ finalizedCount: 0, skippedExistingCount: uploadedImages.length });
+  }
+
+  const rows = newUploadedImages.map((image) => ({
+    listing_id: image.listingId,
+    image_path: image.storagePath,
+    image_url: image.imageUrl,
+    sort_order: image.sortOrder,
+    is_cover: image.isCover,
+  }));
+
+  const { error: imageInsertError } = await context.admin
+    .from("listing_images")
+    .insert(rows);
+
+  if (imageInsertError) {
+    return importError({
+      code: "IMPORT_IMAGE_ROWS_FAILED",
+      message: `Image row insert failed: ${imageInsertError.message}`,
+      details: { batchId, count: rows.length, supabaseCode: imageInsertError.code },
+    });
+  }
+
+  const imageCounts = new Map<string, number>();
+  newUploadedImages.forEach((image) => {
+    imageCounts.set(
+      image.rowFingerprint,
+      (imageCounts.get(image.rowFingerprint) || 0) + 1
+    );
+  });
+
+  await Promise.all(
+    Array.from(imageCounts.entries()).map(([fingerprint, imageCount]) =>
+      context.admin
+        .from("listing_import_rows")
+        .update({ image_count: imageCount })
+        .eq("batch_id", batchId)
+        .eq("source_fingerprint", fingerprint)
+    )
+  );
+
+  return NextResponse.json({
+    finalizedCount: rows.length,
+    skippedExistingCount: uploadedImages.length - rows.length,
+  });
+}
+
+export async function GET() {
+  return NextResponse.json(
+    {
+      error: "Use POST to commit listing imports.",
+      code: "IMPORT_METHOD_NOT_ALLOWED",
+    },
+    { status: 405 }
+  );
+}
+
 export async function POST(request: Request) {
   const context = await requireImportAdmin();
   if ("response" in context) return context.response;
 
-  const formData = await request.formData();
-  const payloadValue = formData.get("payload");
+  const payload = await readImportPayload(request);
+  if (payload instanceof NextResponse) return payload;
 
-  if (typeof payloadValue !== "string") {
-    return NextResponse.json({ error: "Missing import payload." }, { status: 400 });
-  }
-
-  let payload: ImportPayload;
-  try {
-    payload = JSON.parse(payloadValue) as ImportPayload;
-  } catch {
-    return NextResponse.json({ error: "Import payload is not valid JSON." }, { status: 400 });
+  if (payload.action === "finalizeImages") {
+    return finalizeUploadedImages({ context, payload });
   }
 
   const ownerId = String(payload.ownerId || "");
@@ -97,20 +309,20 @@ export async function POST(request: Request) {
     .single();
 
   if (batchError || !batch?.id) {
-    return NextResponse.json(
-      { error: "Could not create an import batch record." },
-      { status: 500 }
-    );
+    return importError({
+      code: "IMPORT_BATCH_INSERT_FAILED",
+      message: `Import batch insert failed: ${batchError?.message || "No batch ID returned."}`,
+      details: { supabaseCode: batchError?.code },
+    });
   }
 
-  const imageFiles = new Map<string, File>();
-  formData.getAll("images").forEach((value) => {
-    if (value instanceof File && value.size > 0) {
-      imageFiles.set(value.name, value);
-    }
-  });
-
   const rowResults = [];
+  const uploadTargets = [];
+  const assignedImagePlans = collectAssignedImportImages({
+    rows,
+    imageAssignments: payload.imageAssignments || {},
+    imageFiles: payload.imageFiles || [],
+  });
   let importedCount = 0;
   let skippedCount = 0;
   let failedCount = 0;
@@ -134,12 +346,25 @@ export async function POST(request: Request) {
     }
 
     const idempotencyKey = `admin-bulk-import:${row.fingerprint}`;
-    const { data: existing } = await context.admin
+    const { data: existing, error: existingError } = await context.admin
       .from("listings")
       .select("id, status")
       .eq("user_id", ownerId)
       .eq("creation_idempotency_key", idempotencyKey)
       .maybeSingle();
+
+    if (existingError) {
+      failedCount += 1;
+      rowResults.push({
+        batch_id: batch.id,
+        source_row_number: row.rowNumber,
+        source_fingerprint: row.fingerprint,
+        status: "failed",
+        reason: `Existing-listing lookup failed: ${existingError.message}`,
+        normalized_data: row,
+      });
+      continue;
+    }
 
     if (existing?.id) {
       skippedCount += 1;
@@ -181,39 +406,48 @@ export async function POST(request: Request) {
       continue;
     }
 
-    const assignedNames = payload.imageAssignments?.[row.fingerprint] || [];
-    const uploadedRows = [];
+    const rowImagePlans = assignedImagePlans.filter(
+      (plan) => plan.rowFingerprint === row.fingerprint
+    );
 
-    for (let index = 0; index < assignedNames.length; index += 1) {
-      const file = imageFiles.get(assignedNames[index]);
-      if (!file) continue;
+    for (const imagePlan of rowImagePlans) {
+      const storagePath = `listings/${listing.id}/${crypto.randomUUID()}-${safeFileName(imagePlan.imageName)}`;
+      const { data: signedUpload, error: signedUploadError } =
+        await context.admin.storage
+          .from("listing-images")
+          .createSignedUploadUrl(storagePath);
 
-      const storagePath = `listings/${listing.id}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const { error: uploadError } = await context.admin.storage
-        .from("listing-images")
-        .upload(storagePath, buffer, {
-          contentType: file.type || "application/octet-stream",
-          upsert: false,
+      if (signedUploadError || !signedUpload?.token) {
+        failedCount += 1;
+        rowResults.push({
+          batch_id: batch.id,
+          source_row_number: row.rowNumber,
+          listing_id: listing.id,
+          source_fingerprint: row.fingerprint,
+          status: "failed",
+          reason: `Image upload target failed for ${imagePlan.imageName}: ${
+            signedUploadError?.message || "No signed upload token returned."
+          }`,
+          normalized_data: row,
         });
-
-      if (uploadError) continue;
+        continue;
+      }
 
       const { data: publicUrl } = context.admin.storage
         .from("listing-images")
         .getPublicUrl(storagePath);
 
-      uploadedRows.push({
-        listing_id: listing.id,
-        image_path: storagePath,
-        image_url: publicUrl.publicUrl,
-        sort_order: index,
-        is_cover: index === 0,
+      uploadTargets.push({
+        rowFingerprint: row.fingerprint,
+        listingId: listing.id,
+        imageName: imagePlan.imageName,
+        storagePath,
+        token: signedUpload.token,
+        publicUrl: publicUrl.publicUrl,
+        sortOrder: imagePlan.sortOrder,
+        isCover: imagePlan.isCover,
+        contentType: imagePlan.contentType,
       });
-    }
-
-    if (uploadedRows.length) {
-      await context.admin.from("listing_images").insert(uploadedRows);
     }
 
     importedCount += 1;
@@ -225,18 +459,28 @@ export async function POST(request: Request) {
       status: "imported",
       reason: null,
       normalized_data: row,
-      image_count: uploadedRows.length,
+      image_count: rowImagePlans.length,
     });
   }
 
   if (rowResults.length) {
-    await context.admin.from("listing_import_rows").insert(rowResults);
+    const { error: rowsError } = await context.admin
+      .from("listing_import_rows")
+      .insert(rowResults);
+
+    if (rowsError) {
+      return importError({
+        code: "IMPORT_ROW_AUDIT_INSERT_FAILED",
+        message: `Import row audit insert failed: ${rowsError.message}`,
+        details: { batchId: batch.id, supabaseCode: rowsError.code },
+      });
+    }
   }
 
   const finalStatus =
     failedCount > 0 ? "partial_failure" : importedCount > 0 ? "drafts_created" : "failed";
 
-  await context.admin
+  const { error: batchUpdateError } = await context.admin
     .from("listing_import_batches")
     .update({
       imported_count: importedCount,
@@ -254,12 +498,31 @@ export async function POST(request: Request) {
     })
     .eq("id", batch.id);
 
-  await context.admin.from("admin_audit_logs").insert({
+  if (batchUpdateError) {
+    return importError({
+      code: "IMPORT_BATCH_UPDATE_FAILED",
+      message: `Import batch update failed: ${batchUpdateError.message}`,
+      details: { batchId: batch.id, supabaseCode: batchUpdateError.code },
+    });
+  }
+
+  const { error: auditError } = await context.admin.from("admin_audit_logs").insert({
     admin_id: context.userId,
     target_user_id: ownerId,
     action: "listing.bulk_imported",
     reason: `Batch ${batch.id}: ${importedCount} imported, ${skippedCount} skipped, ${failedCount} failed.`,
   });
+
+  if (auditError) {
+    console.error(
+      "Admin listing import audit log failed",
+      JSON.stringify({
+        batchId: batch.id,
+        code: auditError.code,
+        message: auditError.message,
+      })
+    );
+  }
 
   return NextResponse.json({
     batchId: batch.id,
@@ -268,5 +531,6 @@ export async function POST(request: Request) {
     failedCount,
     warningCount,
     results: rowResults,
+    uploadTargets,
   });
 }

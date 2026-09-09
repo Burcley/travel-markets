@@ -70,6 +70,25 @@ export function importButtonState(args?: {
   selectedValidRows: Array<Partial<NormalizedImportRow> & { fingerprint: string }>;
   blockingErrorCount: number;
 };
+export function collectAssignedImportImages(args?: {
+  rows?: Array<Partial<NormalizedImportRow> & { fingerprint?: string }>;
+  imageAssignments?: Record<string, string[]>;
+  imageFiles?: Array<
+    | string
+    | {
+        name?: string | null;
+        type?: string | null;
+        size?: number | null;
+      }
+  >;
+}): Array<{
+  rowFingerprint: string;
+  imageName: string;
+  sortOrder: number;
+  isCover: boolean;
+  contentType: string | null;
+  size: number | null;
+}>;
 export function parseSpreadsheetBuffer(args: {
   buffer: Buffer;
   fileName?: string;

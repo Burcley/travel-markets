@@ -26,6 +26,7 @@ import {
   importButtonState,
   type NormalizedImportRow,
 } from "@/lib/admin/listing-importer-core.mjs";
+import { createClient } from "@/lib/supabase/client";
 
 export type ImportLandlordOption = {
   id: string;
@@ -69,6 +70,23 @@ type ImportResponse = {
     status: string;
     reason?: string | null;
   }>;
+  uploadTargets?: Array<{
+    rowFingerprint: string;
+    listingId: string;
+    imageName: string;
+    storagePath: string;
+    token: string;
+    publicUrl: string;
+    sortOrder: number;
+    isCover: boolean;
+    contentType?: string | null;
+  }>;
+};
+
+type ImportFailurePayload = {
+  error?: string;
+  code?: string;
+  details?: unknown;
 };
 
 function displayName(landlord: ImportLandlordOption) {
@@ -118,6 +136,7 @@ export default function ImportListingsClient({
 }: {
   landlords: ImportLandlordOption[];
 }) {
+  const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState("");
   const [selectedLandlordId, setSelectedLandlordId] = useState("");
   const [spreadsheet, setSpreadsheet] = useState<File | null>(null);
@@ -349,31 +368,117 @@ export default function ImportListingsClient({
     setImporting(true);
     setError("");
 
-    const formData = new FormData();
-    formData.set(
-      "payload",
-      JSON.stringify({
+    const imageFilesByName = new Map(imageFiles.map((image) => [image.name, image]));
+    const assignedImageNames = new Set(
+      selected.flatMap((row) => imageAssignments[row.fingerprint] || [])
+    );
+
+    const response = await fetch("/api/admin/listings/import/commit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "createDrafts",
         ownerId: selectedLandlord.id,
         sourceFilename: preview?.sourceFilename || spreadsheet?.name || null,
         rows: selected,
         imageAssignments,
-      })
-    );
-    imageFiles.forEach((image) => formData.append("images", image.file, image.name));
-
-    const response = await fetch("/api/admin/listings/import/commit", {
-      method: "POST",
-      body: formData,
+        imageFiles: imageFiles
+          .filter((image) => assignedImageNames.has(image.name))
+          .map((image) => ({
+            name: image.name,
+            type: image.file.type || null,
+            size: image.file.size,
+          })),
+      }),
     });
-    const data = await response.json().catch(() => null);
+    const data = (await response.json().catch(() => null)) as
+      | ImportResponse
+      | ImportFailurePayload
+      | null;
     setImporting(false);
 
     if (!response.ok) {
-      setError(data?.error || "The import could not be completed.");
+      const failure = data && "error" in data ? data : null;
+      setError(
+        failure?.error ||
+          `The import could not be completed. Server returned ${response.status}.`
+      );
       return;
     }
 
-    setReport(data as ImportResponse);
+    const importReport = data as ImportResponse;
+    const uploadFailures: string[] = [];
+    const uploadedImages = [];
+
+    if (importReport.uploadTargets?.length) {
+      setImporting(true);
+      for (const target of importReport.uploadTargets) {
+        const image = imageFilesByName.get(target.imageName);
+        if (!image) {
+          uploadFailures.push(`${target.imageName}: selected file was not available.`);
+          continue;
+        }
+
+        const { error: uploadError } = await supabase.storage
+          .from("listing-images")
+          .uploadToSignedUrl(target.storagePath, target.token, image.file, {
+            contentType: target.contentType || image.file.type || "application/octet-stream",
+          });
+
+        if (uploadError) {
+          uploadFailures.push(`${target.imageName}: ${uploadError.message}`);
+          continue;
+        }
+
+        uploadedImages.push({
+          rowFingerprint: target.rowFingerprint,
+          listingId: target.listingId,
+          imageName: target.imageName,
+          storagePath: target.storagePath,
+          imageUrl: target.publicUrl,
+          sortOrder: target.sortOrder,
+          isCover: target.isCover,
+        });
+      }
+
+      if (uploadedImages.length) {
+        const finalizeResponse = await fetch("/api/admin/listings/import/commit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "finalizeImages",
+            batchId: importReport.batchId,
+            uploadedImages,
+          }),
+        });
+        const finalizeData = (await finalizeResponse.json().catch(() => null)) as
+          | ImportFailurePayload
+          | null;
+
+        if (!finalizeResponse.ok) {
+          uploadFailures.push(
+            finalizeData?.error ||
+              `Image finalization failed with status ${finalizeResponse.status}.`
+          );
+        }
+      }
+
+      setImporting(false);
+    }
+
+    if (uploadFailures.length) {
+      setError(
+        `Draft listings were created, but ${uploadFailures.length} image upload ${
+          uploadFailures.length === 1 ? "issue needs" : "issues need"
+        } review: ${uploadFailures.join(" ")}`
+      );
+    }
+
+    setReport(importReport);
   }
 
   return (
