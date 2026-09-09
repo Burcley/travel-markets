@@ -57,6 +57,19 @@ export function validateEnrichedHeaders(sheetRows: unknown[]): {
   valid: boolean;
   missingHeaders: string[];
 };
+export function importRowBlockingError(row: Partial<NormalizedImportRow>): string | null;
+export function importButtonState(args?: {
+  selectedLandlord?: unknown;
+  preview?: unknown;
+  rows?: Array<Partial<NormalizedImportRow> & { fingerprint: string }>;
+  selectedFingerprints?: Set<string> | string[];
+  importing?: boolean;
+}): {
+  disabled: boolean;
+  reason: string;
+  selectedValidRows: Array<Partial<NormalizedImportRow> & { fingerprint: string }>;
+  blockingErrorCount: number;
+};
 export function parseSpreadsheetBuffer(args: {
   buffer: Buffer;
   fileName?: string;

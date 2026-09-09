@@ -12,6 +12,7 @@ import {
   detectImportFormat,
   ENRICHED_IMPORT_HEADERS,
   fingerprintImportRow,
+  importButtonState,
   LANDLORD_IMPORT_HEADERS,
   parseSpreadsheetBuffer,
   parseBoolean,
@@ -90,6 +91,27 @@ function imageFile(name, size = 1024, lastModified = 1788800000000) {
     lastModified,
     type: "image/jpeg",
   };
+}
+
+function importableRows(count = 9) {
+  return Array.from({ length: count }, (_, index) => ({
+    fingerprint: `row-${index + 1}`,
+    property: `Property ${index + 1}`,
+    rent: 1200 + index,
+    warnings: [],
+  }));
+}
+
+function enabledImportState(overrides = {}) {
+  const rows = overrides.rows || importableRows(9);
+  return importButtonState({
+    selectedLandlord: { id: "landlord-user-id" },
+    preview: { sourceFilename: "enriched.xlsx" },
+    rows,
+    selectedFingerprints: rows.map((row) => row.fingerprint),
+    importing: false,
+    ...overrides,
+  });
 }
 
 function enrichedWorkbookRows() {
@@ -833,6 +855,93 @@ test("property-card image uploads assign generic filenames directly to the targe
   assert.deepEqual(filenameGuesses, {});
 });
 
+test("import button stays enabled for valid drafts with all, partial, zero, or unassigned images", () => {
+  const rows = importableRows(9);
+  const allImagesAssigned = Object.fromEntries(
+    rows.map((row, index) => [row.fingerprint, [`property-${index + 1}.jpg`]])
+  );
+  const partialImagesAssigned = {
+    "row-1": ["30-trent-front.jpg"],
+    "row-2": ["23-glenayr-front.jpg"],
+  };
+  const noImagesAssigned = {};
+  const unassignedImagesPresent = {
+    ...partialImagesAssigned,
+    unassignedImageNames: ["unknown-room.jpg"],
+  };
+
+  assert.equal(enabledImportState({ rows, imageAssignments: allImagesAssigned }).disabled, false);
+  assert.equal(enabledImportState({ rows, imageAssignments: partialImagesAssigned }).disabled, false);
+  assert.equal(enabledImportState({ rows, imageAssignments: noImagesAssigned }).disabled, false);
+  assert.equal(enabledImportState({ rows, imageAssignments: unassignedImagesPresent }).disabled, false);
+});
+
+test("import button explains disabled states without using image count as a blocker", () => {
+  const rows = importableRows(2);
+
+  assert.deepEqual(
+    importButtonState({
+      selectedLandlord: null,
+      preview: { sourceFilename: "enriched.xlsx" },
+      rows,
+      selectedFingerprints: rows.map((row) => row.fingerprint),
+    }),
+    {
+      disabled: true,
+      reason: "Select a landlord first.",
+      selectedValidRows: [],
+      blockingErrorCount: 0,
+    }
+  );
+
+  assert.deepEqual(
+    importButtonState({
+      selectedLandlord: { id: "landlord-user-id" },
+      preview: null,
+      rows,
+      selectedFingerprints: rows.map((row) => row.fingerprint),
+    }),
+    {
+      disabled: true,
+      reason: "Parse and preview a spreadsheet first.",
+      selectedValidRows: [],
+      blockingErrorCount: 0,
+    }
+  );
+
+  assert.equal(
+    importButtonState({
+      selectedLandlord: { id: "landlord-user-id" },
+      preview: { sourceFilename: "enriched.xlsx" },
+      rows,
+      selectedFingerprints: [],
+    }).reason,
+    "No valid listings selected."
+  );
+
+  assert.equal(
+    importButtonState({
+      selectedLandlord: { id: "landlord-user-id" },
+      preview: { sourceFilename: "enriched.xlsx" },
+      rows: [{ ...rows[0], rent: null }],
+      selectedFingerprints: [rows[0].fingerprint],
+    }).reason,
+    "No valid listings selected."
+  );
+
+  assert.equal(
+    importButtonState({
+      selectedLandlord: { id: "landlord-user-id" },
+      preview: { sourceFilename: "enriched.xlsx" },
+      rows: [rows[0], { ...rows[1], rent: null }],
+      selectedFingerprints: rows.map((row) => row.fingerprint),
+    }).reason,
+    "Resolve 1 blocking validation error."
+  );
+
+  assert.equal(enabledImportState({ importing: true }).reason, "Import already in progress.");
+});
+
 test("admin image picker UI advertises additive batches and remove-all reset", () => {
   assert.match(importerClientSource, /appendImageUploads/);
   assert.match(importerClientSource, /assignImageNamesToRow/);
@@ -844,6 +953,8 @@ test("admin image picker UI advertises additive batches and remove-all reset", (
   assert.match(importerClientSource, /onAddImagesToRow/);
   assert.match(importerClientSource, /event\.dataTransfer\.files/);
   assert.match(importerClientSource, /formData\.append\("images", image\.file, image\.name\)/);
+  assert.match(importerClientSource, /importState\.disabled/);
+  assert.match(importerClientSource, /importState\.reason/);
   assert.doesNotMatch(importerClientSource, /setPreview\(null\);\n\s*setReport\(null\);\n\s*setImageAssignments\(\{\}\);/);
 });
 

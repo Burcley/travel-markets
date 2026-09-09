@@ -22,7 +22,10 @@ import {
   suggestImageAssignmentsForRows,
   type ImportImageUpload,
 } from "@/lib/admin/listing-importer-images.mjs";
-import type { NormalizedImportRow } from "@/lib/admin/listing-importer-core.mjs";
+import {
+  importButtonState,
+  type NormalizedImportRow,
+} from "@/lib/admin/listing-importer-core.mjs";
 
 export type ImportLandlordOption = {
   id: string;
@@ -164,6 +167,17 @@ export default function ImportListingsClient({
       )
       .slice(0, 40);
   }, [landlords, query]);
+  const importState = useMemo(
+    () =>
+      importButtonState({
+        selectedLandlord,
+        preview,
+        rows,
+        selectedFingerprints: selectedRows,
+        importing,
+      }),
+    [importing, preview, rows, selectedLandlord, selectedRows]
+  );
 
   useEffect(() => {
     return () => {
@@ -305,8 +319,12 @@ export default function ImportListingsClient({
   }
 
   async function importDrafts() {
+    if (importState.disabled) {
+      setError(importState.reason || "Select at least one valid row to import.");
+      return;
+    }
     if (!selectedLandlord) {
-      setError("Select a landlord before importing.");
+      setError("Select a landlord first.");
       return;
     }
 
@@ -786,15 +804,22 @@ export default function ImportListingsClient({
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={importDrafts}
-              disabled={importing || !selectedLandlord || selectedRows.size === 0}
-              className="inline-flex items-center gap-2 rounded-2xl bg-pink-500 px-6 py-4 font-black text-white transition hover:bg-pink-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {importing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
-              Import Valid Listings as Drafts
-            </button>
+            <div className="flex flex-col gap-2 sm:inline-flex">
+              <button
+                type="button"
+                onClick={importDrafts}
+                disabled={importState.disabled}
+                className="inline-flex items-center gap-2 rounded-2xl bg-pink-500 px-6 py-4 font-black text-white transition hover:bg-pink-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {importing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                Import Valid Listings as Drafts
+              </button>
+              {importState.disabled && importState.reason && (
+                <p className="text-sm font-bold text-yellow-100">
+                  {importState.reason}
+                </p>
+              )}
+            </div>
           </section>
         )}
 
