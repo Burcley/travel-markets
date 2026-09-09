@@ -33,3 +33,9 @@ export function suggestImageAssignmentsForRows(
   imageNames?: string[],
   currentAssignments?: Record<string, string[]>
 ): Record<string, string[]>;
+
+export function assignImageNamesToRow(
+  currentAssignments: Record<string, string[]> | undefined,
+  fingerprint: string,
+  imageNames?: string[]
+): Record<string, string[]>;

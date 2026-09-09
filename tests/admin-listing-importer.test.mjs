@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   appendImageUploads,
+  assignImageNamesToRow,
   suggestImageAssignmentsForRows,
 } from "../lib/admin/listing-importer-images.mjs";
 import {
@@ -771,12 +772,77 @@ test("image upload workflow prevents exact duplicates and keeps same-named diffe
   );
 });
 
+test("property-card image uploads assign generic filenames directly to the target row", () => {
+  const rows = [
+    {
+      fingerprint: "row-30-trent",
+      property: "30 Trent",
+      streetAddress: "30 Trent Ave",
+    },
+    {
+      fingerprint: "row-23-glenayr",
+      property: "23 Glenayr",
+      streetAddress: "23 Glenayr St",
+    },
+    {
+      fingerprint: "row-86-glendale",
+      property: "86 Glendale",
+      streetAddress: "86 Glendale Ave",
+    },
+  ];
+
+  const firstBatch = appendImageUploads([], [
+    imageFile("IMG_001.jpg", 1000, 1),
+    imageFile("IMG_002.jpg", 1001, 2),
+  ]);
+  let assignments = assignImageNamesToRow(
+    {},
+    "row-30-trent",
+    firstBatch.addedImages.map((image) => image.name)
+  );
+
+  const secondBatch = appendImageUploads(firstBatch.images, [
+    imageFile("photo1.jpg", 1002, 3),
+    imageFile("photo2.jpg", 1003, 4),
+  ]);
+  assignments = assignImageNamesToRow(
+    assignments,
+    "row-23-glenayr",
+    secondBatch.addedImages.map((image) => image.name)
+  );
+
+  const thirdBatch = appendImageUploads(secondBatch.images, [
+    imageFile("DSC_1001.jpg", 1004, 5),
+    imageFile("DSC_1002.jpg", 1005, 6),
+  ]);
+  assignments = assignImageNamesToRow(
+    assignments,
+    "row-86-glendale",
+    thirdBatch.addedImages.map((image) => image.name)
+  );
+
+  const allImageNames = thirdBatch.images.map((image) => image.name);
+  const assignedImageNames = new Set(Object.values(assignments).flat());
+  const unassigned = allImageNames.filter((imageName) => !assignedImageNames.has(imageName));
+  const filenameGuesses = suggestImageAssignmentsForRows(rows, allImageNames, {});
+
+  assert.deepEqual(assignments["row-30-trent"], ["IMG_001.jpg", "IMG_002.jpg"]);
+  assert.deepEqual(assignments["row-23-glenayr"], ["photo1.jpg", "photo2.jpg"]);
+  assert.deepEqual(assignments["row-86-glendale"], ["DSC_1001.jpg", "DSC_1002.jpg"]);
+  assert.deepEqual(unassigned, []);
+  assert.deepEqual(filenameGuesses, {});
+});
+
 test("admin image picker UI advertises additive batches and remove-all reset", () => {
   assert.match(importerClientSource, /appendImageUploads/);
+  assert.match(importerClientSource, /assignImageNamesToRow/);
   assert.match(importerClientSource, /suggestImageAssignmentsForRows/);
   assert.match(importerClientSource, /Add More Images/);
+  assert.match(importerClientSource, /Add Images/);
   assert.match(importerClientSource, /Remove All Images/);
   assert.match(importerClientSource, /imagePickerRef/);
+  assert.match(importerClientSource, /onAddImagesToRow/);
+  assert.match(importerClientSource, /event\.dataTransfer\.files/);
   assert.match(importerClientSource, /formData\.append\("images", image\.file, image\.name\)/);
   assert.doesNotMatch(importerClientSource, /setPreview\(null\);\n\s*setReport\(null\);\n\s*setImageAssignments\(\{\}\);/);
 });

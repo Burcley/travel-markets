@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   appendImageUploads,
+  assignImageNamesToRow,
   suggestImageAssignmentsForRows,
   type ImportImageUpload,
 } from "@/lib/admin/listing-importer-images.mjs";
@@ -170,7 +171,7 @@ export default function ImportListingsClient({
     };
   }, [imagePreviewUrls]);
 
-  function addUploadedImages(files: File[]) {
+  function addUploadedImages(files: File[], targetFingerprint?: string) {
     const nextUploads = appendImageUploads(imageFiles, files);
 
     if (!nextUploads.addedImages.length) {
@@ -186,9 +187,13 @@ export default function ImportListingsClient({
 
     if (rows.length > 0) {
       const addedNames = nextUploads.addedImages.map((image) => image.name);
-      setImageAssignments((current) =>
-        suggestImageAssignmentsForRows(rows, addedNames, current)
-      );
+      setImageAssignments((current) => {
+        if (targetFingerprint) {
+          return assignImageNamesToRow(current, targetFingerprint, addedNames);
+        }
+
+        return suggestImageAssignmentsForRows(rows, addedNames, current);
+      });
     }
   }
 
@@ -588,6 +593,9 @@ export default function ImportListingsClient({
                 onAssignImage={assignImageToRow}
                 onRemoveImage={removeImageFromRow}
                 onMakeCover={makeCoverImage}
+                onAddImagesToRow={(fingerprint, files) =>
+                  addUploadedImages(files, fingerprint)
+                }
               />
             )}
 
@@ -919,6 +927,7 @@ function ImageAssignmentBoard({
   onAssignImage,
   onRemoveImage,
   onMakeCover,
+  onAddImagesToRow,
 }: {
   rows: NormalizedImportRow[];
   imageAssignments: Record<string, string[]>;
@@ -930,6 +939,7 @@ function ImageAssignmentBoard({
   onAssignImage: (fingerprint: string, imageName: string) => void;
   onRemoveImage: (fingerprint: string, imageName: string) => void;
   onMakeCover: (fingerprint: string, imageName: string) => void;
+  onAddImagesToRow: (fingerprint: string, files: File[]) => void;
 }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-black/50 p-5">
@@ -971,6 +981,12 @@ function ImageAssignmentBoard({
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => {
                 event.preventDefault();
+                const droppedFiles = Array.from(event.dataTransfer.files || []);
+                if (droppedFiles.length > 0) {
+                  onAddImagesToRow(row.fingerprint, droppedFiles);
+                  return;
+                }
+
                 if (draggedImageName) {
                   onAssignImage(row.fingerprint, draggedImageName);
                   onDragImage(null);
@@ -1031,27 +1047,47 @@ function ImageAssignmentBoard({
                 )}
               </div>
 
-              <label className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-zinc-300">
-                <Plus className="h-4 w-4 text-pink-200" />
-                <select
-                  value=""
-                  onChange={(event) => {
-                    onAssignImage(row.fingerprint, event.target.value);
-                    event.target.value = "";
-                  }}
-                  className="w-full bg-transparent outline-none"
-                >
-                  <option value="" className="bg-black">
-                    Add image
-                  </option>
-                  {imageFileNames.map((imageName) => (
-                    <option key={imageName} value={imageName} className="bg-black">
-                      {imageName}
+              <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr]">
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-pink-500 px-3 py-2 text-sm font-black text-white transition hover:bg-pink-400">
+                  <Plus className="h-4 w-4" />
+                  Add Images
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(event) => {
+                      onAddImagesToRow(
+                        row.fingerprint,
+                        Array.from(event.currentTarget.files || [])
+                      );
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-zinc-300">
+                  <select
+                    value=""
+                    onChange={(event) => {
+                      onAssignImage(row.fingerprint, event.target.value);
+                      event.target.value = "";
+                    }}
+                    className="w-full bg-transparent outline-none"
+                    aria-label={`Assign existing image to ${row.property || "property"}`}
+                  >
+                    <option value="" className="bg-black">
+                      Assign existing image
                     </option>
-                  ))}
-                </select>
-                <MoveRight className="h-4 w-4 text-zinc-500" />
-              </label>
+                    {imageFileNames.map((imageName) => (
+                      <option key={imageName} value={imageName} className="bg-black">
+                        {imageName}
+                      </option>
+                    ))}
+                  </select>
+                  <MoveRight className="h-4 w-4 text-zinc-500" />
+                </label>
+              </div>
             </div>
           );
         })}
