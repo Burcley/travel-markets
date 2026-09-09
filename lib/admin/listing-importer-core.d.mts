@@ -1,5 +1,6 @@
 export const LANDLORD_IMPORT_HEADERS: string[];
 export const ENRICHED_IMPORT_HEADERS: string[];
+export const LISTING_DRAFT_INSERT_COLUMNS: string[];
 
 export type RawImportRow = {
   rowNumber?: number | null;
@@ -89,6 +90,7 @@ export function collectAssignedImportImages(args?: {
   contentType: string | null;
   size: number | null;
 }>;
+export function schemaCompatibleListingInsertPayload(payload: Record<string, unknown>): Record<string, unknown>;
 export function parseSpreadsheetBuffer(args: {
   buffer: Buffer;
   fileName?: string;

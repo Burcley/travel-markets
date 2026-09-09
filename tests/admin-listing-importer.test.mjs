@@ -15,6 +15,7 @@ import {
   fingerprintImportRow,
   importButtonState,
   LANDLORD_IMPORT_HEADERS,
+  LISTING_DRAFT_INSERT_COLUMNS,
   parseSpreadsheetBuffer,
   parseBoolean,
   parseCount,
@@ -667,6 +668,12 @@ test("draft listing payload uses selected landlord ownership and existing listin
     payload.creation_idempotency_key,
     `admin-bulk-import:${row.fingerprint}`
   );
+  assert.equal("updated_at" in payload, false);
+  assert.deepEqual(
+    Object.keys(payload).filter((key) => !LISTING_DRAFT_INSERT_COLUMNS.includes(key)),
+    []
+  );
+  assert.equal(LISTING_DRAFT_INSERT_COLUMNS.includes("updated_at"), false);
 });
 
 test("import fingerprints are stable and image suggestions remain confirmable", () => {
