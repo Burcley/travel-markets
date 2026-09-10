@@ -11,7 +11,10 @@ import TrustSafety from "../components/home/TrustSafety";
 import Testimonials from "../components/home/Testimonials";
 import FinalCTA from "../components/home/FinalCTA";
 import HomeFooter from "../components/home/HomeFooter";
+import CampusDiscovery from "../components/home/CampusDiscovery";
 import { createClient } from "../lib/supabase/server";
+import { searchListings } from "@/lib/listings/search-listings";
+import { BROCK_SEARCH_FILTERS } from "@/lib/brock/search-links";
 import {
   getVerifiedPublicListingIds,
   PUBLIC_LISTING_STATUS,
@@ -27,7 +30,8 @@ export default async function HomePage() {
     console.error("HOME FEATURED VERIFIED LISTING GATE ERROR:", error);
   }
 
-  const { data: listings } = verifiedListingIds.length
+  const [{ data: listings }, brockResult] = await Promise.all([
+    verifiedListingIds.length
     ? await supabase
         .from("listings")
         .select(`
@@ -51,12 +55,19 @@ export default async function HomePage() {
         .order("is_featured", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(6)
-    : { data: [] };
+    : { data: [] },
+    searchListings({
+      city: BROCK_SEARCH_FILTERS.city,
+      campus: BROCK_SEARCH_FILTERS.campus,
+      sort: BROCK_SEARCH_FILTERS.sort,
+    }),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">
-      <Hero />
+      <Hero brockAvailableCount={brockResult.count || null} />
       <TrustBar />
+      <CampusDiscovery brockAvailableCount={brockResult.count || null} />
       <TransparencyInfoStrip />
       <HowTravelMarketsWorks />
       <FeaturedListings listings={listings || []} />

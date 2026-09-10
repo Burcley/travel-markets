@@ -498,6 +498,9 @@ export default function TravelMarketsHome({
     trustLevel,
     sort !== "newest" ? sort : "",
   ].filter(Boolean).length;
+  const isBrockContext = `${query} ${campus} ${city}`
+    .toLowerCase()
+    .includes("brock");
 
   const chips = [
     { label: "Oshawa", action: () => setCity("Oshawa") },
@@ -580,6 +583,15 @@ export default function TravelMarketsHome({
               </button>
             ))}
           </div>
+
+          {isBrockContext && (
+            <Link
+              href="/brock"
+              className="mt-3 flex items-center justify-center rounded-2xl border border-pink-300/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-100"
+            >
+              Explore Brock housing
+            </Link>
+          )}
         </div>
 
         <div className="px-4 py-4">
@@ -877,6 +889,20 @@ export default function TravelMarketsHome({
               saveSearch={saveSearch}
               savingSearch={savingSearch}
             />
+
+            {isBrockContext && (
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-pink-300/20 bg-pink-500/10 px-4 py-3">
+                <p className="text-sm text-pink-50">
+                  Looking for Brock University housing?
+                </p>
+                <Link
+                  href="/brock"
+                  className="shrink-0 rounded-xl bg-pink-500 px-4 py-2 text-sm font-black text-white hover:bg-pink-400"
+                >
+                  Explore Brock housing
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </section>

@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import CampusDiscovery from "./CampusDiscovery";
 
-export default function Hero() {
+export default function Hero({
+  brockAvailableCount,
+}: {
+  brockAvailableCount: number | null;
+}) {
   const t = useTranslations("home.hero");
 
   return (
@@ -39,6 +44,11 @@ export default function Hero() {
               {t("listProperty")}
             </Link>
           </div>
+
+          <CampusDiscovery
+            placement="hero"
+            brockAvailableCount={brockAvailableCount}
+          />
         </div>
       </div>
     </section>

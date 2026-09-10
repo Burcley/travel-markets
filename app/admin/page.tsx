@@ -68,6 +68,31 @@ type SupportTicket = {
   created_at: string;
 };
 
+type BrockAnalyticsSummary = {
+  available: boolean;
+  funnel: Array<{
+    event: string;
+    count: number;
+    conversion: number | null;
+  }>;
+  sources: Array<{
+    source: string;
+    count: number;
+  }>;
+  topClickedListings: Array<{
+    listingId: string;
+    title: string;
+    city: string | null;
+    count: number;
+  }>;
+  topConvertingListings: Array<{
+    listingId: string;
+    title: string;
+    city: string | null;
+    count: number;
+  }>;
+};
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -79,6 +104,8 @@ export default function AdminDashboardPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [brockAnalytics, setBrockAnalytics] =
+    useState<BrockAnalyticsSummary | null>(null);
   const [verificationProfiles, setVerificationProfiles] = useState<
     UserVerificationProfile[]
   >([]);
@@ -185,6 +212,14 @@ export default function AdminDashboardPage() {
         setVerificationProfiles(
           (verificationData?.profiles || []) as UserVerificationProfile[]
         );
+      }
+
+      const brockResponse = await fetch("/api/admin/analytics/brock", {
+        cache: "no-store",
+      });
+      const brockData = await brockResponse.json().catch(() => null);
+      if (brockResponse.ok) {
+        setBrockAnalytics(brockData as BrockAnalyticsSummary);
       }
     } catch (error) {
       console.error("Admin dashboard error:", error);
@@ -490,6 +525,88 @@ export default function AdminDashboardPage() {
               }
             />
           </div>
+        </section>
+
+        <section className="rounded-3xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex rounded-full bg-fuchsia-500/10 px-3 py-1 text-xs font-bold text-fuchsia-200">
+                BROCK ACQUISITION
+              </div>
+              <h2 className="text-2xl font-bold">Brock Acquisition</h2>
+              <p className="mt-1 text-sm text-gray-400">
+                Track the Brock landing-page funnel, acquisition sources, and
+                listing engagement over the last 30 days.
+              </p>
+            </div>
+            <Link
+              href="/brock"
+              className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white hover:bg-white/10"
+            >
+              View Brock Page
+            </Link>
+          </div>
+
+          {!brockAnalytics?.available ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-fuchsia-500/20 p-5 text-sm text-gray-400">
+              Brock acquisition analytics will appear after the database event
+              migration is applied and visitors start interacting with /brock.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-2xl border border-white/10 bg-black p-5">
+                <h3 className="font-bold">Funnel</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-5">
+                  {brockAnalytics.funnel.map((step) => (
+                    <div
+                      key={step.event}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-zinc-500">
+                        {step.event.replace("brock_", "").replaceAll("_", " ")}
+                      </p>
+                      <p className="mt-2 text-2xl font-black">{step.count}</p>
+                      {step.conversion != null && (
+                        <p className="mt-1 text-xs text-fuchsia-200">
+                          {step.conversion}% of visitors
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black p-5">
+                <h3 className="font-bold">Source breakdown</h3>
+                <div className="mt-4 space-y-2">
+                  {brockAnalytics.sources.length === 0 ? (
+                    <p className="text-sm text-gray-500">No source data yet.</p>
+                  ) : (
+                    brockAnalytics.sources.map((source) => (
+                      <div
+                        key={source.source}
+                        className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3 text-sm"
+                      >
+                        <span>{source.source}</span>
+                        <span className="font-bold text-fuchsia-200">
+                          {source.count}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <BrockListingRank
+                title="Top clicked listings"
+                rows={brockAnalytics.topClickedListings}
+              />
+              <BrockListingRank
+                title="Top converting listings"
+                rows={brockAnalytics.topConvertingListings}
+              />
+            </div>
+          )}
         </section>
 
         <section className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
@@ -1061,6 +1178,43 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="rounded-2xl border border-gray-800 bg-black p-5">
       <p className="text-sm uppercase tracking-wide text-gray-500">{label}</p>
       <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function BrockListingRank({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: BrockAnalyticsSummary["topClickedListings"];
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black p-5">
+      <h3 className="font-bold">{title}</h3>
+      <div className="mt-4 space-y-2">
+        {rows.length === 0 ? (
+          <p className="text-sm text-gray-500">No listing activity yet.</p>
+        ) : (
+          rows.map((row) => (
+            <Link
+              key={`${title}:${row.listingId}`}
+              href={`/listings/${row.listingId}`}
+              className="flex items-center justify-between gap-4 rounded-xl bg-white/[0.03] px-4 py-3 text-sm hover:bg-white/[0.06]"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-semibold">{row.title}</span>
+                {row.city && (
+                  <span className="mt-1 block text-xs text-gray-500">
+                    {row.city}
+                  </span>
+                )}
+              </span>
+              <span className="font-bold text-fuchsia-200">{row.count}</span>
+            </Link>
+          ))
+        )}
+      </div>
     </div>
   );
 }

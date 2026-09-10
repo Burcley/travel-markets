@@ -2,6 +2,7 @@
   "navbar": {
     "links": {
       "home": "Accueil",
+      "studentHousing": "Logement étudiant",
       "search": "Recherche",
       "forLandlords": "Pour propriétaires",
       "about": "À propos",

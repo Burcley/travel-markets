@@ -36,6 +36,7 @@ type NavLink = {
 
 const studentNavLinks: NavLink[] = [
   { href: "/", label: "home" },
+  { href: "/#campuses", label: "studentHousing" },
   { href: "/search", label: "search" },
   { href: "/dashboard", label: "dashboard" },
   { href: "/help", label: "help" },
@@ -65,6 +66,7 @@ const adminNavLinks: NavLink[] = [
 
 const publicNavLinks: NavLink[] = [
   { href: "/", label: "home" },
+  { href: "/#campuses", label: "studentHousing" },
   { href: "/search", label: "search" },
   { href: "/landlords", label: "forLandlords" },
   { href: "/about", label: "about" },
